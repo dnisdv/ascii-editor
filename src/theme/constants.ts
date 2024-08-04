@@ -1,0 +1,2 @@
+export const THEME_CONTEXT_KEY = 'THEME_CONTEXT';
+
