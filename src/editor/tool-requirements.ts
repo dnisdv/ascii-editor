@@ -5,6 +5,7 @@ export const RequireActiveLayerVisible = (coreApi: CoreApi, tool: string) => ({
 	code: CORE_NOTIFICATION_CODES.LAYER.HIDDEN,
 	condition: (): boolean => {
 		const layer = coreApi.getLayersManager().getActiveLayer()
+		if (!layer) return true;
 		return layer?.opts.visible || false
 	},
 	message: `Layer must be visible to edit text, ${tool}`,
