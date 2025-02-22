@@ -78,6 +78,7 @@ export class App implements CoreApi {
     this.serializer = new AppSerializer(this)
 
     this.render()
+    window.app = this;
   }
 
   registerTool(tool: ITool) {

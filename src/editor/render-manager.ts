@@ -155,6 +155,7 @@ export class RenderManager {
     for (const key of this.callbacks.keys()) {
       this.renderQueue.add(key);
     }
+
     this.scheduleRender();
   }
 
@@ -171,7 +172,7 @@ export class RenderManager {
   }
 
   private scheduleRender(): void {
-    if (this.isRendering || this.renderQueue.size === 0) return;
+    if (this.isRendering) return;
 
     this.isRendering = true;
     this.animationFrameId = requestAnimationFrame(() => this.render());

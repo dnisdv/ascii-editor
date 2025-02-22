@@ -86,11 +86,17 @@ export class DrawTool extends BaseTool implements ITool {
   activate(): void {
     super.activate()
     this.addMouseListeners();
+
+    this.renderManager.register('tool::draw', 'draw::symbol', () => {
+      if (!this.lastMousePos) return;
+      this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y)
+    });
   }
 
   deactivate(): void {
-    this.getEventApi().removeToolEvents()
     super.deactivate()
+    this.getEventApi().removeToolEvents()
+    this.renderManager.unregister('tool::draw', 'draw::symbol')
   }
 
   private cancelDrawing(): void {
@@ -105,9 +111,7 @@ export class DrawTool extends BaseTool implements ITool {
 
   private updateCursorVisibility(): void {
     if (this.lastMousePos && this.isLayerVisible) {
-      this.renderManager.requestRenderFn(() =>
-        this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y)
-      );
+      this.renderManager.requestRender('tool::draw', 'draw::symbol')
     }
   }
 
@@ -116,9 +120,7 @@ export class DrawTool extends BaseTool implements ITool {
     this.saveConfig({ activeSymbol: newKey });
 
     if (this.lastMousePos) {
-      this.renderManager.requestRenderFn(() =>
-        this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y)
-      );
+      this.renderManager.requestRender('tool::draw', 'draw::symbol')
     }
   }
 
@@ -172,9 +174,7 @@ export class DrawTool extends BaseTool implements ITool {
   }
 
   private handleCanvasMouseMove(event: MouseEvent): void {
-    this.renderManager.requestRenderFn(() =>
-      this.drawActiveSymbol(event.clientX, event.clientY)
-    );
+    this.renderManager.requestRender('tool::draw', 'draw::symbol')
 
     if (this.isDrawing && this.isLayerVisible) {
       this.handleDrawing(event);

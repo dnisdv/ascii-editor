@@ -1,58 +1,76 @@
+
 import type { DocumentSchemaType } from "@editor/serializer";
 import { DBLocalStorage } from "./db-localstorage";
 import { DocumentsApi } from "./document-api";
+import { DocumentController } from "./document";
 
 export const ToolsApi = (documentId: string) => ({
 	async listTools(): Promise<string[]> {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		return Object.keys(documentSchema.tools.data || {});
+		const documentController = new DocumentController(documentSchema);
+		return Object.keys(documentController.getSchema().tools.data || {});
 	},
+
 	registerToolConfig(toolName: string, config: Record<string, unknown>): void {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		if (documentSchema.tools.data[toolName]) return;
-		documentSchema.tools.data[toolName] = config;
-		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentSchema);
+		const documentController = new DocumentController(documentSchema);
+		const toolsData = documentController.getSchema().tools.data;
+		if (toolsData[toolName]) return;
+		toolsData[toolName] = config;
+		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentController.getSchema());
 	},
+
 	removeToolConfig(toolName: string): void {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		if (!documentSchema.tools.data[toolName]) {
+		const documentController = new DocumentController(documentSchema);
+		const toolsData = documentController.getSchema().tools.data;
+		if (!toolsData[toolName]) {
 			throw new Error(`Tool '${toolName}' does not exist.`);
 		}
-		delete documentSchema.tools.data[toolName];
-		if (documentSchema.tools.activeTool === toolName) {
-			documentSchema.tools.activeTool = null;
+		delete toolsData[toolName];
+		if (documentController.getSchema().tools.activeTool === toolName) {
+			documentController.getSchema().tools.activeTool = null;
 		}
-		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentSchema);
+		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentController.getSchema());
 	},
+
 	activateTool(toolName: string): void {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		if (!documentSchema.tools.data[toolName]) {
+		const documentController = new DocumentController(documentSchema);
+		if (!documentController.getSchema().tools.data[toolName]) {
 			throw new Error(`Tool '${toolName}' does not exist.`);
 		}
-		documentSchema.tools.activeTool = toolName;
-		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentSchema);
+		documentController.getSchema().tools.activeTool = toolName;
+		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentController.getSchema());
 	},
+
 	deactivateTool(): void {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		if (!documentSchema.tools.activeTool) return;
-		documentSchema.tools.activeTool = null;
-		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentSchema);
+		const documentController = new DocumentController(documentSchema);
+		if (!documentController.getSchema().tools.activeTool) return;
+		documentController.getSchema().tools.activeTool = null;
+		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentController.getSchema());
 	},
+
 	deactivateAllTools(): void {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		documentSchema.tools.activeTool = null;
-		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentSchema);
+		const documentController = new DocumentController(documentSchema);
+		documentController.getSchema().tools.activeTool = null;
+		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentController.getSchema());
 	},
+
 	updateToolConfig(toolName: string, newConfig: Record<string, unknown>): void {
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		if (!documentSchema.tools.data[toolName]) {
+		const documentController = new DocumentController(documentSchema);
+		const toolsData = documentController.getSchema().tools.data;
+		if (!toolsData[toolName]) {
 			throw new Error(`Tool '${toolName}' does not exist.`);
 		}
-		documentSchema.tools.data[toolName] = {
-			...documentSchema.tools.data[toolName],
+		toolsData[toolName] = {
+			...toolsData[toolName],
 			...newConfig,
 		};
-		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentSchema);
+		new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`).save(documentController.getSchema());
 	},
 });
 

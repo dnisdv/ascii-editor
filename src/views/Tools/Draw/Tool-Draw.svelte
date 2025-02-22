@@ -23,7 +23,9 @@
 
 	const activeSymbol = writable<string | null>(null);
 	const drawTool = useSelector((store: RootState) => store.tools.data.draw);
+
 	drawTool.subscribe((i) => {
+		console.log(i);
 		if (!i) return;
 		activeSymbol.set((i.config as DrawOpts).activeSymbol);
 		selectedSymbol.set((i.config as DrawOpts).activeSymbol);
@@ -65,7 +67,7 @@
 					class="symbol"
 					class:light={$theme === 'light'}
 					class:dark={$theme === 'dark'}
-					class:active={$isActive}>{$activeSymbol}</span
+					class:active={$isActive}>{$selectedSymbol}</span
 				>
 			</Button>
 		</Tooltip.Trigger>
