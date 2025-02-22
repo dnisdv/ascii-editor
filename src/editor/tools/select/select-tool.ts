@@ -137,7 +137,8 @@ export class SelectTool extends BaseTool {
     this.sessionManager.on('session::destroy', ({ session }) => {
       const layer = session.getSourceLayer()
       this.coreApi.render()
-      if (!layer) throw new Error('Layer not found')
+
+      if (!layer) return;
 
       const { worldRegion: { startX, startY, width, height } } = session.getSelectedContent()[0]
       const beforeRegion = layer.readRegion(startX, startY, width, height)
@@ -209,7 +210,7 @@ export class SelectTool extends BaseTool {
   }
 
   private handleDeleteSelected() {
-    if (!this.sessionManager.getActiveSession()) return;
+    if (!this.sessionManager.getActiveSession() || this.sessionManager.getActiveSession()?.state !== SELECT_STATE.SELECTED) return;
 
     this.sessionManager.destroy()
     this.coreApi.render()
