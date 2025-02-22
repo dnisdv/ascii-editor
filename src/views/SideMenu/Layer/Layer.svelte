@@ -61,7 +61,7 @@
 		});
 	};
 
-	const editableTextChange = (e) => {
+	const editableTextChange = (e: CustomEvent<{ isEditing: boolean }>) => {
 		isEditing.set(e.detail.isEditing);
 	};
 

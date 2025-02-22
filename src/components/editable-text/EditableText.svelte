@@ -98,7 +98,10 @@
 {:else}
 	<button
 		tabindex="0"
-		class={cn('flex h-auto w-auto justify-start text-inherit', className)}
+		class={cn(
+			'block h-auto w-auto overflow-hidden text-ellipsis text-start text-inherit',
+			className
+		)}
 		on:click={handleClick}
 	>
 		{value}

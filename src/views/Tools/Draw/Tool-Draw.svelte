@@ -25,7 +25,6 @@
 	const drawTool = useSelector((store: RootState) => store.tools.data.draw);
 
 	drawTool.subscribe((i) => {
-		console.log(i);
 		if (!i) return;
 		activeSymbol.set((i.config as DrawOpts).activeSymbol);
 		selectedSymbol.set((i.config as DrawOpts).activeSymbol);
