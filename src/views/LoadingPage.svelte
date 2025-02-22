@@ -17,7 +17,7 @@
 </script>
 
 {#if $loader.isLoading}
-	<div class="overlay absolute left-0 top-0 z-[999999999999999] h-full w-full bg-black">
+	<div class="overlay absolute left-0 top-0 z-[999999999999999] h-full w-full bg-background">
 		<div class="flex h-full flex-col items-center justify-center">
 			<pre>{ascii}</pre>
 			<div>{$loader.progress.toFixed(2)}%</div>
