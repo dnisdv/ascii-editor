@@ -5,7 +5,6 @@
 **ASCII Editor** is a browser-based ASCII art editor built with **SvelteKit** and **CanvasKit - Skia + WebAssembly**. It provides a structured and efficient environment for creating, editing, and managing ASCII-based designs.  
 
 ## Features  
-
 - **Canvas-based ASCII drawing** with multi-layer support  
 - **Selection and transformation tools** for efficient editing  
 - **Clipboard support** for copying and pasting ASCII elements  
@@ -47,34 +46,6 @@ To generate an optimized production build, run:
 ```bash
 npm run build
 ```
-
-## Roadmap  
-
-### Completed Features  
-
-- Core ASCII drawing tools  
-- Layer management  
-- Undo/Redo functionality  
-- Clipboard support  
-- Local storage integration  
-
-### Planned Enhancements  
-
-- Export functionality (PNG/GIF)  
-- Custom ASCII fonts  
-- Animation tools  
-- Cloud storage support
-- Self Host
-
-## Contributing  
-
-Contributions are welcome. To contribute, follow these steps:  
-
-1. Fork the repository  
-2. Create a feature branch (`git checkout -b feature-name`)  
-3. Commit your changes (`git commit -m "Description of changes"`)  
-4. Push to your branch (`git push origin feature-name`)  
-5. Open a Pull Request  
 
 ## UI/UX Design  
 For design references and updates, refer to the **[Figma design file](https://www.figma.com/design/4JswUSJxh2sI9uqZytztSY/ASCII?node-id=15803-10386&t=s29TVqugAXooqLmS-1)**.  
