@@ -1,4 +1,5 @@
 <script>
+	export const ssr = false;
 	import SideMenu from '@views/SideMenu/SideMenu.svelte';
 	import Tools from '@views/Tools/Tools.svelte';
 	import Editor from './Editor.svelte';

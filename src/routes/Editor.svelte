@@ -21,6 +21,7 @@
 	import { loader } from '@lib/load/load-manager';
 	import { useDispatch } from '@store/useDispatch';
 	import { getDocument } from '@store/slices/document';
+	import wasmUrl from 'canvaskit-wasm/bin/canvaskit.wasm?url';
 
 	const layer_bus = useLayerBus();
 	const tools_bus = useToolBus();
@@ -48,7 +49,7 @@
 	onMount(async () => {
 		const loadPromise = (async () => {
 			const ckLoaded = CanvasKitInit({
-				locateFile: (file: string) => '/node_modules/canvaskit-wasm/bin/' + file
+				locateFile: () => wasmUrl
 			});
 
 			// WARNING: Hardcoded until multiple documents/document selection
