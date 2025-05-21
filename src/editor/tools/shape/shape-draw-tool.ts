@@ -178,11 +178,16 @@ export class DrawShapeTool extends BaseTool implements ITool {
       const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select')
       if (!selectTool) return;
 
+      const activeLayer = this.coreApi.getLayersManager().getActiveLayer();
+
       if (this.selectSession) {
-        const select = selectTool.selectSession.createSessionBuilder().build()
-        select.setSelectedContent([this.selectSession])
+        selectTool.createSessionWithContent(
+          this.selectSession.worldRegion,
+          this.selectSession.data,
+          activeLayer?.id || '',
+        )
+
         this.coreApi.getToolManager().activateTool('select')
-        select.activateSelecting()
       }
 
       this.tempLayer?.clear()

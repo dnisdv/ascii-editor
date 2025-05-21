@@ -48,13 +48,12 @@ export class ClipboardTool extends BaseTool {
     const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select')
     if (!selectTool) return;
 
-    const selectSession = selectTool.selectSession.getActiveSession()
-    const selectedContent = selectSession?.getSelectedContent()
+    const selectSession = selectTool.getActiveSession()
 
-    if (!selectedContent || !selectedContent[0]) return;
-    const { data } = selectedContent[0]
+    if (!selectSession || selectSession?.isEmpty()) return;
+    const { data } = selectSession.getSelectedContent()!
 
-    selectTool.selectSession.destroy()
+    selectTool.cancelActiveSession()
     if (data && data.length > 0) {
       navigator.clipboard.writeText(data)
     }
@@ -64,11 +63,11 @@ export class ClipboardTool extends BaseTool {
     const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select')
     if (!selectTool) return;
 
-    const selectSession = selectTool.selectSession.getActiveSession()
+    const selectSession = selectTool.getActiveSession()
     const selectedContent = selectSession?.getSelectedContent()
 
-    if (!selectedContent || !selectedContent[0]) return;
-    const { data } = selectedContent[0]
+    if (!selectedContent || !selectedContent) return;
+    const { data } = selectedContent
 
     if (data && data.length > 0) {
       navigator.clipboard.writeText(data)
@@ -83,23 +82,21 @@ export class ClipboardTool extends BaseTool {
 
         const { x, y, width, height } = data
         const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select')
+        const layer = this.coreApi.getLayersManager().getActiveLayer()
+        if (!selectTool || !layer) return;
 
-        if (!selectTool) return;
-        const sessionManager = selectTool.selectSession
-        const session = sessionManager.createSessionBuilder().build()
-
-        session.setSelectedContent([{
-          data: text,
-          worldRegion: {
+        selectTool.createSessionWithContent(
+          {
             startX: x,
             startY: y,
             width,
             height
-          }
-        }])
+          },
+          text,
+          layer?.id || '',
+        )
 
         this.coreApi.getToolManager().activateTool('select')
-        session.activateSelecting()
       })
     } catch (error) {
       console.error("Failed to read from clipboard:", error);

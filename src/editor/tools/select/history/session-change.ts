@@ -1,10 +1,11 @@
-import type { ActionHandler, BaseAction } from "@editor/history-manager";
-import type { ISelectionSessionSnapshot, SelectionSessionManager } from "../select-session-manager";
+import type { ActionHandler, BaseAction } from "@editor/history-manager"; // Already imported
+import type { SingleSessionSnapshot } from "../session/selection-session";
+import type { SelectionSessionManager } from "../session/selection-session-manager";
 
 export interface SelectSessionChangeAction extends BaseAction {
   type: 'select::session_change';
-  before: ISelectionSessionSnapshot | null;
-  after: ISelectionSessionSnapshot | null;
+  before: SingleSessionSnapshot | null;
+  after: SingleSessionSnapshot | null;
 }
 
 export class SelectSessionChange implements ActionHandler<SelectSessionChangeAction> {

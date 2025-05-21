@@ -1,35 +1,35 @@
-import { BaseTool } from '@editor/tool';
-import { Select } from './select';
-import { SELECT_STATE } from './state.type';
-import { SelectionModel } from './selection-model';
-import { RotateControl } from './rotate';
-import { MoveControl } from './move';
 import type { CoreApi } from '@editor/core.type';
-import type { ILayersManager, ICamera } from '@editor/types';
-import { SelectionSessionManager } from './select-session-manager';
-import type { ISelectionSession } from './select-session';
+import type { ILayersManager } from '@editor/types';
 import type { HistoryManager } from '@editor/history-manager';
-import { SelectSessionChange } from './history/session-change';
-import { SelectSession } from './history/session-select';
-import { SelectSessionEnd } from './history/session-end';
+import { BaseTool } from '@editor/tool';
 import { RequireActiveLayerVisible } from '@editor/tool-requirements';
+import { IdleMode } from './modes/idle-mode';
+import { SelectedMode } from './modes/selected-mode';
+import { MovingMode } from './modes/moving-mode';
+import { RotatingMode } from './modes/rotating.mode';
+import { SelectionModeName } from './modes/modes.type';
+import { SelectionModeContext } from './modes/selection-mode-ctx';
+import { SelectingMode } from './modes/selecting-mode';
+import { SelectionRenderer } from './renderer/selection-renderer';
+import { SelectionSessionManager } from './session/selection-session-manager';
+import { SelectSession } from './history/session-select';
 import { SelectSessionCancel } from './history/session-cancel';
+import { SelectSessionChange } from './history/session-change';
+import { SelectSessionCommit } from './history/session-commit';
+import { CommitSessionCommand } from './session/commands/commitSession.cmd';
+import { CancelSessionCommand } from './session/commands/cancelSession.cmd';
+import { sessionManagerApi } from './tool-export-api';
 
-export interface SelectToolApi {
-  selectSession: SelectionSessionManager
-}
+export type SelectToolApi = ReturnType<typeof sessionManagerApi>
 
 export class SelectTool extends BaseTool {
-  readonly name = 'select';
-
-  select: Select;
-  rotate: RotateControl;
-  move: MoveControl;
-  selectionModel: SelectionModel;
-
-  private sessionManager: SelectionSessionManager;
+  readonly name = "select"
   private layers: ILayersManager;
-  private camera: ICamera;
+
+  private modeContext: SelectionModeContext
+  private selectionSessionManager: SelectionSessionManager;
+
+  private selectionRenderer: SelectionRenderer;
   private historyManager: HistoryManager
 
   constructor(coreApi: CoreApi) {
@@ -38,293 +38,119 @@ export class SelectTool extends BaseTool {
       bus: coreApi.getBusManager(),
       coreApi,
       name: "select",
-      isVisible: false,
+      isVisible: true,
       config: {},
       requirements: [
         RequireActiveLayerVisible(coreApi, 'select'),
       ]
     });
 
-    this.layers = this.coreApi.getLayersManager();
-    this.camera = this.coreApi.getCamera();
+    this.coreApi = coreApi
+    this.layers = coreApi.getLayersManager();
+    this.historyManager = coreApi.getHistoryManager()
 
-    this.sessionManager = new SelectionSessionManager(coreApi);
-    this.selectionModel = new SelectionModel(coreApi);
-    this.select = new Select(this.coreApi, this.sessionManager);
-    this.rotate = new RotateControl(this.coreApi, this.sessionManager);
-    this.move = new MoveControl(this.coreApi, this.sessionManager);
+    this.selectionSessionManager = new SelectionSessionManager(this.coreApi);
 
-    this.layers.on('layers::active::change', () => {
-      this.sessionManager.commit()
-      this.select.removeSelection()
-    })
+    this.modeContext = new SelectionModeContext(coreApi, this.selectionSessionManager);
+    this.selectionRenderer = new SelectionRenderer(coreApi, this.selectionSessionManager, this.modeContext);
 
-    this.layers.on('layer::pre-remove', () => {
-      this.sessionManager.commit()
+    this.historyManager.registerHandler('select::session_select', new SelectSession());
+    this.historyManager.registerHandler('select::session_cancel', new SelectSessionCancel());
+    this.historyManager.registerHandler('select::session_commit', new SelectSessionCommit());
+    this.historyManager.registerHandler('select::session_change', new SelectSessionChange());
+    this.historyManager.registerTarget('select::session', this.selectionSessionManager);
+
+    this.registerModes()
+    this.selectionSessionManager.on('session::content_updated', () => {
+      if (this.modeContext.getCurrentMode().getName() === SelectionModeName.IDLE) {
+        this.modeContext.transitionTo(SelectionModeName.SELECTED)
+      }
     });
 
+    this.layers.on('layers::active::change', this.handleLayerChange.bind(this));
+    this.layers.on('layer::pre-remove', this.handleLayerChange.bind(this));
     this.layers.on('layer::updated', ({ before, after }) => {
-      const isLayerVisibleChanged = before.opts?.visible !== after.opts?.visible
-
-      if (isLayerVisibleChanged) {
-        this.sessionManager.commit()
-        this.select.removeSelection()
-      }
-    })
-
-    this.historyManager = this.coreApi.getHistoryManager()
-    this.historyManager.registerHandler('select::session_change', new SelectSessionChange());
-    this.historyManager.registerHandler('select::session_select', new SelectSession());
-    this.historyManager.registerHandler('select::session_end', new SelectSessionEnd());
-    this.historyManager.registerHandler('select::session_cancel', new SelectSessionCancel());
-    this.historyManager.registerTarget('select::session', this.sessionManager);
-
-    this.sessionManager.on('session::content-selected', (session: ISelectionSession) => {
-      const layer = session.getSourceLayer()
-      if (!layer) throw new Error('Layer not found')
-
-      const { worldRegion: { startX, startY, width, height } } = session.getSelectedContent()[0]
-      const beforeRegion = layer.readRegion(startX, startY, width, height)
-
-      this.historyManager.applyAction(
-        {
-          type: 'select::session_select',
-          targetId: `select::session`,
-          before: {
-            session: null,
-            data: beforeRegion,
-          },
-          after: {
-            session: this.sessionManager.serializeSession(session)
-          }
-        }, { applyAction: false }
-      );
-    })
-
-    this.sessionManager.on('session::commit', ({ session }) => {
-      const layer = session.getSourceLayer()
-      if (!layer) throw new Error('Layer not found')
-
-      const { worldRegion: { startX, startY, width, height } } = session.getSelectedContent()[0]
-      const beforeRegion = layer.readRegion(startX, startY, width, height)
-
-      this.historyManager.applyAction(
-        {
-          type: 'select::session_end',
-          targetId: `select::session`,
-          before: {
-            session: this.sessionManager.serializeSession(session),
-            data: beforeRegion,
-          },
-          after: {
-            session: null
-          }
-        }, { applyAction: false }
-      );
-    })
-
-    this.sessionManager.on('session::rotated', ({ before, after }) => {
-      this.historyManager.applyAction(
-        {
-          type: 'select::session_change',
-          targetId: `select::session`,
-          before,
-          after
-        }, { applyAction: false }
-      );
-    })
-
-    this.sessionManager.on('session::destroy', ({ session }) => {
-      const layer = session.getSourceLayer()
-      this.coreApi.render()
-
-      if (!layer) return;
-
-      const { worldRegion: { startX, startY, width, height } } = session.getSelectedContent()[0]
-      const beforeRegion = layer.readRegion(startX, startY, width, height)
-
-      this.historyManager.applyAction(
-        {
-          type: 'select::session_cancel',
-          targetId: `select::session`,
-          before: {
-            session: this.sessionManager.serializeSession(session),
-            data: beforeRegion,
-          },
-          after: {
-            session: null
-          }
-        }, { applyAction: false }
-      );
-    })
-
+      if (before.opts?.visible !== after.opts?.visible) this.handleLayerChange();
+    });
   }
 
-  onRequirementFailure(): void {
-    super.onRequirementFailure()
-    this.sessionManager.commit()
+  private handleLayerChange(): void {
+    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
+    this.modeContext.transitionTo(SelectionModeName.IDLE)
   }
 
-  onRequirementSuccess(): void {
-    super.onRequirementSuccess()
-  }
-
-  activate(): void {
-    super.activate()
-
-    this.addMouseListeners();
-    this.initKeyListener();
-
-    this.select.activate()
-    this.rotate.activate()
-    this.move.activate()
-  }
-
-  deactivate(): void {
-    super.deactivate()
-
-    this.getEventApi().removeToolEvents()
-
-    this.select.deactivate()
-    this.rotate.deactivate()
-    this.move.deactivate()
-
-    this.sessionManager.commit()
-  }
-
-  cleanup(): void {
+  private registerModes(): void {
+    this.modeContext.registerMode(SelectionModeName.IDLE, new IdleMode());
+    this.modeContext.registerMode(SelectionModeName.SELECTING, new SelectingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
+    this.modeContext.registerMode(SelectionModeName.SELECTED, new SelectedMode(this.coreApi, this.selectionSessionManager,));
+    this.modeContext.registerMode(SelectionModeName.MOVING, new MovingMode(this.coreApi, this.selectionSessionManager));
+    this.modeContext.registerMode(SelectionModeName.ROTATING, new RotatingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
   }
 
   getApi(): SelectToolApi {
     return {
-      selectSession: this.sessionManager
-    };
+      ...sessionManagerApi(this.coreApi, this.selectionSessionManager),
+    }
   }
 
-  private handleUnloadPage() {
-    this.sessionManager.commit()
+  activate(): void {
+    super.activate();
+
+    this.addMouseListeners();
+    this.initKeyListener();
   }
 
-  private handleSelectAll() {
-    this.selectAll();
+  deactivate(): void {
+    super.deactivate();
+    this.addMouseListeners();
+    this.getEventApi().removeToolEvents();
+    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
   }
 
-  private handleDeleteSelected() {
-    if (!this.sessionManager.getActiveSession() || this.sessionManager.getActiveSession()?.state !== SELECT_STATE.SELECTED) return;
+  onRequirementFailure(): void {
+    super.onRequirementFailure()
+    this.modeContext.setRestricted(true)
+    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
+  }
 
-    this.sessionManager.destroy()
-    this.coreApi.render()
+  onRequirementSuccess(): void {
+    super.onRequirementSuccess()
+    this.modeContext.setRestricted(false)
+  }
+
+  private addMouseListeners(): void {
+    this.getEventApi().registerMouseDown('left', (e: MouseEvent) => {
+      this.checkRequirements()
+      this.modeContext.onMouseDown(e);
+    });
+    this.getEventApi().registerMouseMove((e: MouseEvent) => {
+      this.checkRequirements()
+      this.modeContext.onMouseMove(e);
+    });
+    this.getEventApi().registerMouseUp((e: MouseEvent) => {
+      this.checkRequirements()
+      this.modeContext.onMouseUp(e);
+    });
   }
 
   private initKeyListener(): void {
-    this.getEventApi().registerKeyPress('<C-a>', this.handleSelectAll.bind(this));
     this.getEventApi().registerUnload(this.handleUnloadPage.bind(this));
 
     this.getEventApi().registerKeyPress('<Backspace>', this.handleDeleteSelected.bind(this));
     this.getEventApi().registerKeyPress('<Delete>', this.handleDeleteSelected.bind(this));
   }
 
-  private addMouseListeners(): void {
-    this.getEventApi().registerMouseDown('left', this.handleMouseDown.bind(this));
-    this.getEventApi().registerMouseMove(this.handleMouseMove.bind(this));
-    this.getEventApi().registerMouseUp(this.handleMouseUp.bind(this));
+  private handleUnloadPage() {
+    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
   }
 
-  private selectAll() {
-    const layer = this.layers.getActiveLayer()
-    if (!layer) return;
-
-    const session = this.sessionManager.createSessionBuilder().build()
-
-    session.selectAll()
-    session.activateSelecting()
+  private handleDeleteSelected() {
+    const activeSession = this.selectionSessionManager.getActiveSession();
+    if (!activeSession || !activeSession.getSelectedContent()?.data) return;
+    this.selectionSessionManager.executeCommand(new CancelSessionCommand(this.coreApi))
+    this.modeContext.transitionTo(SelectionModeName.IDLE)
+    this.coreApi.render()
   }
 
-  private handleMouseDown(event: MouseEvent): void | false {
-    this.layers.ensureLayer();
-    this.checkRequirements()
-
-    const pos = this.camera.getMousePosition({ x: event.clientX, y: event.clientY })
-    const activeSession = this.sessionManager.getActiveSession()
-
-    switch (activeSession?.state || null) {
-
-      case SELECT_STATE.SELECTED:
-        if (event.ctrlKey) {
-          this.select.startSelection(pos);
-          return;
-        }
-
-        if (this.rotate.isMouseNearCorner(pos)) {
-          this.rotate.startRotation(pos);
-          return
-        } else if (this.move.isMouseInsideSelected(pos.x, pos.y)) {
-          this.move.startMoving(pos);
-          return
-        } else {
-          this.select.startSelection(pos);
-          return
-        }
-      default:
-        this.select.startSelection(pos);
-        break;
-    }
-
-    return false;
-  }
-
-  private handleMouseMove(event: MouseEvent): void | false {
-    const pos = this.camera.getMousePosition({ x: event.clientX, y: event.clientY })
-    const activeSession = this.sessionManager.getActiveSession()
-
-    switch (activeSession?.state || null) {
-      case SELECT_STATE.IDLE:
-        this.coreApi.getCursor().setCursor('default');
-        break
-
-      case SELECT_STATE.MOVING:
-        this.move.updateMoving(pos);
-        break;
-
-      case SELECT_STATE.ROTATING:
-        this.rotate.updateRotation(pos);
-        break;
-
-      case SELECT_STATE.SELECTING:
-        this.select.updateSelection(pos);
-        break;
-
-      default:
-        if (!this.rotate.isMouseNearCorner(pos)) {
-          this.coreApi.getCursor().setCursor('default');
-        }
-        break;
-    }
-  }
-
-  private handleMouseUp(): void | false {
-    const activeSession = this.sessionManager.getActiveSession()
-    if (!activeSession) return;
-
-    switch (activeSession?.state || null) {
-      case SELECT_STATE.ROTATING:
-        this.rotate.endRotation();
-        break;
-
-      case SELECT_STATE.MOVING:
-        this.move.endMoving();
-        break;
-
-      case SELECT_STATE.SELECTING:
-        this.select.endSelection();
-        break;
-
-      default:
-
-        this.coreApi.getCursor().setCursor('default');
-        break;
-    }
-  }
 }
-
 

@@ -1,12 +1,10 @@
-import type { CanvasKit, Canvas as WasmCanvas, Surface, ParagraphStyle, Paragraph } from 'canvaskit-wasm';
+import type { CanvasKit, Canvas as WasmCanvas, Surface, ParagraphStyle, Paragraph, Paint } from 'canvaskit-wasm';
 import type { CoreApi } from '@editor/core.type';
 import { Canvas } from './canvas';
-import type { ICamera, ILayer, ITileModel } from '@editor/types';
-import type { ILayersManager } from '@editor/types';
+import type { ICamera, ITileModel } from '@editor/types';
 
 export class Ascii extends Canvas {
   private camera: ICamera;
-  private layers: ILayersManager;
   private paragraphStyle!: ParagraphStyle;
   private paragraphs: Map<string, { data: string; paragraph: Paragraph }>;
 
@@ -14,7 +12,6 @@ export class Ascii extends Canvas {
     super(canvas, canvasKit, surface);
 
     this.camera = coreApi.getCamera();
-    this.layers = coreApi.getLayersManager();
     this.paragraphs = new Map();
 
     this.updateParagraphStyle();
@@ -71,7 +68,6 @@ export class Ascii extends Canvas {
 
   private drawTile(coord: string, tileSize: number, charWidth: number, charHeight: number) {
     const [tileX, tileY] = coord.split(",").map(Number);
-    // Use the new LayersManager method to get the combined tile data.
     const combinedTileData = this.coreApi.getLayersManager().getCombinedTileData(tileX, tileY);
 
     const tileBoundary = {
@@ -81,7 +77,6 @@ export class Ascii extends Canvas {
       height: tileSize,
     };
 
-    // Create a fake tile model to pass into your paragraph cache
     const fakeTileModel: ITileModel = {
       x: tileX,
       y: tileY,
@@ -117,7 +112,6 @@ export class Ascii extends Canvas {
     const visibleWidth = range.width / (charWidth * tileSize);
     const visibleHeight = range.height / (charHeight * tileSize);
 
-    // Collect visible tile coordinates from all layers
     const visibleLayers = this.coreApi.getLayersManager().getAllVisibleLayersSorted();
     const tileCoordsSet = new Set<string>();
     for (const layer of visibleLayers) {
@@ -131,7 +125,6 @@ export class Ascii extends Canvas {
     this.skCanvas.scale(this.camera.scale, this.camera.scale);
     this.skCanvas.translate(-this.camera.offsetX, -this.camera.offsetY);
 
-    // Draw each combined tile
     tileCoordsSet.forEach(coord => this.drawTile(coord, tileSize, charWidth, charHeight));
 
     this.skCanvas.restore();

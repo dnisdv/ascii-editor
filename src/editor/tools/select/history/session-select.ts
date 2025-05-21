@@ -1,43 +1,62 @@
-import type { CoreApi } from "@editor/core.type";
 import type { ActionHandler, BaseAction } from "@editor/history-manager";
-import type { ISelectionSessionSnapshot, SelectionSessionManager } from "../select-session-manager";
+import type { SingleSessionSnapshot } from "../session/selection-session";
+import type { SelectionSessionManager } from "../session/selection-session-manager";
+import type { CoreApi } from "@editor/core.type";
 
 export interface SelectSessionAction extends BaseAction {
   type: 'select::session_select';
   before: {
-    session: null
-    data: string
+    session: null;
+    data: string;
   };
   after: {
-    session: ISelectionSessionSnapshot
-    data: string
+    session: SingleSessionSnapshot;
+    data: string;
   };
 }
 
 export class SelectSession implements ActionHandler<SelectSessionAction> {
   apply(action: SelectSessionAction, target: SelectionSessionManager, coreApi: CoreApi): void {
-    const layerID = action.after.session.sourceLayerId
-    const activeLayer = coreApi.getLayersManager().getLayer(String(layerID))
-    const selected = action.after.session.selectedContent[0]
-
-    if (selected) {
-      const { worldRegion } = selected
-      activeLayer?.clearRegion(worldRegion.startX, worldRegion.startY, worldRegion.width, worldRegion.height)
-    }
 
     target.restoreSession(action.after.session);
+    const sourceLayerId = action.after.session.sourceLayerId;
+    const selectedContent = action.after.session.selectedContent;
+
+    if (sourceLayerId && selectedContent) {
+      const activeLayer = coreApi.getLayersManager().getLayer(sourceLayerId);
+      if (activeLayer) {
+        activeLayer.clearRegion(
+          selectedContent.region.startX,
+          selectedContent.region.startY,
+          selectedContent.region.width,
+          selectedContent.region.height
+        );
+        activeLayer.setToRegion(
+          selectedContent.region.startX,
+          selectedContent.region.startY,
+          action.before.data,
+          { skipSpaces: false }
+        );
+      }
+    }
   }
 
   revert(action: SelectSessionAction, target: SelectionSessionManager, coreApi: CoreApi): void {
-    target.cancel()
-    const layerID = action.after.session.sourceLayerId
-    const activeLayer = coreApi.getLayersManager().getLayer(String(layerID))
-    const selected = action.after.session.selectedContent[0]
+    target.commitActiveSession();
 
-    if (selected) {
-      const { worldRegion } = selected
-      activeLayer?.setToRegion(worldRegion.startX, worldRegion.startY, action.before.data)
+    const sourceLayerId = action.after.session.sourceLayerId;
+    const originalContentLocation = action.after.session.selectedContent?.region;
 
+    if (sourceLayerId && originalContentLocation) {
+      const activeLayer = coreApi.getLayersManager().getLayer(sourceLayerId);
+      if (activeLayer) {
+        activeLayer.setToRegion(
+          originalContentLocation.startX,
+          originalContentLocation.startY,
+          action.before.data,
+          { skipSpaces: false }
+        );
+      }
     }
   }
 }

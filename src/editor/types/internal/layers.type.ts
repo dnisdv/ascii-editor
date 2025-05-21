@@ -41,6 +41,7 @@ export interface ILayersManager extends IEventEmitter<LayersManagerIEvents> {
   silentActivateLayer(id: string): void
   removeLayerSilent(id: string): void;
   getTempLayer(key: string): ILayer | null;
+  getCombinedTileData(tileX: number, tileY: number): string
 }
 
 
