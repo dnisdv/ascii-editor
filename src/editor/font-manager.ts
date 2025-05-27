@@ -13,14 +13,14 @@ export class FontManager extends EventEmitter<FontManagerEvents> {
 
 	constructor(
 		private canvasKit: CanvasKit,
-		fontData: FontData,
-		initialConfig?: Partial<FontConfig>
+		private fontData: FontData,
+		private initialConfig?: Partial<FontConfig>
 	) {
 		super();
 
-		const fontMgr = this.createFontManager(fontData.buffer);
+		const fontMgr = this.createFontManager(this.fontData.buffer);
 		this.currentFontMgr = fontMgr;
-		this.currentFont = this.createFont(fontMgr, fontData.family, initialConfig);
+		this.currentFont = this.createFont(fontMgr, fontData.family, this.initialConfig);
 		this.currentFont.on('changed', (metrics) => {
 			this.emit('metrics:changed', metrics);
 		});

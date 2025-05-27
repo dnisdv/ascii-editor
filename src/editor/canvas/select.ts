@@ -1,11 +1,14 @@
 import type { CanvasKit, Surface } from "canvaskit-wasm";
 import { Canvas } from "./canvas";
-import type { CoreApi } from "@editor/core.type";
+
+export type SelectOptions = {
+  canvas: HTMLCanvasElement,
+  canvasKit: CanvasKit,
+  surface: Surface,
+}
 
 export class Select extends Canvas {
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  constructor(canvas: HTMLCanvasElement, canvasKit: CanvasKit, surface: Surface, _coreApi: CoreApi) {
+  constructor({ canvas, canvasKit, surface }: SelectOptions) {
     super(canvas, canvasKit, surface);
   }
   render() {

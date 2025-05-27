@@ -1,4 +1,4 @@
-import type { CoreApi } from "./core.type"
+import type { CoreApi } from "./core";
 import { CORE_NOTIFICATION_CODES } from "./tools-notification-manager"
 
 export const RequireActiveLayerVisible = (coreApi: CoreApi, tool: string) => ({

@@ -1,9 +1,9 @@
-import type { App } from "@editor/app";
 import { LayersSerializer } from "./layers.serializer";
 import { CameraSerializer } from "./camera.serializer";
 import { DocumentSchema, type DocumentSchemaType } from "./document.serializer.schema";
 import { ConfigSerializer } from "./config.serializer";
 import { ToolsConfigSerializer } from "./tools.serializer";
+import type { CoreApi } from "@editor/core";
 
 export class AppSerializer {
   private layersSerializer: LayersSerializer;
@@ -11,11 +11,11 @@ export class AppSerializer {
   private configSerializer: ConfigSerializer;
   private toolsConfigSerializer: ToolsConfigSerializer
 
-  constructor(private app: App) {
-    this.layersSerializer = new LayersSerializer(this.app.getLayersManager(), this.app);
-    this.cameraSerializer = new CameraSerializer(this.app.getCamera());
-    this.configSerializer = new ConfigSerializer(this.app.getConfig())
-    this.toolsConfigSerializer = new ToolsConfigSerializer(this.app.getToolManager())
+  constructor(private core: CoreApi) {
+    this.layersSerializer = new LayersSerializer(this.core.getLayersManager(), this.core);
+    this.cameraSerializer = new CameraSerializer(this.core.getCamera());
+    this.configSerializer = new ConfigSerializer(this.core.getConfig())
+    this.toolsConfigSerializer = new ToolsConfigSerializer(this.core.getToolManager())
   }
 
   serialize(): DocumentSchemaType {
@@ -48,7 +48,7 @@ export class AppSerializer {
     this.configSerializer.deserialize(validData.config);
     this.toolsConfigSerializer.deserialize(validData.tools)
 
-    this.app.render();
+    this.core.render();
   }
 }
 

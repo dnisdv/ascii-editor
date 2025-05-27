@@ -1,10 +1,15 @@
-import type { CoreApi } from './core.type';
 import { ToolEventManager } from './tools-event-manager';
 
 import type { ITool } from './tool';
 import type { BaseBusTools } from './bus-tools';
 import type { IToolModel, IToolOptions } from './types/external/tool';
 import { VimKeyMapper } from './utils/hotkey';
+import type { ICanvas } from './types';
+
+export interface ToolManagerOptions {
+  toolBus: BaseBusTools
+  canvas: ICanvas
+}
 
 export class ToolManager {
   private tools: Map<string, ITool> = new Map();
@@ -13,9 +18,9 @@ export class ToolManager {
   private toolBus: BaseBusTools
   toolEventManager: ToolEventManager
 
-  constructor(core: CoreApi) {
-    this.toolEventManager = new ToolEventManager(core)
-    this.toolBus = core.getBusManager().tools;
+  constructor({ toolBus, canvas }: ToolManagerOptions) {
+    this.toolEventManager = new ToolEventManager(canvas)
+    this.toolBus = toolBus;
 
     this.initializeEventListeners();
     window.addEventListener('keydown', (e) => this.handleHotkey(e));
@@ -99,6 +104,10 @@ export class ToolManager {
 
   getTools(): ITool[] {
     return Array.from(this.tools.values());
+  }
+
+  getTool(name: string): ITool | undefined {
+    return this.tools.get(name);
   }
 
   getToolApi<T>(name: string): T | undefined {

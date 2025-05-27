@@ -1,4 +1,4 @@
-import type { CoreApi } from "./core.type";
+import type { ICanvas } from "./types";
 
 const DEFAULT_CURSOR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAYCAYAAAAVibZIAAAABmJLR0QA/wD/AP+gvaeTAAADOUlEQVQ4jZ2VXWhbZRjHfycfHcEtcc7ivHCcWlZjmahk0aptWKcddpt1dL2Y+EEnQWVKkWJl7FbREaEiskJvld1JTS92U2FNoHjhTamJAWN17Zo1JGtJdlh70rwnOV7knPou62raBw7ni/f3PO///77Pq3BvKHXvJrsIlwRTAId1N4HqbuEO6dmZSqVezmQy51RV3Qs0WUkV6Wo4FGvw3tHR0S7TNM2NjY2FxcXFzwcHBw8CHsAtzaIhuA3dB7QKIVa//Ppy6s90+g8hxO1sNhuJRCKtO4Hb068CAlgvFouJqmlW3z0fbn/rnfeMv+b/Pj48PDyradoPU1NTzwJ7/k8WBzUTbGNELpdLdASDZYCbmVsHP7t4KXDqzNnK9Xi8pbu7+5e1tbXJ2dnZYxbcrtwhwx11SarJZHLumSNH9skfC4XCw19d/ibw2uun9vw08fMjfr//R13X4+l0eqC5udlTV/kmfdOszs7OtlgsNh169YTLMAz3Vpq5XO5q3+mT6Q/D73s8Ho+ezWYjLS0tVwEDqMqVmkBlZmamqOv6rafa2pa3dAEwDOGYiE76e/v6n0jPzzt8Pl+/JYcDUGSobZZWKBQSHS8Giw+C+nzetQsffZCauja5oh46VEkmk9eRdLWhtlkVQCwtLc0Fjwbq9ab9af/NK999m7gWnTCPdXUujI+PX/R6vedCodCkVZQpQ++RIB6Pzx1ubX1U/vGkqi6PX/neZ4hyvLe3t19V1UsjIyO/AnlgFSjJYDsUakvE19TU1C6E0E6cfOPOC6+EzJdC3UYul/snFotFgOcAP/A4sJ/7N8X9SwowyuXyuqZpqUDg+WWATz+5kHA6nas9PT1XgdtADigCd4ENLNftKl0SUNZVz+fzv3cEg0cXbiwun3mzTx0aGnpbCHHHApUkkD32gaFQ604HotHox5lMJr2ysrIwPT39hTXlA0hLZztQPdQN7B8YGOgyTbOaz+dngHbgMUs/506ANtQFeIHDmqYlw+HwcWqmPNQo0LkFdDNKpdJvY2NjS4BGzZAKDZwCW2VVrGQeaj1WB9ap7TbbzB1D4b925raqMxoFbge1v8v9dlcn606Sbhv/AuSlSFkdPKRzAAAAAElFTkSuQmCC'
 const GRAB_CURSOR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAASCAYAAAC9+TVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAGdSURBVHgBrZO/SwJhGMe/nfbTX9VUi5M0V4sEhv9E1NISTQ0WBAVSQwgmtEVDS9QUWTm0RK2mS4s5GUgRhOkppaKeXed5l++rJ6X5q/rAcfc+73ufu+d5n7fLaDTKqEGlUtN7sSiiHdS1Ad3QMDRaPX3m83nIkgRB4CHwPGRZglQaN5V0d/dQwYXnlI4dThcmJ8ZxeXWNWIytE79zORrrUtLp6e1Dv0ZLr1u/l05mcznotFoE7oIYHR2hsTX7BsZMJgSCQTyEw8imk2XJgE4P/eAwrNMWeH3+quQnvoqXbCuIvzyDIROakmR12YYdlxOtIAICSVMpAUPSILsxNzuD38LUBpQv/Emyv7eLTmHwDzBypXlI1TtBWS8VJTCFgkC78ODwqBMHvDc+FEURoihAZTAYtsgZCT8+geM4TJnNbUnW7ZtgY1EUPvhyTfg8h9d4FMcnbswvLFZbvBHus3NEIhFwmTQdVwsrlX7tLcHiPhSCY9vVQuJBriL4JlFEmVSStnQzYixL66GgbrTQbLGiXeokZLdSCbbli2Sdwif6JrtzT9VqjgAAAABJRU5ErkJggg=='
@@ -19,8 +19,8 @@ export class Cursor {
   private registry: Record<string, CursorConfig> = {};
   private canvas: HTMLElement;
 
-  constructor(private coreApi: CoreApi) {
-    this.canvas = this.coreApi.getCanvases().select.canvas;
+  constructor({ canvas }: { canvas: ICanvas }) {
+    this.canvas = canvas.canvas;
     this.initializeDefaultCursors();
     this.setCursor("default");
   }

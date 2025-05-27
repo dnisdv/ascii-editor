@@ -39,21 +39,13 @@ export class PopulateRegionCommand implements ISessionCommand {
   private clearContentFromLayer(tile: SelectedContentEntity | null, layer: ILayer | null): void {
     if (!tile || !tile.region || !layer) return;
     const { region } = tile;
-    try {
-      layer.clearRegion(region.startX, region.startY, region.width, region.height);
-    } catch (error) {
-      console.warn(`Session: Failed to clear tiles from layer ${layer.id}`, error);
-    }
+    layer.clearRegion(region.startX, region.startY, region.width, region.height);
   }
 
   private drawContentOnLayer(tile: SelectedContentEntity | null, layer: ILayer | null): void {
     if (!tile || !layer) return;
     const { region, data } = tile;
-    try {
-      layer.setToRegion(region.startX, region.startY, data);
-    } catch (error) {
-      console.warn(`Session: Failed to draw tiles on layer ${layer.id}`, error);
-    }
+    layer.setToRegion(region.startX, region.startY, data);
   }
 
   public selectRegion(session: SingleSelectSession, worldRegion: { x: number; y: number; width: number; height: number }): void {
@@ -84,11 +76,6 @@ export class PopulateRegionCommand implements ISessionCommand {
     const fontMetrics = this.coreApi.getFontManager().getMetrics();
     const charWidth = fontMetrics?.dimensions?.width;
     const charHeight = fontMetrics?.dimensions?.height;
-
-    if (!charWidth || !charHeight) {
-      console.warn("Session: Invalid font metrics. Defaulting to (0,0) for world calculation.");
-      return { x: 0, y: 0 };
-    }
     return { x: cellX * charWidth, y: cellY * charHeight };
   }
 
@@ -97,7 +84,7 @@ export class PopulateRegionCommand implements ISessionCommand {
     const sourceLayer = session.getSourceLayer();
     if (!sourceLayer) return;
 
-    const { startX, startY, width, height } = session.getBoundingBox()!;
+    const { startX, startY, width, height } = session.getSelectedRegion()!;
 
     const startCellPos = this.worldToCellPos(startX, startY);
     const endCellPos = this.worldToCellPos(startX + width, startY + height);
@@ -148,6 +135,7 @@ export class PopulateRegionCommand implements ISessionCommand {
 
   private worldToCellPos(x: number, y: number) {
     const { dimensions: { width: charWidth, height: charHeight } } = this.coreApi.getFontManager().getMetrics();
+
     return { x: Math.floor(x / charWidth), y: Math.floor(y / charHeight) };
   }
 

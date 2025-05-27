@@ -2,10 +2,18 @@ import type { ILayer } from "@editor/types";
 import type { LayerSerializableSchemaType } from "./layer.serializer.schema";
 import { Layer } from "@editor/layers/layer";
 import { TileMap } from "@editor/tileMap";
-import type { CoreApi } from "@editor/core.type";
+import type { BaseBusLayers } from "@editor/bus-layers";
+
+export interface LayersSerializerOptions {
+  layersBus: BaseBusLayers,
+}
 
 export class LayerSerializer {
-  constructor(private coreApi: CoreApi) { }
+  private bus: BaseBusLayers;
+
+  constructor({ layersBus }: LayersSerializerOptions) {
+    this.bus = layersBus
+  }
 
   serialize(layer: ILayer): LayerSerializableSchemaType {
     return {
@@ -28,7 +36,7 @@ export class LayerSerializer {
       index: layerData.index,
       opts: layerData.opts,
       tileMap,
-      coreApi: this.coreApi,
+      layersBus: this.bus
     });
 
     return newLayer;

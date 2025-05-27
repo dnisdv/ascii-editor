@@ -1,9 +1,9 @@
-import type { CoreApi } from "@editor/core.type";
 import type { ICamera, ICanvas, IRenderManager } from "@editor/types";
 
 import type { CanvasKit, Paint, Canvas as WasmCanvas } from 'canvaskit-wasm';
 import type { SelectionSessionManager } from "../session/selection-session-manager";
 import type { SelectionModeContext } from "../modes/selection-mode-ctx";
+import type { CoreApi } from "@editor/core";
 import { SelectionModeName } from "../modes/modes.type";
 
 export class SelectionRenderer {
@@ -36,7 +36,6 @@ export class SelectionRenderer {
     this.paint.setStyle(this.canvasKit.PaintStyle.Stroke);
     this.paint.setAntiAlias(true);
 
-
     this.rotateDotPaint = new canvasKit.Paint();
     this.rotateDotPaint.setStyle(canvasKit.PaintStyle.Fill);
     this.rotateDotPaint.setColor(canvasKit.Color4f(primary[0], primary[1], primary[2], primary[3]));
@@ -57,10 +56,11 @@ export class SelectionRenderer {
 
   public triggerDraw() {
     this.selectCanvasRenderManager.requestRender('tool::select', 'draw')
+    this.coreApi.render()
   }
 
   private drawSelection() {
-    const box = this.sessionManager.getActiveSession()?.getBoundingBox()
+    const box = this.sessionManager.getActiveSession()?.getSelectedRegion()
     if (!box) return this.clear()
 
     this.drawSelectionOverlay({
@@ -123,7 +123,6 @@ export class SelectionRenderer {
   }
 
   drawRotationHandles(): void {
-
     const activeSession = this.sessionManager.getActiveSession();
     const rotatingCtx = this.modeCtx.getMode(SelectionModeName.ROTATING)!
 
@@ -136,7 +135,7 @@ export class SelectionRenderer {
     const isRotating = this.modeCtx.getCurrentModeName() === SelectionModeName.ROTATING;
 
     if (isSelected || isRotating) {
-      const { startX, startY, width, height } = activeSession.getBoundingBox()!
+      const { startX, startY, width, height } = activeSession.getSelectedRegion()!
       const rotationAngle = rotatingCtx.getRotationAngle();
 
       const screenOffset = rotatingCtx.getCornerOffset();

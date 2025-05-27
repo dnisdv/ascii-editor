@@ -1,9 +1,9 @@
 import type { BusManager } from "./bus-manager";
 import type { NotificationAction, NotificationType } from "./bus-notification";
-import type { CoreApi } from "./core.type";
 import { ToolNotificationManager } from "./tools-notification-manager";
 import type { ToolEventManager } from "./tools-event-manager";
 import type { IToolConfig, IToolModel, IToolOptions } from "./types/external/tool";
+import type { CoreApi } from "./core";
 
 export interface ITool extends IToolModel {
   requirements: {

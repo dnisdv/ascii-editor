@@ -1,6 +1,10 @@
 import type { BaseTool } from "@editor/tool";
 import { VimKeyMapper } from "@editor/utils/hotkey";
-import type { CoreApi } from "./core.type";
+import type { ICanvas } from "./types";
+
+export interface ToolManagerOptions {
+	canvas: ICanvas
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EventHandler = (event: any | Event | MouseEvent | KeyboardEvent | WheelEvent) => boolean | void;
@@ -11,15 +15,15 @@ export class ToolEventManager {
 	private customEventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]> = new Map();
 	private tools: Map<string, BaseTool> = new Map();
 
-	constructor(private coreApi: CoreApi) {
+	constructor(private canvas: ICanvas) {
 		this.registerDefaultListeners();
 	}
 
-	registerTool(tool: BaseTool) {
+	public registerTool(tool: BaseTool) {
 		this.tools.set(tool.name, tool);
 	}
 
-	removeToolEvents(tool: BaseTool) {
+	public removeToolEvents(tool: BaseTool) {
 		const toolName = tool.name;
 
 		this._removeToolEvents(toolName, this.keyEventMap);
@@ -27,14 +31,14 @@ export class ToolEventManager {
 		this._removeToolEvents(toolName, this.customEventMap);
 	}
 
-	unregisterTool(toolName: string) {
+	public unregisterTool(toolName: string) {
 		this.tools.delete(toolName);
 		this._removeToolEvents(toolName, this.keyEventMap);
 		this._removeToolEvents(toolName, this.mouseEventMap);
 		this._removeToolEvents(toolName, this.customEventMap);
 	}
 
-	toolApi(tool: BaseTool) {
+	public toolApi(tool: BaseTool) {
 		return {
 			removeToolEvents: () => this.removeToolEvents(tool),
 
@@ -135,7 +139,7 @@ export class ToolEventManager {
 	}
 
 	private registerDefaultListeners() {
-		const selectCanvas = this.coreApi.getCanvases().select.canvas;
+		const selectCanvas = this.canvas.canvas;
 
 		document.addEventListener("keydown", (e) => this._dispatchKeyboardEvent("keydown", e));
 		document.addEventListener("keyup", (e) => this._dispatchKeyboardEvent("keyup", e));

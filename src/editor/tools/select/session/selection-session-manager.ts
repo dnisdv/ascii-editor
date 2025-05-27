@@ -4,8 +4,8 @@ import {
   type SessionEventType,
   type SingleSessionSnapshot
 } from "./selection-session";
-import type { CoreApi } from "@editor/core.type";
 import type { ISessionCommand, ISessionManagerCommand } from "./commands/type";
+import type { CoreApi } from "@editor/core";
 
 type ManagerEventType = SessionEventType & {
   'manager::session_created': undefined;
@@ -75,11 +75,16 @@ export class SelectionSessionManager extends EventEmitter<ManagerEventType> {
   }
 
   public async executeCommand(command: ISessionManagerCommand): Promise<void> {
-    await command.execute(this.coreApi, this)
+    try {
+      await command.execute(this.coreApi, this)
+    } catch (e) {
+      throw new Error(`Command execution failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   public async executeCommandOnActiveSession(command: ISessionCommand): Promise<void> {
-    const sessionForCommand = this.currentSession!;
+    const sessionForCommand = this.currentSession;
+    if (!sessionForCommand) return
     await command.execute(sessionForCommand, this.coreApi, this);
   }
 
@@ -139,6 +144,12 @@ export class SelectionSessionManager extends EventEmitter<ManagerEventType> {
     this.emit('manager::session_change');
 
     return newSession;
+  }
+
+  // TODO: tricky but now i dont wan't to change this
+  public getLayersManager() {
+    return this.coreApi.getLayersManager()
+
   }
 }
 

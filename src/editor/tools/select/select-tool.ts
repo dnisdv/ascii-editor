@@ -1,4 +1,3 @@
-import type { CoreApi } from '@editor/core.type';
 import type { ILayersManager } from '@editor/types';
 import type { HistoryManager } from '@editor/history-manager';
 import { BaseTool } from '@editor/tool';
@@ -19,6 +18,7 @@ import { SelectSessionCommit } from './history/session-commit';
 import { CommitSessionCommand } from './session/commands/commitSession.cmd';
 import { CancelSessionCommand } from './session/commands/cancelSession.cmd';
 import { sessionManagerApi } from './tool-export-api';
+import type { CoreApi } from '@editor/core';
 
 export type SelectToolApi = ReturnType<typeof sessionManagerApi>
 
@@ -138,10 +138,19 @@ export class SelectTool extends BaseTool {
 
     this.getEventApi().registerKeyPress('<Backspace>', this.handleDeleteSelected.bind(this));
     this.getEventApi().registerKeyPress('<Delete>', this.handleDeleteSelected.bind(this));
+    this.getEventApi().registerKeyPress('<Escape>', this.handleCommitSession.bind(this));
   }
 
   private handleUnloadPage() {
     this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
+  }
+
+  private handleCommitSession() {
+    const activeSession = this.selectionSessionManager.getActiveSession();
+    if (!activeSession || !activeSession.getSelectedContent()?.data) return;
+    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
+    this.modeContext.transitionTo(SelectionModeName.IDLE)
+    this.coreApi.render()
   }
 
   private handleDeleteSelected() {

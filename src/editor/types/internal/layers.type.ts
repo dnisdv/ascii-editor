@@ -1,4 +1,4 @@
-import type { ILayerModel } from "../external";
+import type { ILayerModel, LayerSerializableSchemaType } from "../external";
 import type { IEventEmitter } from "./event-emitter.type";
 import type { ILayer as ILayer, LayerConfig } from "./layer.type";
 import type { ITileMap } from "./tiles.type";
@@ -42,6 +42,8 @@ export interface ILayersManager extends IEventEmitter<LayersManagerIEvents> {
   removeLayerSilent(id: string): void;
   getTempLayer(key: string): ILayer | null;
   getCombinedTileData(tileX: number, tileY: number): string
+
+  deserializeLayer(layer: LayerSerializableSchemaType): ILayer;
 }
 
 

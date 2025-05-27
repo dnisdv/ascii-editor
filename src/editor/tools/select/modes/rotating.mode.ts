@@ -1,4 +1,3 @@
-import type { CoreApi } from "@editor/core.type";
 import { SelectionModeName, type ISelectionMode, type RotatingModePayload } from "./modes.type";
 import type { SelectionModeContext } from "./selection-mode-ctx";
 import type { SelectionSessionManager } from "../session/selection-session-manager";
@@ -6,6 +5,7 @@ import type { ICamera } from "@editor/types";
 import { RotateSessionCommand } from "../session/commands/rotateSession.cmd";
 import type { SelectionRenderer } from "../renderer/selection-renderer";
 import type { SingleSessionSnapshot } from "../session/selection-session";
+import type { CoreApi } from "@editor/core";
 
 export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> {
   readonly name = SelectionModeName.ROTATING;
@@ -32,9 +32,9 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
     this.camera = this.coreApi.getCamera()
   }
 
-  getName(): string { return this.name; }
+  public getName(): string { return this.name; }
 
-  onEnter(_: SelectionModeContext, payload: RotatingModePayload): void {
+  public onEnter(_: SelectionModeContext, payload: RotatingModePayload): void {
     this.sessionBeforeRotate = this.selectionSessionManager.serializeActiveSession()!
 
     const { mouseDownEvent: { clientX, clientY } } = payload
@@ -43,20 +43,20 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
     this.selectionRender.triggerDraw()
   }
 
-  onExit(): void {
+  public onExit(): void {
     this.coreApi.getCursor().setCursor('default');
   }
 
-  handleMouseDown(): void { }
+  public handleMouseDown(): void { }
 
-  handleMouseMove(event: MouseEvent) {
+  public handleMouseMove(event: MouseEvent) {
     const { clientX, clientY } = event
     const pos = this.camera.getMousePosition({ x: clientX, y: clientY })
     this.updateRotation({ x: pos.x, y: pos.y })
     this.selectionRender.triggerDraw()
   }
 
-  handleMouseUp(_: MouseEvent, context: SelectionModeContext): void {
+  public handleMouseUp(_: MouseEvent, context: SelectionModeContext): void {
     this.endRotation()
     this.selectionRender.triggerDraw()
     context.transitionTo(SelectionModeName.SELECTED)
@@ -73,7 +73,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
   }
 
 
-  startRotation(pos: { x: number; y: number }): void {
+  public startRotation(pos: { x: number; y: number }): void {
     const activeSession = this.selectionSessionManager.getActiveSession();
     if (!activeSession) return;
 
@@ -93,7 +93,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 
   }
 
-  updateRotation(pos: { x: number; y: number }): void {
+  public updateRotation(pos: { x: number; y: number }): void {
 
     const activeSession = this.selectionSessionManager.getActiveSession();
     if (!activeSession) return;
@@ -146,7 +146,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
     }
   }
 
-  endRotation(): void {
+  public endRotation(): void {
     const activeSession = this.selectionSessionManager.getActiveSession();
     if (!activeSession) return;
 
@@ -212,13 +212,13 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
     }
 
     const worldPos = this.camera.screenToWorld(pos.x, pos.y);
-    const screenProximity = this.hitArea; // in screen pixels
+    const screenProximity = this.hitArea;
     const worldProximity = screenProximity / this.camera.scale;
 
     const screenOffset = this.cornerOffset;
     const worldOffset = screenOffset;
 
-    const { startX, startY, width, height } = activeSession.getBoundingBox()!;
+    const { startX, startY, width, height } = activeSession.getSelectedRegion()!;
 
     const offsetedStartX = startX - worldOffset;
     const offsetedStartY = startY - worldOffset;
@@ -285,7 +285,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
     const activeSession = this.selectionSessionManager.getActiveSession();
     if (!activeSession) return 0;
 
-    const { startX, startY, width, height } = activeSession.getBoundingBox()!
+    const { startX, startY, width, height } = activeSession.getSelectedRegion()!
 
     const centerX = startX + ((startX + width - startX) / 2);
     const centerY = startY + ((startY + height - startY) / 2);

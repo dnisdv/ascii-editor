@@ -13,33 +13,24 @@ export class MoveByCommand implements ISessionCommand {
     this.moveBy(session, this.offset.x || 0, this.offset.y || 0)
   }
 
-  private _clearContentFromLayer(tile: SelectedContentEntity | null, layer: ILayer): void {
-    if (!tile || !tile.region || !layer) return;
+  private _clearContentFromLayer(tile: SelectedContentEntity, layer: ILayer): void {
     const { region } = tile;
     layer.clearRegion(region.startX, region.startY, region.width, region.height);
   }
 
   private _drawContentOnLayer(tile: SelectedContentEntity, layer: ILayer): void {
-    if (!tile || !layer) return;
     const { region, data } = tile;
     layer.setToRegion(region.startX, region.startY, data);
   }
 
   public moveBy(session: SingleSelectSession, offsetX: number, offsetY: number): void {
-    if (!session.getBoundingBox()) {
-      console.warn("Session: No content selected to move.");
-      return;
-    }
+    if (!session.getSelectedRegion()) return;
 
     const tempLayer = session.getTargetLayer();
-    if (!tempLayer) {
-      console.warn("Session: Cannot move content, no target layer available or accessible.");
-      return;
-    }
+    if (!tempLayer) return;
 
     const selectedContent = session.getSelectedContent()
-    const selectedRegion = session.getBoundingBox()
-
+    const selectedRegion = session.getSelectedRegion()
     if (!selectedContent) return
 
     const newContent = {

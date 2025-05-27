@@ -14,7 +14,7 @@ export class RotateSessionCommand implements ISessionCommand {
     this.rotate(session, this.degrees, this.center)
   }
 
-  rotate(session: SingleSelectSession, degrees: number, center?: { cx: number; cy: number } | null): void {
+  private rotate(session: SingleSelectSession, degrees: number, center?: { cx: number; cy: number } | null): void {
     let selectedContent = session.getSelectedContent()!
     if (!selectedContent) return;
 
@@ -60,32 +60,15 @@ export class RotateSessionCommand implements ISessionCommand {
     return { cx: startX + width / 2, cy: startY + height / 2 };
   }
 
-  rotateLeft90(session: SingleSelectSession, center?: { cx: number; cy: number }): void {
-    this.rotate(session, -90, center);
-  }
-
-  rotateRight90(session: SingleSelectSession, center?: { cx: number; cy: number }): void {
-    this.rotate(session, 90, center);
-  }
-
-  private _clearContentFromLayer(tile: SelectedContentEntity | null, layer: ILayer): void {
-    if (!tile || !tile.region || !layer) return;
+  private _clearContentFromLayer(tile: SelectedContentEntity, layer: ILayer): void {
     const { region } = tile;
-    try {
-      layer.clearRegion(region.startX, region.startY, region.width, region.height);
-    } catch (error) {
-      console.warn(`Session: Failed to clear tiles from layer ${layer.id}`, error);
-    }
+    layer.clearRegion(region.startX, region.startY, region.width, region.height);
+
   }
 
   private _drawContentOnLayer(tile: SelectedContentEntity, layer: ILayer): void {
-    if (!tile || !layer) return;
     const { region, data } = tile;
-    try {
-      layer.setToRegion(region.startX, region.startY, data);
-    } catch (error) {
-      console.warn(`Session: Failed to draw tiles on layer ${layer.id}`, error);
-    }
+    layer.setToRegion(region.startX, region.startY, data);
   }
 
 }
@@ -122,8 +105,8 @@ export function rotateTile(tile: SelectedContentEntity, referenceCenter: { cx: n
   const offsetX = referenceCenter.cx - rotatedCenterX;
   const offsetY = referenceCenter.cy - rotatedCenterY;
   const newWorldRegion = {
-    startX: Math.round(region.startX + offsetX),
-    startY: Math.round(region.startY + offsetY),
+    startX: Math.round(region.startX + offsetX) + 0,
+    startY: Math.round(region.startY + offsetY) + 0,
     width: newWidth,
     height: newHeight,
   };

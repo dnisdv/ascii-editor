@@ -1,4 +1,4 @@
-import type { CoreApi } from "@editor/core.type";
+import type { CoreApi } from "@editor/core";
 import type { ILayer } from "@editor/types";
 
 export abstract class Shape {

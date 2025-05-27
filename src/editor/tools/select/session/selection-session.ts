@@ -1,6 +1,6 @@
-import type { CoreApi } from "@editor/core.type";
+import type { CoreApi } from "@editor/core";
 import { EventEmitter } from "@editor/event-emitter";
-import type { ILayer } from "@editor/types";
+import type { ILayer, ILayersManager } from "@editor/types";
 
 export type Rectangle = {
   startX: number;
@@ -39,12 +39,19 @@ export class SingleSelectSession extends EventEmitter<SessionEventType> {
   private _sourceLayerId: string | null = null;
   private _targetLayerId: string | null = null;
 
+  private layersManager: ILayersManager;
+
   constructor(private coreApi: CoreApi) {
     super();
     this.id = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    const [tempLayerId] = this.coreApi.getLayersManager().addTempLayer();
+    this.layersManager = this.coreApi.getLayersManager();
+    this.createTempLayer();
+  }
+
+  private createTempLayer(): string {
+    const [tempLayerId] = this.layersManager.addTempLayer();
     this._targetLayerId = tempLayerId;
-    this.emit('session::initialized', { session: this });
+    return tempLayerId;
   }
 
   public setSourceLayerId(id: string | null): void { this._sourceLayerId = id; }
@@ -55,13 +62,18 @@ export class SingleSelectSession extends EventEmitter<SessionEventType> {
 
   public getTargetLayer(): ILayer | null {
     if (!this._targetLayerId) return null;
-    return this.coreApi.getLayersManager().getTempLayer(this._targetLayerId);
+    return this.layersManager.getTempLayer(this._targetLayerId);
   }
 
   public getSourceLayer(): ILayer | null {
     if (!this._sourceLayerId) return null;
-    return this.coreApi.getLayersManager().getLayer(this._sourceLayerId);
+    return this.layersManager.getLayer(this._sourceLayerId);
   }
+
+  public getSelectedRegion(): Rectangle | null { return this.selectedRegion; }
+  public getSelectedContent(): SelectedContentEntity | null { return this.selectedContent; }
+  public isEmpty(): boolean { return !this.selectedContent; }
+
   public updateSelectedRegion(newRegion: Rectangle | null): void {
     const oldRegion = this.selectedRegion ? { ...this.selectedRegion } : null;
 
@@ -86,21 +98,14 @@ export class SingleSelectSession extends EventEmitter<SessionEventType> {
     this.emit('session::region_updated', { session: this, newRegion: this.selectedRegion, oldRegion });
   }
 
-  public getBoundingBox(): Rectangle | null { return this.selectedRegion; }
-  public getSelectedContent(): SelectedContentEntity | null { return this.selectedContent; }
-  public isEmpty(): boolean { return !this.selectedContent; }
-
   public commit(layer?: ILayer): void {
     const contentToCommit = this.selectedContent ? { ...this.selectedContent, region: { ...this.selectedContent.region } } : null;
 
-    if (this._targetLayerId) {
-      this.coreApi.getLayersManager().removeTempLayer(this._targetLayerId);
-    }
+    if (this._targetLayerId) this.layersManager.removeTempLayer(this._targetLayerId);
     const finalTargetLayer = layer || this.getSourceLayer();
 
-    if (!contentToCommit || !finalTargetLayer) {
-      return;
-    }
+    if (!finalTargetLayer) return this.cancel();
+    if (!contentToCommit) return;
 
     const { region: { startX, startY }, data } = contentToCommit;
     finalTargetLayer.setToRegion(startX, startY, data);
@@ -119,14 +124,12 @@ export class SingleSelectSession extends EventEmitter<SessionEventType> {
 
   public cancel(): void {
     const tempLayer = this.getTargetLayer();
-    if (tempLayer && this.selectedContent) {
-      this.coreApi.getLayersManager().removeTempLayer(tempLayer.id)
-    }
+    if (tempLayer && this.selectedContent) this.layersManager.removeTempLayer(tempLayer.id)
+
     this.selectedRegion = null;
     this.selectedContent = null;
-    if (this._targetLayerId) {
-      this.coreApi.getLayersManager().removeTempLayer(this._targetLayerId);
-    }
+
+    if (this._targetLayerId) this.layersManager.removeTempLayer(this._targetLayerId);
     this.emit('session::cancelled', { session: this });
   }
 
@@ -174,7 +177,7 @@ export class SingleSelectSession extends EventEmitter<SessionEventType> {
     if (session.selectedRegion || snapshot.selectedRegion) {
       session.emit('session::region_updated', { session: session, newRegion: session.selectedRegion, oldRegion: null });
     }
-    console.log(session)
+
     if (session.selectedContent || snapshot.selectedContent) {
       session.emit('session::content_updated', { session: session, newContent: session.selectedContent, oldContent: null, newBoundingBox: session.selectedRegion, oldBoundingBox: null });
     }
@@ -183,13 +186,8 @@ export class SingleSelectSession extends EventEmitter<SessionEventType> {
   }
 
   private _drawTilesOnLayer(tile: SelectedContentEntity, layer: ILayer): void {
-    if (!tile || !layer) return;
     const { region, data } = tile;
-    try {
-      layer.setToRegion(region.startX, region.startY, data);
-    } catch (error) {
-      console.warn(`Session: Failed to draw tiles on layer ${layer.id}`, error);
-    }
+    layer.setToRegion(region.startX, region.startY, data);
   }
 }
 

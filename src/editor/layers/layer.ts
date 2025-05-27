@@ -1,7 +1,6 @@
-import type { CoreApi } from "@editor/core.type";
 import { EventEmitter } from "@editor/event-emitter";
-import type { BusManager } from "@editor/bus-manager";
 import type { ITileMap, ITile, ILayer, ILayerModel, ITileModel, LayerEventMap, RegionOptions } from "@editor/types";
+import type { BaseBusLayers } from "@editor/bus-layers";
 
 export type LayerConfig = {
   visible: boolean;
@@ -13,30 +12,24 @@ export const defaultLayerConfig = {
   locked: false,
 };
 
+export interface LayerOptions {
+  id: string;
+  name: string;
+  index: number;
+  opts: LayerConfig;
+  tileMap: ITileMap;
+  layersBus: BaseBusLayers,
+}
+
 export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
   id: string;
   name: string;
   index: number;
   opts: LayerConfig;
   tileMap: ITileMap;
-  bus: BusManager;
-  coreApi: CoreApi;
+  bus: BaseBusLayers;
 
-  constructor({
-    id,
-    name,
-    opts,
-    index,
-    coreApi,
-    tileMap,
-  }: {
-    coreApi: CoreApi;
-    id: string;
-    name: string;
-    index: number;
-    opts: LayerConfig;
-    tileMap: ITileMap;
-  }) {
+  constructor({ id, name, opts, index, tileMap, layersBus }: LayerOptions) {
     super();
 
     this.id = id;
@@ -44,8 +37,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     this.opts = { ...defaultLayerConfig, ...opts };
     this.tileMap = tileMap;
     this.index = index;
-    this.bus = coreApi.getBusManager();
-    this.coreApi = coreApi;
+    this.bus = layersBus
   }
 
   getOpts(): LayerConfig {
@@ -89,7 +81,6 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 
   clear(): void {
     this.tileMap.clear();
-    this.coreApi.render();
   }
 
   getChar(x: number, y: number): string {
@@ -176,8 +167,6 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
         this._batchWriteToTile(tileX, tileY, startX, startY, lines, options);
       }
     }
-
-    this.coreApi.render();
   }
 
   fillRegionToTile(

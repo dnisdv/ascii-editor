@@ -1,15 +1,27 @@
-import type { CoreApi } from "@editor/core.type";
 import { defaultLayerConfig, Layer } from "./layer";
 import { nanoid } from "@reduxjs/toolkit";
 import { TileMap } from "@editor/tileMap";
 import type { ILayer, ILayerModel, ITileMap } from "@editor/types";
+import type { BaseBusLayers } from "@editor/bus-layers";
+import type { Config } from "@editor/config";
+
+export interface LayerFactoryOption {
+  layersBus: BaseBusLayers,
+  config: Config
+}
 
 export class LayerFactory {
-  constructor(private coreApi: CoreApi) { }
+  private config: Config;
+  private bus: BaseBusLayers;
+
+  constructor({ config, layersBus }: LayerFactoryOption) {
+    this.config = config
+    this.bus = layersBus
+  }
 
   createLayerWithDefaultConfig(): [string, ILayer] {
     const id = nanoid()
-    const tileSize = this.coreApi.getConfig().tileSize;
+    const tileSize = this.config.tileSize;
     const tileMap = new TileMap({ tileSize })
 
     const layer = new Layer({
@@ -18,7 +30,7 @@ export class LayerFactory {
       name: 'Untitled layer',
       index: 0,
       opts: defaultLayerConfig,
-      coreApi: this.coreApi,
+      layersBus: this.bus,
       tileMap
     });
 
@@ -31,7 +43,7 @@ export class LayerFactory {
 
   newLayer({ id, name, opts, tileMap, index }: ILayerModel & { tileMap: ITileMap }) {
     return new Layer({
-      id, name, opts, index, tileMap, coreApi: this.coreApi
+      id, name, opts, index, tileMap, layersBus: this.bus
     })
   }
 }

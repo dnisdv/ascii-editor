@@ -1,6 +1,5 @@
-import type { CoreApi } from "@editor/core.type";
 import type { ActionHandler, BaseAction } from "@editor/history-manager";
-import { LayerSerializer, type ILayersManager, type LayerSerializableSchemaType } from "@editor/types";
+import type { ILayersManager, LayerSerializableSchemaType } from "@editor/types";
 
 export interface LayerUpdateAction extends BaseAction {
   type: 'layer::update';
@@ -9,8 +8,8 @@ export interface LayerUpdateAction extends BaseAction {
 }
 
 export class LayerUpdate implements ActionHandler<LayerUpdateAction> {
-  apply(action: LayerUpdateAction, target: ILayersManager, coreApi: CoreApi): void {
-    const deserializedLayer = new LayerSerializer(coreApi).deserialize(action.after);
+  apply(action: LayerUpdateAction, target: ILayersManager): void {
+    const deserializedLayer = target.deserializeLayer(action.after);
 
     target.updateLayerSilent(action.after.id, {
       index: deserializedLayer.index,
@@ -20,8 +19,8 @@ export class LayerUpdate implements ActionHandler<LayerUpdateAction> {
 
   }
 
-  revert(action: LayerUpdateAction, target: ILayersManager, coreApi: CoreApi): void {
-    const deserializedLayer = new LayerSerializer(coreApi).deserialize(action.before);
+  revert(action: LayerUpdateAction, target: ILayersManager): void {
+    const deserializedLayer = target.deserializeLayer(action.before);
 
     target.updateLayerSilent(action.before.id, {
       index: deserializedLayer.index,

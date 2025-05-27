@@ -2,10 +2,10 @@ import type { ICamera } from "@editor/types";
 import { SelectionModeName, type ISelectionMode, type MovingModePayload } from "./modes.type";
 import type { SelectionModeContext } from "./selection-mode-ctx";
 import type { SelectionSessionManager } from "../session/selection-session-manager";
-import type { CoreApi } from "@editor/core.type";
 import { MoveByCommand } from "../session/commands/moveBy.cmd";
 import type { SingleSessionSnapshot } from "../session/selection-session";
 import type { HistoryManager } from "@editor/history-manager";
+import type { CoreApi } from "@editor/core";
 
 export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
   readonly name = SelectionModeName.MOVING;
@@ -14,17 +14,17 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
   private camera: ICamera;
   private historyManager: HistoryManager
 
-  lastDeltaChars = { x: 0, y: 0 }
-  initializedSession: SingleSessionSnapshot | null = null
+  private lastDeltaChars = { x: 0, y: 0 }
+  private initializedSession: SingleSessionSnapshot | null = null
 
   constructor(private coreApi: CoreApi, private selectionSessionManager: SelectionSessionManager) {
     this.camera = this.coreApi.getCamera()
     this.historyManager = this.coreApi.getHistoryManager()
   }
 
-  getName(): string { return this.name; }
+  public getName(): string { return this.name; }
 
-  onEnter(_: SelectionModeContext, payload: MovingModePayload): void {
+  public onEnter(_: SelectionModeContext, payload: MovingModePayload): void {
     this.initializedSession = this.selectionSessionManager.serializeActiveSession()
 
     const { mouseDownEvent: { clientX, clientY } } = payload
@@ -32,10 +32,10 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
     this.startPoint = this.camera.screenToWorld(pos.x, pos.y)
   }
 
-  onExit(): void { }
-  handleMouseDown(): void { }
+  public onExit(): void { }
+  public handleMouseDown(): void { }
 
-  handleMouseMove(event: MouseEvent) {
+  public handleMouseMove(event: MouseEvent) {
     if (!this.startPoint) return;
 
     const { clientX, clientY } = event
@@ -60,7 +60,7 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
     }
   }
 
-  handleMouseUp(_: MouseEvent, context: SelectionModeContext): void {
+  public handleMouseUp(_: MouseEvent, context: SelectionModeContext): void {
     const after = this.selectionSessionManager.serializeActiveSession()
 
     this.historyManager.applyAction(

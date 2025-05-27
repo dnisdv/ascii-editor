@@ -1,8 +1,8 @@
-import type { CoreApi } from "@editor/core.type";
 import { SelectionModeName, type ISelectionMode } from "./modes.type";
 import type { SelectionModeContext } from "./selection-mode-ctx";
 import type { SelectionSessionManager } from "../session/selection-session-manager";
 import type { ICamera } from "@editor/types";
+import type { CoreApi } from "@editor/core";
 
 export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> {
   readonly name = SelectionModeName.SELECTED;
@@ -20,11 +20,14 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 
   handleMouseDown(event: MouseEvent, context: SelectionModeContext): void {
     const pos = this.camera.getMousePosition({ x: event.clientX, y: event.clientY })
+    const activeSession = this.selectionSessionManager.getActiveSession()
+    const selectedContent = activeSession?.getSelectedContent()
     const rotatingMode = context.getMode(SelectionModeName.ROTATING)!
+    // console.log(selectedContent?.data)
 
     if (this.isMouseInsideSelected(pos.x, pos.y)) {
       context.transitionTo(SelectionModeName.MOVING, { mouseDownEvent: event })
-    } else if (rotatingMode.isMouseNearCorner({ x: pos.x, y: pos.y })) {
+    } else if (selectedContent && selectedContent.data.length > 1 && rotatingMode.isMouseNearCorner({ x: pos.x, y: pos.y })) {
       context.transitionTo(SelectionModeName.ROTATING, { mouseDownEvent: event })
     } else {
       context.transitionTo(SelectionModeName.SELECTING, { mouseDownEvent: event })
@@ -44,7 +47,7 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
     if (!activeSession) return false;
 
     const worldPos = this.camera.screenToWorld(mouseX, mouseY);
-    const rectangle = activeSession.getBoundingBox();
+    const rectangle = activeSession.getSelectedRegion();
     if (!rectangle) return false;
 
     const { startX, startY, width, height } = rectangle

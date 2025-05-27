@@ -10,7 +10,6 @@ export interface ISessionCommand {
   ): Promise<void> | void;
 }
 
-
 export interface ISessionManagerCommand {
   execute(
     coreApi: CoreApi,

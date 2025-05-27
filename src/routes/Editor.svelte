@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import CanvasKitInit from 'canvaskit-wasm';
-	import { App } from '@editor/app';
+	import { App, createAppInstance } from '@editor/app';
 	import { type ConfigTheme } from '@editor/config';
 	import { Camera } from '@editor/camera';
 	import { BusManager } from '@editor/bus-manager';
@@ -119,15 +119,17 @@
 
 				const font = await loadFont('/fonts/LiberationMono-Regular.ttf', 'Liberation Mono');
 
-				app = new App({
-					canvasKit,
+				const [coreApi, appInstance] = createAppInstance({
+					canvasKitInstance: canvasKit,
 					busManager,
 					camera,
-					gridCanvas,
-					selectCanvas,
-					asciiCanvas: animationCanvas,
+					gridCanvasElement: gridCanvas,
+					selectCanvasElement: selectCanvas,
+					asciiCanvasElement: animationCanvas,
 					font
 				});
+
+				app = appInstance;
 				theme.subscribe((theme) => {
 					app.getConfig().setTheme({
 						...app.getConfig().getTheme(),
@@ -135,13 +137,13 @@
 					});
 				});
 
-				const drawTool = new DrawTool(app);
-				const selectTool = new SelectTool(app);
-				const drawShapeTool = new DrawShapeTool(app);
-				const textTool = new TextTool(app);
-				const clipboardTool = new ClipboardTool(app);
-				const historyControlTool = new HistoryControlTool(app);
-				const cameraControlTool = new CameraControlTool(app);
+				const drawTool = new DrawTool(coreApi);
+				const selectTool = new SelectTool(coreApi);
+				const drawShapeTool = new DrawShapeTool(coreApi);
+				const textTool = new TextTool(coreApi);
+				const clipboardTool = new ClipboardTool(coreApi);
+				const historyControlTool = new HistoryControlTool(coreApi);
+				const cameraControlTool = new CameraControlTool(coreApi);
 
 				app.registerTool(selectTool);
 				app.registerTool(drawTool);

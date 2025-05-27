@@ -1,164 +1,97 @@
-import type { CanvasKit } from "canvaskit-wasm";
-import { Grid } from "./canvas/grid";
-import { Camera } from "./camera";
-import { Select } from "./canvas/select";
-import { Ascii } from "./canvas/ascii";
 import type { ITool } from "./tool";
-import { ToolManager } from "./tool-manager";
-import type { BusManager } from "./bus-manager";
-import { Cursor } from "./cursor";
-import type { CoreApi } from "./core.type";
 import type { DocumentSchemaType, ICamera } from "./types";
-import type { ILayersManager } from "./types";
-import { HistoryManager } from "./history-manager";
-import { LayersManager } from "./layers/layers-manager";
 import { AppSerializer } from "./serializer";
-import { Config } from "./config";
+import { Core } from "./core";
+import type { BusManager } from "./bus-manager";
+import type { CanvasKit } from "canvaskit-wasm";
 import type { FontData } from "./font";
 import { FontManager } from "./font-manager";
+import { HistoryManager } from "./history-manager";
+import { Config } from "./config";
+import { LayersManager } from "./layers/layers-manager";
+import { Cursor } from "./cursor";
+import { ToolManager } from "./tool-manager";
+import { UI } from "./ui";
 
-type IApp = {
-  canvasKit: CanvasKit;
-  camera: Camera;
+export interface AppDependencies {
+  core: Core
+  serializer: AppSerializer;
+}
+
+export class App {
+  private serializer: AppSerializer
+  private core: Core
+
+  constructor({ core, serializer }: AppDependencies) {
+    this.serializer = serializer
+    this.core = core
+
+    this.core.render()
+  }
+
+  render() { this.core.render(); }
+  registerTool(tool: ITool) { this.core.getToolManager().registerTool(tool); }
+  hydratateDocument(data: DocumentSchemaType) { this.serializer.deserialize(data); }
+
+  // TODO: Ether expose more methods from the core or think about a better way to access the core methods
+  resizeCanvases() { this.core.getUI().resizeCanvases(); }
+  getConfig() { return this.core.getConfig(); }
+  getToolManager() { return this.core.getToolManager(); }
+}
+
+export interface AppFactoryOptions {
+  canvasKitInstance: CanvasKit;
+  gridCanvasElement: HTMLCanvasElement;
+  selectCanvasElement: HTMLCanvasElement;
+  asciiCanvasElement: HTMLCanvasElement;
   busManager: BusManager;
-
-  gridCanvas: HTMLCanvasElement;
-  selectCanvas: HTMLCanvasElement;
-  asciiCanvas: HTMLCanvasElement;
-
+  camera: ICamera
   font: FontData
 }
 
-export class App implements CoreApi {
-  private toolManager: ToolManager;
-  private canvasKit: CanvasKit;
+export function createAppInstance(options: AppFactoryOptions): [Core, App] {
+  const {
+    canvasKitInstance,
+    gridCanvasElement,
+    selectCanvasElement,
+    asciiCanvasElement,
+    busManager,
+    camera,
+    font
+  } = options;
 
-  private camera: ICamera;
-  private layers: ILayersManager;
-  private busManager: BusManager
+  const config = new Config();
+  const historyManager = new HistoryManager()
+  const fontManager = new FontManager(canvasKitInstance, font, { size: 18 });
+  const layersManager = new LayersManager({ layersBus: busManager.layers, config, historyManager });
 
-  private grid: Grid;
-  private select: Select;
-  private ascii: Ascii;
-  private cursor: Cursor;
-  private history: HistoryManager
+  const ui = new UI({
+    canvasKitInstance,
+    gridCanvasElement,
+    selectCanvasElement,
+    asciiCanvasElement,
 
-  private serializer: AppSerializer
-  private config: Config
+    config,
+    camera,
+    layersManager,
+    fontManager
+  });
 
-  private fontManager: FontManager
+  const cursor = new Cursor({ canvas: ui.getSelectCanvas() });
+  const toolManager = new ToolManager({ toolBus: busManager.tools, canvas: ui.getSelectCanvas() });
 
-  gridCanvas: HTMLCanvasElement;
-  selectCanvas: HTMLCanvasElement;
-  asciiCanvas: HTMLCanvasElement;
+  const core = new Core({
+    camera,
+    busManager,
+    fontManager,
+    historyManager,
+    config,
+    layersManager,
+    cursor,
+    toolManager,
+    ui
+  })
 
-  constructor({ canvasKit, camera, busManager, gridCanvas, selectCanvas, asciiCanvas, font }: IApp) {
-    this.camera = camera;
-    this.config = new Config();
-
-    this.fontManager = new FontManager(canvasKit, font, {
-      size: 18
-    });
-
-    this.gridCanvas = gridCanvas
-    this.selectCanvas = selectCanvas
-    this.asciiCanvas = asciiCanvas
-
-    this.busManager = busManager;
-    this.canvasKit = canvasKit;
-    this.history = new HistoryManager(this)
-    this.layers = new LayersManager(this);
-
-    this.grid = this.initGridCanvas(gridCanvas);
-    this.ascii = this.initAsciiCanvas(asciiCanvas);
-    this.select = this.initSelectCanvas(selectCanvas);
-
-    this.cursor = new Cursor(this);
-    this.toolManager = new ToolManager(this);
-    this.serializer = new AppSerializer(this)
-
-    this.render()
-    window.app = this;
-  }
-
-  registerTool(tool: ITool) {
-    this.toolManager?.registerTool(tool);
-  }
-
-  getFontManager(): FontManager {
-    return this.fontManager
-  }
-
-  getCamera(): ICamera {
-    return this.camera;
-  }
-
-  getBusManager(): BusManager {
-    return this.busManager;
-  }
-
-  getCursor(): Cursor {
-    return this.cursor;
-  }
-
-  getHistoryManager(): HistoryManager {
-    return this.history;
-  }
-
-  getConfig(): Config {
-    return this.config
-  }
-
-  getCanvases() {
-    return { grid: this.grid, select: this.select, ascii: this.ascii };
-  }
-
-  getLayersManager(): ILayersManager {
-    return this.layers;
-  }
-
-  getToolManager(): ToolManager {
-    return this.toolManager;
-  }
-
-  render() {
-    this.grid?.render();
-    this.ascii?.render();
-  }
-
-  hydratateDocument(data: DocumentSchemaType) {
-    this.serializer.deserialize(data)
-  }
-
-  resizeCanvases() {
-    this.grid.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.gridCanvas)!);
-    this.select.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.selectCanvas)!);
-    this.ascii.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.asciiCanvas)!);
-
-    this.render();
-  }
-
-  private initGridCanvas(canvas: HTMLCanvasElement) {
-    const surface = this.canvasKit.MakeWebGLCanvasSurface(canvas)!;
-    if (!surface) throw new Error('Could not create canvas surface');
-
-    return new Grid(canvas, this.canvasKit, surface, this);
-  }
-
-  private initSelectCanvas(canvas: HTMLCanvasElement) {
-    const surface = this.canvasKit.MakeWebGLCanvasSurface(canvas)!;
-    if (!surface) throw new Error('Could not create canvas surface');
-
-    this.select = new Select(canvas, this.canvasKit, surface, this);
-
-    return this.select;
-  }
-
-  private initAsciiCanvas(canvas: HTMLCanvasElement) {
-    const surface = this.canvasKit.MakeWebGLCanvasSurface(canvas)!;
-    if (!surface) throw new Error('Could not create canvas surface');
-
-    return new Ascii(canvas, this.canvasKit, surface, this);
-  }
+  const serializer = new AppSerializer(core)
+  return [core, new App({ core, serializer })]
 }
-

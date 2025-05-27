@@ -1,6 +1,5 @@
-import type { CoreApi } from "@editor/core.type";
 import type { ActionHandler, BaseAction } from "@editor/history-manager";
-import { LayerSerializer, type ILayersManager, type LayerSerializableSchemaType } from "@editor/types";
+import type { ILayersManager, LayerSerializableSchemaType } from "@editor/types";
 
 export interface LayerRemoveAction extends BaseAction {
   type: 'layers::remove';
@@ -14,9 +13,9 @@ export class LayerRemove implements ActionHandler<LayerRemoveAction> {
     target.removeLayerSilent(layer.id)
   }
 
-  revert(action: LayerRemoveAction, target: ILayersManager, coreApi: CoreApi): void {
+  revert(action: LayerRemoveAction, target: ILayersManager): void {
     const { layer } = action.before
-    const newLayer = new LayerSerializer(coreApi).deserialize(layer)
+    const newLayer = target.deserializeLayer(layer)
     target.insertLayerAtIndex(layer.index, newLayer)
     target.silentActivateLayer(layer.id)
   }

@@ -1,4 +1,3 @@
-import type { CoreApi } from "@editor/core.type";
 import { BaseTool } from "../tool";
 import type { ITool } from "../tool";
 import type { ILayersManager, ICamera, IRenderManager, ILayer } from "@editor/types";
@@ -9,6 +8,7 @@ import type {
 } from "canvaskit-wasm";
 import type { ActionHandler, BaseAction, HistoryManager } from "@editor/history-manager";
 import { RequireActiveLayerVisible } from "@editor/tool-requirements";
+import type { CoreApi } from "@editor/core";
 
 export class TextTool extends BaseTool implements ITool {
   readonly name = "text";
@@ -86,10 +86,7 @@ export class TextTool extends BaseTool implements ITool {
       }
     });
 
-    this.layers.on('layer::pre-remove', () => {
-      this.commitEditSession()
-    });
-
+    this.layers.on('layer::pre-remove', () => this.commitEditSession());
 
     this.layers.on('layers::active::change', () => {
       const activeLayer = this.layers.getActiveLayer();

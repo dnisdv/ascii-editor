@@ -1,6 +1,4 @@
-import type { CoreApi } from "@editor/core.type";
 import type { ActionHandler, BaseAction } from "@editor/history-manager";
-import { LayerSerializer } from "@editor/serializer/layer.serializer";
 import type { LayerSerializableSchemaType } from "@editor/serializer/layer.serializer.schema";
 import type { ILayersManager } from "@editor/types";
 
@@ -11,9 +9,9 @@ export interface LayerCreateAndActivateAction extends BaseAction {
 }
 
 export class LayerCreateAndActivate implements ActionHandler<LayerCreateAndActivateAction> {
-  apply(action: LayerCreateAndActivateAction, target: ILayersManager, coreApi: CoreApi): void {
+  apply(action: LayerCreateAndActivateAction, target: ILayersManager): void {
     const { layer } = action.after
-    const newLayer = new LayerSerializer(coreApi).deserialize(layer)
+    const newLayer = target.deserializeLayer(layer)
     target.insertLayer(layer.id, newLayer)
     target.silentActivateLayer(layer.id)
   }

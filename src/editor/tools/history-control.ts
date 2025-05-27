@@ -1,5 +1,5 @@
+import type { CoreApi } from '@editor/core';
 import { BaseTool, type ITool } from '../tool';
-import type { CoreApi } from '@editor/core.type';
 import type { HistoryManager } from '@editor/history-manager';
 import type { ICamera } from '@editor/types';
 

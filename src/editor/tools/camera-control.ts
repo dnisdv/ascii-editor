@@ -1,7 +1,7 @@
 import type { BaseBusTools } from '@editor/bus-tools';
 import { BaseTool, type ITool } from '../tool';
-import type { CoreApi } from '@editor/core.type';
 import type { ICamera } from '@editor/types';
+import type { CoreApi } from '@editor/core';
 
 export class CameraControlTool extends BaseTool implements ITool {
   readonly visible = false;

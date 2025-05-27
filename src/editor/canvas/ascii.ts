@@ -1,22 +1,42 @@
 import type { CanvasKit, Canvas as WasmCanvas, Surface, ParagraphStyle, Paragraph, Paint } from 'canvaskit-wasm';
-import type { CoreApi } from '@editor/core.type';
 import { Canvas } from './canvas';
-import type { ICamera, ITileModel } from '@editor/types';
+import type { ICamera, ILayersManager, ITileModel } from '@editor/types';
+import type { Config } from '@editor/config';
+import type { FontManager } from '@editor/font-manager';
+
+export type AsciiOptions = {
+  canvas: HTMLCanvasElement,
+  canvasKit: CanvasKit,
+  surface: Surface,
+  camera: ICamera,
+  config: Config,
+  fontManager: FontManager,
+  layersManager: ILayersManager
+}
 
 export class Ascii extends Canvas {
   private camera: ICamera;
+  private config: Config
+  private fontManager: FontManager
+  private layersManager: ILayersManager;
+
   private paragraphStyle!: ParagraphStyle;
   private paragraphs: Map<string, { data: string; paragraph: Paragraph }>;
 
-  constructor(canvas: HTMLCanvasElement, canvasKit: CanvasKit, surface: Surface, private coreApi: CoreApi) {
+
+  constructor({ canvas, canvasKit, surface, camera, config, layersManager, fontManager }: AsciiOptions) {
     super(canvas, canvasKit, surface);
 
-    this.camera = coreApi.getCamera();
+    this.camera = camera
+    this.config = config
+    this.layersManager = layersManager
+    this.fontManager = fontManager
+
     this.paragraphs = new Map();
 
     this.updateParagraphStyle();
 
-    this.coreApi.getConfig().on('changed', () => {
+    this.config.on('changed', () => {
       this.paragraphs.clear();
       this.updateParagraphStyle();
       this.render();
@@ -24,7 +44,7 @@ export class Ascii extends Canvas {
   }
 
   private updateParagraphStyle(): void {
-    const { foreground } = this.coreApi.getConfig().getTheme();
+    const { foreground } = this.config.getTheme();
     this.paragraphStyle = new this.canvasKit.ParagraphStyle({
       textStyle: {
         color: this.canvasKit.Color4f(foreground[0], foreground[1], foreground[2], foreground[3]),
@@ -34,7 +54,7 @@ export class Ascii extends Canvas {
   }
 
   private createParagraphFromData(tileData: string, width: number): Paragraph {
-    const fontMgr = this.coreApi.getFontManager().getFontMgr();
+    const fontMgr = this.fontManager.getFontMgr();
     const builder = this.canvasKit.ParagraphBuilder.Make(this.paragraphStyle, fontMgr);
     builder.addText(tileData);
     const paragraph = builder.build();
@@ -68,7 +88,7 @@ export class Ascii extends Canvas {
 
   private drawTile(coord: string, tileSize: number, charWidth: number, charHeight: number) {
     const [tileX, tileY] = coord.split(",").map(Number);
-    const combinedTileData = this.coreApi.getLayersManager().getCombinedTileData(tileX, tileY);
+    const combinedTileData = this.layersManager.getCombinedTileData(tileX, tileY);
 
     const tileBoundary = {
       x: tileX * tileSize,
@@ -103,8 +123,8 @@ export class Ascii extends Canvas {
       height: viewport.bottom - viewport.top,
     };
 
-    const config = this.coreApi.getConfig();
-    const { dimensions: { height: charHeight, width: charWidth } } = this.coreApi.getFontManager().getMetrics();
+    const config = this.config;
+    const { dimensions: { height: charHeight, width: charWidth } } = this.fontManager.getMetrics();
     const tileSize = config.tileSize;
 
     const visibleX = viewport.left / (charWidth * tileSize);
@@ -112,7 +132,7 @@ export class Ascii extends Canvas {
     const visibleWidth = range.width / (charWidth * tileSize);
     const visibleHeight = range.height / (charHeight * tileSize);
 
-    const visibleLayers = this.coreApi.getLayersManager().getAllVisibleLayersSorted();
+    const visibleLayers = this.layersManager.getAllVisibleLayersSorted();
     const tileCoordsSet = new Set<string>();
     for (const layer of visibleLayers) {
       const visibleTiles = layer.tileMap.query(visibleX, visibleY, visibleWidth, visibleHeight);

@@ -1,7 +1,7 @@
-import type { CoreApi } from "@editor/core.type";
 import { BaseTool } from "../tool";
 import type { ICamera } from "@editor/types";
 import type { SelectToolApi } from "./select/select-tool";
+import type { CoreApi } from "@editor/core";
 
 export class ClipboardTool extends BaseTool {
   private camera: ICamera;

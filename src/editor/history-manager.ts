@@ -1,10 +1,8 @@
-import type { CoreApi } from "./core.type";
-
 export interface ActionHandler<T extends BaseAction> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apply(action: T, target: any, coreApi: CoreApi): void;
+  apply(action: T, target: any): void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  revert(action: T, target: any, coreApi: CoreApi): void;
+  revert(action: T, target: any): void;
 }
 
 export interface BaseAction {
@@ -25,9 +23,9 @@ type Action = BaseAction;
 
 export interface ActionHandler<T extends BaseAction> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apply(action: T, target: any, coreApi: CoreApi): void;
+  apply(action: T, target: any): void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  revert(action: T, target: any, coreApi: CoreApi): void;
+  revert(action: T, target: any): void;
 }
 
 type HistorySubscriber = () => void;
@@ -52,7 +50,7 @@ export class HistoryManager {
   private beforeRedoSubscribers: HistorySubscriber[] = [];
   private afterRedoSubscribers: HistorySubscriber[] = [];
 
-  constructor(private coreApi: CoreApi) { }
+  constructor() { }
 
   onBeforeUndo(subscriber: HistorySubscriber): () => void {
     this.beforeUndoSubscribers.push(subscriber);
@@ -136,7 +134,7 @@ export class HistoryManager {
     }
 
     if (config?.applyAction !== false) {
-      handler.apply(action, target, this.coreApi);
+      handler.apply(action, target);
     }
 
     this.stack = this.stack.slice(0, this.currentIndex + 1);
@@ -163,7 +161,7 @@ export class HistoryManager {
         throw new Error('Handler or target not found for batch action');
       }
 
-      handler.apply(action, target, this.coreApi);
+      handler.apply(action, target);
     });
 
     const compositeAction: BaseAction = {
@@ -180,7 +178,7 @@ export class HistoryManager {
           batch.actions.forEach(subAction => {
             const handler = this.handlers.get(subAction.type);
             if (handler) {
-              handler.apply(subAction, target, this.coreApi);
+              handler.apply(subAction, target);
             }
           });
         },
@@ -190,7 +188,7 @@ export class HistoryManager {
             const subAction = batch.actions[i];
             const handler = this.handlers.get(subAction.type);
             if (handler) {
-              handler.revert(subAction, target, this.coreApi);
+              handler.revert(subAction, target);
             }
           }
         },
@@ -260,7 +258,7 @@ export class HistoryManager {
       throw new Error('Handler or target not found for undo');
     }
 
-    handler.revert(action, target, this.coreApi);
+    handler.revert(action, target);
     this.currentIndex--;
     this.isApplying = false;
 
@@ -284,7 +282,7 @@ export class HistoryManager {
       throw new Error('Handler or target not found for redo');
     }
 
-    handler.apply(action, target, this.coreApi);
+    handler.apply(action, target);
 
     this.isApplying = false;
     this.afterRedoSubscribers.forEach(subscriber => subscriber());

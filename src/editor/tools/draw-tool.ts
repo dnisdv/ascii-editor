@@ -1,10 +1,10 @@
-import type { CoreApi } from "@editor/core.type";
 import { BaseTool } from "../tool";
 import type { ITool } from "../tool";
 import type { ILayersManager, ICamera, IRenderManager } from "@editor/types";
 import type { CanvasKit, Paragraph, ParagraphStyle, Canvas as WasmCanvas } from "canvaskit-wasm";
 import type { HistoryManager } from "@editor/history-manager";
 import { RequireActiveLayerVisible } from "@editor/tool-requirements";
+import type { CoreApi } from "@editor/core";
 
 export class DrawTool extends BaseTool implements ITool {
   private isDrawing: boolean = false;

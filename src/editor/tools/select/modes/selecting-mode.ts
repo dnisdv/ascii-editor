@@ -69,6 +69,7 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
 
     const activeSession = this.selectionSessionManager.getActiveSession()
 
+
     if (activeSession?.isEmpty()) {
       context.transitionTo(SelectionModeName.IDLE)
       return;

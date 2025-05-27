@@ -17,4 +17,3 @@ export class LayersChangeActive implements ActionHandler<LayerChangeActiveAction
   }
 }
 
-

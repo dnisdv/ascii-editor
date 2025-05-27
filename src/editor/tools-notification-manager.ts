@@ -1,5 +1,5 @@
-import type { CoreApi } from "@editor/core.type";
 import type { NotificationAction, BaseBusNotification, NotificationType } from "./bus-notification";
+import type { CoreApi } from "./core";
 
 export interface NotificationContext {
 	timestamp: string;
@@ -29,6 +29,7 @@ export class ToolNotificationManager {
 		return new Date().toISOString();
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private createContext(context?: Record<string, any>): NotificationContext {
 		return {
 			timestamp: this.getCurrentTimestamp(),

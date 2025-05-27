@@ -1,4 +1,3 @@
-import type { CoreApi } from "@editor/core.type";
 import { BaseTool } from "@editor/tool";
 import type { ITool } from "@editor/tool";
 import type { ILayersManager, ICamera, IRenderManager, ILayer } from "@editor/types";
@@ -6,6 +5,7 @@ import { Shape } from "./shape";
 import { Rectangle } from "./shape-rectangle";
 import { RequireActiveLayerVisible } from "@editor/tool-requirements";
 import type { SelectToolApi } from "../select/select-tool";
+import type { CoreApi } from "@editor/core";
 
 export enum Shapes {
   rectangle,

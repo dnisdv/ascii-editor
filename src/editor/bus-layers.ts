@@ -28,4 +28,4 @@ type EventMap = {
 };
 
 
-export abstract class BaseBusLayers extends EventEmitter<EventMap> { }
+export class BaseBusLayers extends EventEmitter<EventMap> { }

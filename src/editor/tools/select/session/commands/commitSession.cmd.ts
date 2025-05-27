@@ -1,8 +1,8 @@
-import type { CoreApi } from "@editor/core.type";
 import type { ISessionManagerCommand } from "./type";
 import type { SelectionSessionManager } from "../selection-session-manager";
 import type { HistoryManager } from "@editor/history-manager";
 import type { ILayersManager } from "@editor/types";
+import type { CoreApi } from "@editor/core";
 
 export class CommitSessionCommand implements ISessionManagerCommand {
   private historyManager: HistoryManager
@@ -20,7 +20,7 @@ export class CommitSessionCommand implements ISessionManagerCommand {
 
     const layer = this.layersManager.getLayer(String(beforeSession?.sourceLayerId))
     const selectedContent = beforeSession?.selectedContent
-    if (!layer || !selectedContent) return console.warn("Layer not found or no selected content")
+    if (!layer || !selectedContent) return
 
 
     const { region: { startX, startY, width, height } } = selectedContent

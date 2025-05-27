@@ -46,11 +46,7 @@ export class CreateSessionWithContentCommand implements ISessionManagerCommand {
   private drawContentOnLayer(tile: SelectedContentEntity | null, layer: ILayer | null): void {
     if (!tile || !layer) return;
     const { region, data } = tile;
-    try {
-      layer.setToRegion(region.startX, region.startY, data);
-    } catch (error) {
-      console.warn(`Session: Failed to draw tiles on layer ${layer.id}`, error);
-    }
+    layer.setToRegion(region.startX, region.startY, data);
   }
 
   private _calculateWorldBoundingBoxFromContent(content: SelectedContentEntity | null): Rectangle | null {
@@ -72,11 +68,6 @@ export class CreateSessionWithContentCommand implements ISessionManagerCommand {
     const fontMetrics = this.coreApi.getFontManager().getMetrics();
     const charWidth = fontMetrics?.dimensions?.width;
     const charHeight = fontMetrics?.dimensions?.height;
-
-    if (!charWidth || !charHeight) {
-      console.warn("Session: Invalid font metrics. Defaulting to (0,0) for world calculation.");
-      return { x: 0, y: 0 };
-    }
     return { x: cellX * charWidth, y: cellY * charHeight };
   }
 }
