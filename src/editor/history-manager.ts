@@ -52,51 +52,8 @@ export class HistoryManager {
 
   constructor() { }
 
-  onBeforeUndo(subscriber: HistorySubscriber): () => void {
-    this.beforeUndoSubscribers.push(subscriber);
-    return () => {
-      this.beforeUndoSubscribers = this.beforeUndoSubscribers.filter(sub => sub !== subscriber);
-    };
-  }
-
-  onAfterUndo(subscriber: HistorySubscriber): () => void {
-    this.afterUndoSubscribers.push(subscriber);
-    return () => {
-      this.afterUndoSubscribers = this.afterUndoSubscribers.filter(sub => sub !== subscriber);
-    };
-  }
-
-  onBeforeRedo(subscriber: HistorySubscriber): () => void {
-    this.beforeRedoSubscribers.push(subscriber);
-    return () => {
-      this.beforeRedoSubscribers = this.beforeRedoSubscribers.filter(sub => sub !== subscriber);
-    };
-  }
-
-  onAfterRedo(subscriber: HistorySubscriber): () => void {
-    this.afterRedoSubscribers.push(subscriber);
-    return () => {
-      this.afterRedoSubscribers = this.afterRedoSubscribers.filter(sub => sub !== subscriber);
-    };
-  }
-
   private generateBatchId(): string {
     return `batch_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-  }
-
-  beginBatch(config: BatchConfig = {}): string {
-    const id = config.id || this.generateBatchId();
-
-    if (this.activeBatches.has(id)) {
-      throw new Error(`Batch with ID ${id} already exists`);
-    }
-
-    this.activeBatches.set(id, {
-      config,
-      actions: []
-    });
-
-    return id;
   }
 
   private canAddToBatch(batchId: string, action: Action): boolean {
@@ -112,7 +69,58 @@ export class HistoryManager {
     return true;
   }
 
-  applyAction(action: Action, config?: { batchId?: string; applyAction?: boolean }): void {
+  public clear() {
+    this.stack = []
+  }
+
+  public getHistory() {
+    return this.stack
+  }
+
+  public onBeforeUndo(subscriber: HistorySubscriber): () => void {
+    this.beforeUndoSubscribers.push(subscriber);
+    return () => {
+      this.beforeUndoSubscribers = this.beforeUndoSubscribers.filter(sub => sub !== subscriber);
+    };
+  }
+
+  public onAfterUndo(subscriber: HistorySubscriber): () => void {
+    this.afterUndoSubscribers.push(subscriber);
+    return () => {
+      this.afterUndoSubscribers = this.afterUndoSubscribers.filter(sub => sub !== subscriber);
+    };
+  }
+
+  public onBeforeRedo(subscriber: HistorySubscriber): () => void {
+    this.beforeRedoSubscribers.push(subscriber);
+    return () => {
+      this.beforeRedoSubscribers = this.beforeRedoSubscribers.filter(sub => sub !== subscriber);
+    };
+  }
+
+  public onAfterRedo(subscriber: HistorySubscriber): () => void {
+    this.afterRedoSubscribers.push(subscriber);
+    return () => {
+      this.afterRedoSubscribers = this.afterRedoSubscribers.filter(sub => sub !== subscriber);
+    };
+  }
+
+  public beginBatch(config: BatchConfig = {}): string {
+    const id = config.id || this.generateBatchId();
+
+    if (this.activeBatches.has(id)) {
+      throw new Error(`Batch with ID ${id} already exists`);
+    }
+
+    this.activeBatches.set(id, {
+      config,
+      actions: []
+    });
+
+    return id;
+  }
+
+  public applyAction(action: Action, config?: { batchId?: string; applyAction?: boolean }): void {
     if (this.isApplying) return;
 
     const handler = this.handlers.get(action.type);
@@ -142,7 +150,7 @@ export class HistoryManager {
     this.currentIndex++;
   }
 
-  commitBatch(batchId: string): void {
+  public commitBatch(batchId: string): void {
     const batch = this.activeBatches.get(batchId);
     if (!batch) {
       throw new Error(`Batch with ID ${batchId} not found`);
@@ -202,21 +210,20 @@ export class HistoryManager {
     this.activeBatches.delete(batchId);
   }
 
-
-  cancelBatch(batchId: string): void {
+  public cancelBatch(batchId: string): void {
     this.activeBatches.delete(batchId);
   }
 
-  registerHandler<T extends BaseAction>(type: string, handler: ActionHandler<T>): void {
+  public registerHandler<T extends BaseAction>(type: string, handler: ActionHandler<T>): void {
     this.handlers.set(type, handler);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  registerTarget(id: string, target: any): void {
+  public registerTarget(id: string, target: any): void {
     this.targets.set(id, target);
   }
 
-  removeTarget(id: string): boolean {
+  public removeTarget(id: string): boolean {
     const isTargetInUse = this.stack.some(action => action.targetId === id) ||
       Array.from(this.activeBatches.values()).some(batch =>
         batch.actions.some(action => action.targetId === id)
@@ -229,7 +236,7 @@ export class HistoryManager {
     return this.targets.delete(id);
   }
 
-  removeHandler(type: string): boolean {
+  public removeHandler(type: string): boolean {
     const isHandlerInUse = this.stack.some(action => action.type === type) ||
       Array.from(this.activeBatches.values()).some(batch =>
         batch.actions.some(action => action.type === type)
@@ -242,7 +249,7 @@ export class HistoryManager {
     return this.handlers.delete(type);
   }
 
-  undo(): void {
+  public undo(): void {
     this.beforeUndoSubscribers.forEach(subscriber => subscriber());
     if (this.currentIndex < 0) {
       return;
@@ -265,7 +272,7 @@ export class HistoryManager {
     this.afterUndoSubscribers.forEach(subscriber => subscriber());
   }
 
-  redo(): void {
+  public redo(): void {
     this.beforeRedoSubscribers.forEach(subscriber => subscriber());
     if (this.currentIndex >= this.stack.length - 1) {
       return;
@@ -288,7 +295,7 @@ export class HistoryManager {
     this.afterRedoSubscribers.forEach(subscriber => subscriber());
   }
 
-  serializeHistory(): string {
+  public serializeHistory(): string {
     return JSON.stringify({
       stack: this.stack,
       currentIndex: this.currentIndex,
@@ -304,7 +311,7 @@ export class HistoryManager {
     });
   }
 
-  deserializeHistory(serialized: string): void {
+  public deserializeHistory(serialized: string): void {
     const {
       stack,
       currentIndex,

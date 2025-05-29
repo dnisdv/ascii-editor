@@ -10,32 +10,50 @@ export class TempLayersListManager {
   }
 
   addLayer(layer: ILayer): void {
-    this.layers.set(layer.id, layer);
-    this.sortedLayerIds.push(layer.id);
+    const layerId = layer.id;
+    this.layers.set(layerId, layer);
+
+    const existingIndex = this.sortedLayerIds.indexOf(layerId);
+    if (existingIndex > -1) {
+      this.sortedLayerIds.splice(existingIndex, 1);
+    }
+
+    this.sortedLayerIds.push(layerId);
   }
 
   public insertLayerAtIndex(layer: ILayer, index: number): void {
-    if (this.layers.has(layer.id)) {
-      const oldIndex = this.sortedLayerIds.indexOf(layer.id);
-      if (oldIndex !== -1) {
-        this.sortedLayerIds.splice(oldIndex, 1);
-      }
+    const layerId = layer.id;
+
+    const oldIndex = this.sortedLayerIds.indexOf(layerId);
+    if (oldIndex !== -1) {
+      this.sortedLayerIds.splice(oldIndex, 1);
     }
 
-    this.layers.set(layer.id, layer);
-    this.sortedLayerIds.splice(index, 0, layer.id);
+    this.layers.set(layerId, layer);
+
+    const effectiveIndex = Math.max(0, Math.min(index, this.sortedLayerIds.length));
+    this.sortedLayerIds.splice(effectiveIndex, 0, layerId);
   }
 
-  addMultipleLayers(layers: ILayer[]): void {
-    layers.forEach((layer) => {
-      this.layers.set(layer.id, layer);
-      this.sortedLayerIds.push(layer.id);
+  addMultipleLayers(layersToAdd: ILayer[]): void {
+    if (layersToAdd.length === 0) {
+      return;
+    }
+
+    layersToAdd.forEach((layer) => {
+      const layerId = layer.id;
+      this.layers.set(layerId, layer);
+
+      const existingIndex = this.sortedLayerIds.indexOf(layerId);
+      if (existingIndex > -1) this.sortedLayerIds.splice(existingIndex, 1);
+      this.sortedLayerIds.push(layerId);
     });
   }
 
   removeLayer(layerId: string): { removed: boolean; newActive?: string | null } {
     const index = this.sortedLayerIds.indexOf(layerId);
     if (index === -1) {
+      if (this.layers.has(layerId)) this.layers.delete(layerId);
       return { removed: false };
     }
 
@@ -48,26 +66,24 @@ export class TempLayersListManager {
   moveLayerToPosition(layerId: string, newIndex: number): boolean {
     const currentIndex = this.sortedLayerIds.indexOf(layerId);
 
-    if (currentIndex === -1) {
-      return false;
-    }
+    if (currentIndex === -1) return false;
 
     this.sortedLayerIds.splice(currentIndex, 1);
-    this.sortedLayerIds.splice(newIndex, 0, layerId);
+    const effectiveNewIndex = Math.max(0, Math.min(newIndex, this.sortedLayerIds.length));
+    this.sortedLayerIds.splice(effectiveNewIndex, 0, layerId);
     return true;
   }
 
   updateLayer(layerId: string, updates: Partial<ILayerModel>): { success: boolean; beforeAfter?: { before: ILayerModel; after: ILayerModel }; reindexed?: { id: string; index: number }[] } {
     const layer = this.layers.get(layerId);
-    if (!layer) {
-      return { success: false };
-    }
+    if (!layer) return { success: false };
 
     const currentIndex = this.sortedLayerIds.indexOf(layerId);
 
-    if (updates.index !== undefined && updates.index !== layer.index) {
-      this.sortedLayerIds.splice(currentIndex, 1);
-      this.sortedLayerIds.splice(updates.index, 0, layerId);
+    if (updates.index !== undefined && updates.index !== currentIndex) {
+      if (currentIndex !== -1) this.sortedLayerIds.splice(currentIndex, 1);
+      const effectiveUpdateIndex = Math.max(0, Math.min(updates.index, this.sortedLayerIds.length));
+      this.sortedLayerIds.splice(effectiveUpdateIndex, 0, layerId);
     }
     return { success: true };
   }

@@ -41,7 +41,7 @@ export class LayerFactory {
     return this.createLayerWithDefaultConfig()
   }
 
-  newLayer({ id, name, opts, tileMap, index }: ILayerModel & { tileMap: ITileMap }) {
+  newLayer({ id, name, opts, tileMap, index }: ILayerModel & { tileMap: ITileMap, config?: Partial<ILayerModel> }): ILayer {
     return new Layer({
       id, name, opts, index, tileMap, layersBus: this.bus
     })

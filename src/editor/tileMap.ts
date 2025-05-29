@@ -13,7 +13,11 @@ export class TileMap implements ITileMap {
     return `${x},${y}`;
   }
 
-  addTile(x: number, y: number): ITile {
+  public isEmpty(): boolean {
+    return this.map.size === 0;
+  }
+
+  public addTile(x: number, y: number): ITile {
     const key = this.createCellKey(x, y);
     if (this.map.has(key)) {
       return this.map.get(key)!;
@@ -28,7 +32,7 @@ export class TileMap implements ITileMap {
     return tile;
   }
 
-  cleanUnusedTiles() {
+  public cleanUnusedTiles() {
     for (const [key, tile] of this.map.entries()) {
       if (tile.isEmpty()) {
         this.map.delete(key);
@@ -36,20 +40,20 @@ export class TileMap implements ITileMap {
     }
   }
 
-  removeTile(x: number, y: number): void {
+  public removeTile(x: number, y: number): void {
     const key = this.createCellKey(x, y);
     this.map.delete(key);
   }
 
-  queryAllKeys() {
+  public queryAllKeys() {
     return Array.from(this.map.keys());
   }
 
-  queryAll(): Tile[] {
+  public queryAll(): Tile[] {
     return Array.from(this.map.values());
   }
 
-  query(x: number, y: number, width: number, height: number): ITile[] {
+  public query(x: number, y: number, width: number, height: number): ITile[] {
     const startX = Math.floor(x);
     const startY = Math.floor(y);
     const endX = Math.ceil(x + width);
@@ -68,7 +72,7 @@ export class TileMap implements ITileMap {
     return Array.from(result);
   }
 
-  getOrCreateTile(x: number, y: number): ITile {
+  public getOrCreateTile(x: number, y: number): ITile {
     const key = this.createCellKey(x, y);
     let tile = this.map.get(key);
 
@@ -79,12 +83,12 @@ export class TileMap implements ITileMap {
     return tile;
   }
 
-  getTile(x: number, y: number): ITile | null {
+  public getTile(x: number, y: number): ITile | null {
     const key = this.createCellKey(x, y);
     return this.map.get(key) || null;
   }
 
-  createTileBoundary(x: number, y: number): { x: number; y: number; width: number; height: number } {
+  public createTileBoundary(x: number, y: number): { x: number; y: number; width: number; height: number } {
     return {
       x: x * this.tileSize,
       y: y * this.tileSize,
@@ -93,17 +97,17 @@ export class TileMap implements ITileMap {
     };
   }
 
-  queryByData(searchString: string): Tile[] {
+  public queryByData(searchString: string): Tile[] {
     return Array.from(this.map.values()).filter((tile) =>
       tile.data.includes(searchString)
     );
   }
 
-  clear() {
+  public clear() {
     this.map.clear();
   }
 
-  serialize(): SerializedTileMap {
+  public serialize(): SerializedTileMap {
     return {
       map: Array.from(this.map.entries()).reduce<Record<string, SerializedTile>>((acc, [key, tile]) => {
         acc[key] = tile.serialize();

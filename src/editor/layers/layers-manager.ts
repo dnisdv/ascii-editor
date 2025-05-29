@@ -1,17 +1,17 @@
 import type { HistoryManager } from "@editor/history-manager";
-import type { ITileMap, ILayer, LayerConfig, ILayersManager, LayersManagerIEvents, ILayerModel, LayerSerializableSchemaType } from "@editor/types";
+import type { ITileMap, ILayer, LayerConfig, ILayersManager, LayersManagerIEvents, ILayerModel, LayerSerializableSchemaType, DeepPartial } from "@editor/types";
 import type { BaseBusLayers } from "@editor/bus-layers";
 import type { Config } from "@editor/config";
 
 import { LayerFactory } from "./layer-factory";
-import { LayerCreateAndActivate, LayerRemove, LayersChangeActive, SetCharHandler } from "@editor/history/layers";
-import { LayerUpdate } from "@editor/history/layers/layer-update";
 import { LayerSerializer } from "@editor/serializer/layer.serializer";
 import { EventEmitter } from "@editor/event-emitter";
-import { LayerRemoveAndActivate } from "@editor/history/layers/layer-remove-and-activate";
-import { SetRegion } from "@editor/history/layers/layer-set-region";
 import { LayersListManager } from "./layer-list-manager";
 import { TempLayersListManager } from "./templayer-list-manager";
+import { LayerCreateAndActivate, LayerRemove, LayersChangeActive, SetCharHandler } from "./history";
+import { LayerUpdate } from "./history/layer-update";
+import { LayerRemoveAndActivate } from "./history/layer-remove-and-activate";
+import { SetRegion } from "./history/layer-set-region";
 
 export interface LayersManagerOption {
   layersBus: BaseBusLayers,
@@ -86,7 +86,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     this.removeLayer(id)
   }
 
-  private handleLayerUpdateRequest(id: string, updates: Partial<ILayer>) {
+  private handleLayerUpdateRequest(id: string, updates: DeepPartial<ILayer>) {
     const beforeLayer = this.getLayer(id);
     if (!beforeLayer) return;
 
@@ -135,7 +135,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
   }
 
   private setActiveLayerInternal(id: string): boolean {
-    if (String(id) === String(this.getActiveLayerKey())) return false;
+    // if (String(id) === String(this.getActiveLayerKey())) return false;
     const success = this.layers.setActiveLayer(id);
     return success;
   }
@@ -228,6 +228,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     const [id, layer] = this.addLayerInternal()
     this.bus.emit('layer::create::response', { id, name: layer.name, index: layer.index, opts: layer.opts });
     this.silentActivateLayer(id);
+
     return [id, layer];
   }
 
@@ -260,6 +261,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
           { applyAction: false }
         );
       } else {
+        this.bus.emit('layer::change_active::response', { id: null }, { reason: 'auto_switch' });
         this.historyManager.applyAction(
           {
             type: 'layers::remove',

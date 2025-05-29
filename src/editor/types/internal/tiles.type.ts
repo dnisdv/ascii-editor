@@ -2,6 +2,7 @@ import type { SerializedTile, SerializedTileMap } from "@editor/serializer";
 
 export interface ITileMap {
   tileSize: number;
+  isEmpty(): boolean;
   addTile(x: number, y: number): ITile;
   queryAll(): ITile[];
   queryAllKeys(): string[];

@@ -16,7 +16,7 @@ export interface LayerOptions {
   id: string;
   name: string;
   index: number;
-  opts: LayerConfig;
+  opts: Partial<LayerConfig>;
   tileMap: ITileMap;
   layersBus: BaseBusLayers,
 }
@@ -31,36 +31,37 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 
   constructor({ id, name, opts, index, tileMap, layersBus }: LayerOptions) {
     super();
-
     this.id = id;
     this.name = name;
+
+    // TODO: implement deep merge
     this.opts = { ...defaultLayerConfig, ...opts };
     this.tileMap = tileMap;
     this.index = index;
     this.bus = layersBus
   }
 
-  getOpts(): LayerConfig {
+  public getOpts(): LayerConfig {
     return this.opts;
   }
 
-  addTile(x: number, y: number): ITile {
+  public addTile(x: number, y: number): ITile {
     return this.tileMap.addTile(x, y);
   }
 
-  queryTiles(x: number, y: number, width: number, height: number): ITile[] {
+  public queryTiles(x: number, y: number, width: number, height: number): ITile[] {
     return this.tileMap.query(x, y, width, height);
   }
 
-  queryAllTilesKeys(): string[] {
+  public queryAllTilesKeys(): string[] {
     return this.tileMap.queryAll().map((tile) => `${tile.x},${tile.y}`);
   }
 
-  queryAllTiles(): ITile[] {
+  public queryAllTiles(): ITile[] {
     return this.tileMap.queryAll();
   }
 
-  getTileAtPosition(x: number, y: number): ITile | null {
+  public getTileAtPosition(x: number, y: number): ITile | null {
     const tileSize = this.tileMap.tileSize;
     const tileX = Math.floor(x / tileSize);
     const tileY = Math.floor(y / tileSize);
@@ -79,11 +80,11 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     return null;
   }
 
-  clear(): void {
+  public clear(): void {
     this.tileMap.clear();
   }
 
-  getChar(x: number, y: number): string {
+  public getChar(x: number, y: number): string {
     const tileSize = this.tileMap.tileSize;
     const tile = this.getTileAtPosition(x, y);
     if (!tile) {
@@ -95,7 +96,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     return tile.getChar(localX, localY) || " ";
   }
 
-  setChar(x: number, y: number, char: string): ITileModel | null {
+  public setChar(x: number, y: number, char: string): ITileModel | null {
     const tileSize = this.tileMap.tileSize;
     const tileX = Math.floor(x / tileSize);
     const tileY = Math.floor(y / tileSize);
@@ -109,7 +110,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     return this._updateTileChar(tile, x, y, char);
   }
 
-  setCharToTile(
+  public setCharToTile(
     localX: number,
     localY: number,
     char: string,
@@ -122,18 +123,19 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     this._updateTileCharLocal(actualTile, localX, localY, char);
   }
 
-  setRegionToTile(
+  public setRegionToTile(
     startX: number,
     startY: number,
     inputString: string,
-    tileCoords: { x: number; y: number }
+    tileCoords: { x: number; y: number },
+    options?: RegionOptions
   ): void {
     const tile =
       this.tileMap.getTile(tileCoords.x, tileCoords.y) ||
       this.tileMap.addTile(tileCoords.x, tileCoords.y);
 
     const lines = inputString.split("\n");
-    tile.setRegion(startX, startY, lines);
+    tile.setRegion(startX, startY, lines, options);
 
     if (tile.isEmpty()) {
       this.tileMap.removeTile(tile.x, tile.y);
@@ -143,7 +145,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     }
   }
 
-  setToRegion(
+  public setToRegion(
     startX: number,
     startY: number,
     inputString: string,
@@ -169,7 +171,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     }
   }
 
-  fillRegionToTile(
+  public fillRegionToTile(
     startX: number,
     startY: number,
     width: number,
@@ -191,7 +193,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     }
   }
 
-  readRegion(startX: number, startY: number, width: number, height: number): string {
+  public readRegion(startX: number, startY: number, width: number, height: number): string {
     const lines: string[] = [];
     for (let y = 0; y < height; y++) {
       let line = '';
@@ -204,7 +206,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     return lines.join('\n');
   }
 
-  clearRegion(startX: number, startY: number, width: number, height: number): void {
+  public clearRegion(startX: number, startY: number, width: number, height: number): void {
     const lines: string[] = [];
     for (let h = 0; h < height; h++) {
       lines.push(" ".repeat(width));
@@ -213,11 +215,11 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     this.setToRegion(startX, startY, fillString, { skipSpaces: false });
   }
 
-  updateIndex(newIndex: number): void {
+  public updateIndex(newIndex: number): void {
     this.index = newIndex;
   }
 
-  fillRegion(startX: number, startY: number, width: number, height: number, char: string): void {
+  public fillRegion(startX: number, startY: number, width: number, height: number, char: string): void {
     const line = char.repeat(width);
     const lines = Array.from({ length: height }, () => line);
     this.setToRegion(startX, startY, lines.join("\n"));
@@ -265,6 +267,34 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     const model: ITileModel = { x, y, data };
     this.emit("tile_change", { ...model, layerId: this.id });
     return model;
+  }
+
+  public update(updates: Partial<ILayerModel>): { before: ILayerModel; after: ILayerModel } {
+    const beforeState: ILayerModel = {
+      id: this.id,
+      name: this.name,
+      index: this.index,
+      opts: { ...this.opts },
+    };
+
+    if (updates.name !== undefined) {
+      this.name = updates.name;
+    }
+    if (updates.index !== undefined) {
+      this.index = updates.index;
+    }
+    if (updates.opts) {
+      this.opts = { ...this.opts, ...updates.opts };
+    }
+
+    const afterState: ILayerModel = {
+      id: this.id,
+      name: this.name,
+      index: this.index,
+      opts: { ...this.opts },
+    };
+
+    return { before: beforeState, after: afterState };
   }
 
   private _batchWriteToTile(
@@ -329,34 +359,6 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
     } else {
       this._emitTileChange(tile.x, tile.y, tile.data);
     }
-  }
-
-  update(updates: Partial<ILayerModel>): { before: ILayerModel; after: ILayerModel } {
-    const beforeState: ILayerModel = {
-      id: this.id,
-      name: this.name,
-      index: this.index,
-      opts: { ...this.opts },
-    };
-
-    if (updates.name !== undefined) {
-      this.name = updates.name;
-    }
-    if (updates.index !== undefined) {
-      this.index = updates.index;
-    }
-    if (updates.opts) {
-      this.opts = { ...this.opts, ...updates.opts };
-    }
-
-    const afterState: ILayerModel = {
-      id: this.id,
-      name: this.name,
-      index: this.index,
-      opts: { ...this.opts },
-    };
-
-    return { before: beforeState, after: afterState };
   }
 }
 

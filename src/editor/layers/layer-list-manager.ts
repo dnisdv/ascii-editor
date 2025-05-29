@@ -6,9 +6,11 @@ export class LayersListManager {
   private activeLayerKey: string | null;
 
   constructor(layers: ILayer[] = []) {
-    this.layers = new Map(layers.map((layer) => [layer.id, layer]));
-    this.sortedLayerIds = layers.map((layer) => layer.id);
-    this.activeLayerKey = this.sortedLayerIds[0] || null;
+    this.layers = new Map();
+    this.sortedLayerIds = []
+    this.activeLayerKey = null;
+
+    if (layers.length > 0) this.addMultipleLayers(layers);
     this.reindexLayers();
   }
 
@@ -26,48 +28,83 @@ export class LayersListManager {
     return reindexedLayers
   }
 
-  addLayer(layer: ILayer): void {
-    this.layers.set(layer.id, layer);
-    this.sortedLayerIds.push(layer.id);
+  public addLayer(layer: ILayer): void {
+    const layerId = layer.id;
+    this.layers.set(layerId, layer);
+
+    const existingIndex = this.sortedLayerIds.indexOf(layerId);
+    if (existingIndex > -1) {
+      this.sortedLayerIds.splice(existingIndex, 1);
+    }
+
+    this.sortedLayerIds.push(layerId);
+
+    if (this.sortedLayerIds.length === 1 && this.layers.size === 1) {
+      this.activeLayerKey = layerId;
+    }
+
     this.reindexLayers();
   }
 
   public insertLayerAtIndex(layer: ILayer, index: number): { id: string; index: number }[] {
-    if (this.layers.has(layer.id)) {
-      const oldIndex = this.sortedLayerIds.indexOf(layer.id);
-      if (oldIndex !== -1) {
-        this.sortedLayerIds.splice(oldIndex, 1);
-      }
+    const layerId = layer.id;
+
+    const oldIndex = this.sortedLayerIds.indexOf(layerId);
+    if (oldIndex !== -1) {
+      this.sortedLayerIds.splice(oldIndex, 1);
     }
 
-    this.layers.set(layer.id, layer);
-    this.sortedLayerIds.splice(index, 0, layer.id);
+    this.layers.set(layerId, layer);
+
+    const effectiveIndex = Math.max(0, Math.min(index, this.sortedLayerIds.length));
+    this.sortedLayerIds.splice(effectiveIndex, 0, layerId);
+
+    if (!this.activeLayerKey && this.sortedLayerIds.length === 1) {
+      this.activeLayerKey = layerId;
+    }
 
     return this.reindexLayers();
   }
 
-  addMultipleLayers(layers: ILayer[]): void {
-    layers.forEach((layer) => {
-      this.layers.set(layer.id, layer);
-      this.sortedLayerIds.push(layer.id);
+  public addMultipleLayers(layersToAdd: ILayer[]): void {
+    if (layersToAdd.length === 0) {
+      return;
+    }
+
+    const hadActiveLayerInitially = this.activeLayerKey !== null;
+
+    layersToAdd.forEach((layer) => {
+      const layerId = layer.id;
+      this.layers.set(layerId, layer);
+
+      const existingIndex = this.sortedLayerIds.indexOf(layerId);
+      if (existingIndex > -1) {
+        this.sortedLayerIds.splice(existingIndex, 1);
+      }
+      this.sortedLayerIds.push(layerId);
     });
 
-    if (!this.activeLayerKey && layers.length > 0) {
-      this.activeLayerKey = layers[0].id;
+    if (!hadActiveLayerInitially && this.sortedLayerIds.length > 0) {
+      this.activeLayerKey = this.sortedLayerIds[0];
     }
 
     this.reindexLayers();
   }
 
-  removeLayer(layerId: string): { removed: boolean; newActive?: string | null } {
+  public removeLayer(layerId: string): { removed: boolean; newActive?: string | null } {
     const index = this.sortedLayerIds.indexOf(layerId);
     if (index === -1) {
+      if (this.layers.has(layerId)) {
+        this.layers.delete(layerId);
+        if (this.activeLayerKey === layerId) {
+          this.activeLayerKey = this.sortedLayerIds[0] || null;
+        }
+      }
       return { removed: false };
     }
 
     this.layers.delete(layerId);
     this.sortedLayerIds.splice(index, 1);
-    this.reindexLayers();
 
     let newActiveKey = this.activeLayerKey;
     if (this.activeLayerKey === layerId) {
@@ -75,33 +112,34 @@ export class LayersListManager {
       this.activeLayerKey = newActiveKey;
     }
 
+    this.reindexLayers();
     return { removed: true, newActive: newActiveKey };
   }
 
-  moveLayerToPosition(layerId: string, newIndex: number): boolean {
+  public moveLayerToPosition(layerId: string, newIndex: number): boolean {
     const currentIndex = this.sortedLayerIds.indexOf(layerId);
-
-    if (currentIndex === -1) {
-      return false;
-    }
+    if (currentIndex === -1) return false;
 
     this.sortedLayerIds.splice(currentIndex, 1);
-    this.sortedLayerIds.splice(newIndex, 0, layerId);
+    const effectiveNewIndex = Math.max(0, Math.min(newIndex, this.sortedLayerIds.length));
+    this.sortedLayerIds.splice(effectiveNewIndex, 0, layerId);
     this.reindexLayers();
     return true;
   }
 
-  updateLayer(layerId: string, updates: Partial<ILayerModel>): { success: boolean; beforeAfter?: { before: ILayerModel; after: ILayerModel }; reindexed?: { id: string; index: number }[] } {
+  public updateLayer(layerId: string, updates: Partial<ILayerModel>): { success: boolean; beforeAfter?: { before: ILayerModel; after: ILayerModel }; reindexed?: { id: string; index: number }[] } {
     const layer = this.layers.get(layerId);
     if (!layer) {
       return { success: false };
     }
 
-    const currentIndex = this.sortedLayerIds.indexOf(layerId);
-
-    if (updates.index !== undefined && updates.index !== layer.index) {
-      this.sortedLayerIds.splice(currentIndex, 1);
-      this.sortedLayerIds.splice(updates.index, 0, layerId);
+    const currentOrderIndex = this.sortedLayerIds.indexOf(layerId);
+    if (updates.index !== undefined && updates.index !== currentOrderIndex) {
+      if (currentOrderIndex !== -1) {
+        this.sortedLayerIds.splice(currentOrderIndex, 1);
+      }
+      const effectiveUpdateIndex = Math.max(0, Math.min(updates.index, this.sortedLayerIds.length));
+      this.sortedLayerIds.splice(effectiveUpdateIndex, 0, layerId);
     }
 
     const beforeAfter = layer.update(updates);
@@ -109,33 +147,36 @@ export class LayersListManager {
     return { success: true, beforeAfter, reindexed };
   }
 
-  getLayerById(layerId: string): ILayer | undefined {
+  public getLayerById(layerId: string): ILayer | undefined {
     return this.layers.get(layerId);
   }
 
-  getSortedLayers(): ILayer[] {
-    return this.sortedLayerIds.map((id) => this.layers.get(id)!);
+  public getSortedLayers(): ILayer[] {
+    return this.sortedLayerIds
+      .map((id) => this.layers.get(id))
+      .filter(layer => layer !== undefined)
   }
 
-  getFirstLayer(): ILayer | undefined {
+  public getFirstLayer(): ILayer | undefined {
     return this.layers.get(this.sortedLayerIds[0]);
+
   }
 
-  hasLayer(layerId: string): boolean {
+  public hasLayer(layerId: string): boolean {
     return this.layers.has(layerId);
   }
 
-  clear(): void {
+  public clear(): void {
     this.layers.clear();
     this.sortedLayerIds = [];
     this.activeLayerKey = null;
   }
 
-  getActiveLayer(): ILayer | null {
+  public getActiveLayer(): ILayer | null {
     return this.activeLayerKey ? this.layers.get(this.activeLayerKey) || null : null;
   }
 
-  setActiveLayer(layerId: string): boolean {
+  public setActiveLayer(layerId: string): boolean {
     if (!this.layers.has(layerId)) {
       return false;
     }
@@ -144,7 +185,7 @@ export class LayersListManager {
     return true;
   }
 
-  getActiveLayerKey(): string | null {
+  public getActiveLayerKey(): string | null {
     return this.activeLayerKey;
   }
 }
