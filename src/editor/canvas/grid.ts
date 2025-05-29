@@ -37,6 +37,10 @@ export class Grid extends Canvas implements ICanvas {
     this.createGridShader();
   }
 
+  public prepareForConfigChange(): void {
+    this.createGridShader();
+  }
+
   private createGridShader(): void {
     const skslCode = `
       uniform float2 u_resolution;
@@ -121,5 +125,12 @@ export class Grid extends Canvas implements ICanvas {
     this.skCanvas.clear(this.canvasKit.TRANSPARENT);
     this.skCanvas.drawPaint(this.paint);
     this.surface.flush();
+  }
+
+  dispose(): void {
+    super.dispose();
+    this.paint.delete();
+    this.shader?.delete();
+    this.runtimeEffect?.delete();
   }
 }

@@ -51,10 +51,9 @@ export class DrawShapeTool extends BaseTool implements ITool {
       ]
     });
 
-    const select = this.coreApi.getCanvases().select;
     this.camera = this.coreApi.getCamera();
     this.layers = this.coreApi.getLayersManager();
-    this.renderManager = select.getRenderManager();
+    this.renderManager = this.coreApi.getRenderManager();
 
     const [, layer] = this.coreApi.getLayersManager().addTempLayer()
 
@@ -80,6 +79,16 @@ export class DrawShapeTool extends BaseTool implements ITool {
     this.registerShape(Shapes.rectangle, new Rectangle(this.coreApi, layer, 'P'));
   }
 
+  public activate(): void {
+    super.activate()
+    this.addMouseListeners();
+  }
+
+  public deactivate(): void {
+    super.deactivate()
+    this.getEventApi().removeToolEvents();
+  }
+
   private cancelDrawing(): void {
     this.isDrawing = false;
     if (this.tempLayer) {
@@ -100,20 +109,6 @@ export class DrawShapeTool extends BaseTool implements ITool {
     const shape = this.shapes.get(type)
     if (!shape) return null
     return shape
-  }
-
-  activate(): void {
-    super.activate()
-    this.addMouseListeners();
-  }
-
-  deactivate(): void {
-    super.deactivate()
-    this.getEventApi().removeToolEvents();
-  }
-
-  cleanup(): void {
-
   }
 
   private addMouseListeners(): void {
@@ -151,23 +146,22 @@ export class DrawShapeTool extends BaseTool implements ITool {
 
     if (!this.currentShape) return;
 
-    this.renderManager.requestRenderFn(() => {
-      this.currentShape?.updateDraw(col, row);
-      const { startX, startY, endX, endY } = this.currentShape!.area()
+    this.currentShape?.updateDraw(col, row);
+    const { startX, startY, endX, endY } = this.currentShape!.area()
 
-      this.selectSession = {
-        worldRegion: {
-          startX,
-          startY,
-          width: endX - startX + 1,
-          height: endY - startY + 1
-        },
-        data: this.currentShape?.toString() || ''
-      }
+    this.selectSession = {
+      worldRegion: {
+        startX,
+        startY,
+        width: endX - startX + 1,
+        height: endY - startY + 1
+      },
+      data: this.currentShape?.toString() || ''
+    }
 
-      this.tempLayer?.clear()
-      this.tempLayer?.setToRegion(startX, startY, this.currentShape?.toString() || '')
-    });
+    this.tempLayer?.clear()
+    this.tempLayer?.setToRegion(startX, startY, this.currentShape?.toString() || '')
+    this.renderManager.requestRender('canvas', 'ascii')
   }
 
   private handleCanvasMouseUp(): void {
@@ -180,7 +174,7 @@ export class DrawShapeTool extends BaseTool implements ITool {
 
       const activeLayer = this.coreApi.getLayersManager().getActiveLayer();
 
-      if (this.selectSession) {
+      if (this.selectSession && this.selectSession.data.length > 1) {
         selectTool.createSessionWithContent(
           this.selectSession.worldRegion,
           this.selectSession.data,
@@ -196,7 +190,6 @@ export class DrawShapeTool extends BaseTool implements ITool {
 
       this.selectSession = null;
       this.currentShape = null;
-      this.coreApi.render();
     }
   }
 
@@ -209,5 +202,4 @@ export class DrawShapeTool extends BaseTool implements ITool {
     return { col, row };
   }
 }
-
 

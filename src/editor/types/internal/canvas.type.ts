@@ -1,5 +1,4 @@
 import type { CanvasKit, Surface, Canvas as WasmCanvas } from 'canvaskit-wasm';
-import type { IRenderManager } from "./render-manager.type"
 
 export interface ICanvas {
   canvas: HTMLCanvasElement
@@ -8,6 +7,6 @@ export interface ICanvas {
   skCanvas: WasmCanvas;
 
   render(): void;
-  getRenderManager(): IRenderManager
+  dispose(): void;
 }
 

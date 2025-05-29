@@ -1,4 +1,4 @@
-import type { CanvasKit, Canvas as WasmCanvas, Surface, ParagraphStyle, Paragraph, Paint } from 'canvaskit-wasm';
+import type { CanvasKit, Canvas as WasmCanvas, Surface, ParagraphStyle, Paragraph } from 'canvaskit-wasm';
 import { Canvas } from './canvas';
 import type { ICamera, ILayersManager, ITileModel } from '@editor/types';
 import type { Config } from '@editor/config';
@@ -35,12 +35,20 @@ export class Ascii extends Canvas {
     this.paragraphs = new Map();
 
     this.updateParagraphStyle();
+  }
 
-    this.config.on('changed', () => {
-      this.paragraphs.clear();
-      this.updateParagraphStyle();
-      this.render();
-    });
+  public prepareForConfigChange(): void {
+    this.clearParagraphCache();
+    this.updateParagraphStyle();
+  }
+
+  public clearParagraphCache(): void {
+    for (const entry of this.paragraphs.values()) {
+      if (entry.paragraph && !entry.paragraph.isDeleted()) {
+        entry.paragraph.delete();
+      }
+    }
+    this.paragraphs.clear();
   }
 
   private updateParagraphStyle(): void {

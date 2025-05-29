@@ -1,4 +1,4 @@
-import type { ActionHandler, BaseAction } from "@editor/history-manager"; // Already imported
+import type { ActionHandler, BaseAction } from "@editor/history-manager";
 import type { SingleSessionSnapshot } from "../session/selection-session";
 import type { SelectionSessionManager } from "../session/selection-session-manager";
 

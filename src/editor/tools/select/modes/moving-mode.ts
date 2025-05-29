@@ -6,6 +6,7 @@ import { MoveByCommand } from "../session/commands/moveBy.cmd";
 import type { SingleSessionSnapshot } from "../session/selection-session";
 import type { HistoryManager } from "@editor/history-manager";
 import type { CoreApi } from "@editor/core";
+import type { SelectionRenderer } from "../renderer/selection-renderer";
 
 export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
   readonly name = SelectionModeName.MOVING;
@@ -17,7 +18,11 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
   private lastDeltaChars = { x: 0, y: 0 }
   private initializedSession: SingleSessionSnapshot | null = null
 
-  constructor(private coreApi: CoreApi, private selectionSessionManager: SelectionSessionManager) {
+  constructor(
+    private coreApi: CoreApi,
+    private selectionSessionManager: SelectionSessionManager,
+    private sessionRenderManager: SelectionRenderer
+  ) {
     this.camera = this.coreApi.getCamera()
     this.historyManager = this.coreApi.getHistoryManager()
   }
@@ -58,6 +63,8 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
       this.lastDeltaChars = delta;
       this.selectionSessionManager.executeCommandOnActiveSession(new MoveByCommand(this.coreApi, increment))
     }
+
+    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
   }
 
   public handleMouseUp(_: MouseEvent, context: SelectionModeContext): void {

@@ -33,6 +33,15 @@ export class ToolManager {
     this.toolBus.on('tool::update_config::request', this.handleUpdateConfig.bind(this))
   }
 
+  public getActiveTool(): ITool | null {
+    if (!this.activeTool) return null;
+    return this.tools.get(this.activeTool) || null;
+  }
+
+  public getActiveToolName(): string | null {
+    return this.activeTool;
+  }
+
   handleUpdateConfig({ name, config }: { name: string, config: IToolOptions }) {
     const tool = this.tools.get(name);
     if (!tool) {

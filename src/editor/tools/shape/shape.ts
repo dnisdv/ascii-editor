@@ -33,8 +33,8 @@ export abstract class Shape {
     if (!activeLayer) return;
   }
 
-  toString(): string {
-    return ''
+  toString(): string | null {
+    return null
   }
 
   abstract area(): { startX: number, startY: number, endX: number, endY: number };

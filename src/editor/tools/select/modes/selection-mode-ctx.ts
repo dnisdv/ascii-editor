@@ -1,9 +1,9 @@
-import type { CoreApi } from "@editor/core.type";
 import { SelectionModeName, type AnyConcreteSelectionMode, type ConcreteModeTypeMap, type ISelectionMode, type ModePayloads } from "./modes.type";
 import { IdleMode } from "./idle-mode";
 import type { SelectionSessionManager } from "../session/selection-session-manager";
 import { SelectedMode } from "./selected-mode";
 import { EventEmitter } from "@editor/event-emitter";
+import type { CoreApi } from "@editor/core";
 
 type SelectionModeContextEventType = {
   'ctx::transitioned': undefined;

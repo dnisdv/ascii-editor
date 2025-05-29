@@ -1,6 +1,6 @@
 import { BaseTool } from "../tool";
 import type { ITool } from "../tool";
-import type { ILayersManager, ICamera, IRenderManager } from "@editor/types";
+import type { ILayersManager, ICamera, IRenderManager, ICanvas } from "@editor/types";
 import type { CanvasKit, Paragraph, ParagraphStyle, Canvas as WasmCanvas } from "canvaskit-wasm";
 import type { HistoryManager } from "@editor/history-manager";
 import { RequireActiveLayerVisible } from "@editor/tool-requirements";
@@ -24,6 +24,7 @@ export class DrawTool extends BaseTool implements ITool {
   private lastMousePos: { x: number; y: number } | null = null;
 
   private isLayerVisible: boolean = true;
+  private selectCanvas: ICanvas;
 
   constructor(coreApi: CoreApi) {
     super({
@@ -46,6 +47,7 @@ export class DrawTool extends BaseTool implements ITool {
     this.canvasKit = canvasKit;
     this.skCanvas = skCanvas;
 
+    this.selectCanvas = coreApi.getCanvases().select;
     this.camera = coreApi.getCamera();
     this.layers = coreApi.getLayersManager();
 
@@ -58,7 +60,7 @@ export class DrawTool extends BaseTool implements ITool {
       },
     });
     this.paragraphs = new Map();
-    this.renderManager = select.getRenderManager();
+    this.renderManager = this.coreApi.getRenderManager();
     this.historyManager = this.coreApi.getHistoryManager();
 
     this.layers.on('layers::active::change', () => {
@@ -95,8 +97,18 @@ export class DrawTool extends BaseTool implements ITool {
 
   deactivate(): void {
     super.deactivate()
+    this.clear()
     this.getEventApi().removeToolEvents()
     this.renderManager.unregister('tool::draw', 'draw::symbol')
+  }
+
+  private clear() {
+    this.renderManager.requestRenderFn(() => {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+      if (this.selectCanvas && this.selectCanvas.surface && !this.selectCanvas.surface.isDeleted()) {
+        this.selectCanvas.surface.flush();
+      }
+    });
   }
 
   private cancelDrawing(): void {
@@ -144,9 +156,8 @@ export class DrawTool extends BaseTool implements ITool {
 
     const paragraph = this.getParagraph(String(this.config.activeSymbol), charWidth);
     this.skCanvas.drawParagraph(paragraph, x + 20, y + 20);
+    this.selectCanvas.surface.flush()
   }
-
-  cleanup(): void { }
 
   private addMouseListeners(): void {
     this.getEventApi().registerMouseDown('left', this.handleCanvasMouseDown.bind(this));
@@ -165,7 +176,6 @@ export class DrawTool extends BaseTool implements ITool {
 
   private handleCanvasMouseDown(event: MouseEvent): void {
     this.layers.ensureLayer();
-
     if (event.button !== 0 || !this.checkRequirements()) return;
 
     this.historyBatchTransaction = this.historyManager.beginBatch();
@@ -209,7 +219,7 @@ export class DrawTool extends BaseTool implements ITool {
     return { x, y };
   }
 
-  getConfig() {
+  public getConfig() {
     return this.config as { activeSymbol: string }
   }
 
@@ -230,7 +240,7 @@ export class DrawTool extends BaseTool implements ITool {
     }
 
     activeLayer?.setChar(row, col, this.getConfig().activeSymbol);
-    this.coreApi.render();
+    this.renderManager.requestRender('canvas', 'ascii')
   }
 }
 

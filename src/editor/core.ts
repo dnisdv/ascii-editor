@@ -6,6 +6,7 @@ import type { Config } from "./config";
 import type { FontManager } from "./font-manager";
 import type { Cursor } from "./cursor";
 import type { UI } from "./ui";
+import type { RenderManager } from "./render-manager";
 
 export type CoreApi = {
   getCamera(): ICamera;
@@ -16,6 +17,7 @@ export type CoreApi = {
   getToolManager(): ToolManager;
   getHistoryManager(): HistoryManager
   getFontManager(): FontManager
+  getRenderManager(): RenderManager
 
   getConfig(): Config
   getCursor(): Cursor
@@ -32,6 +34,7 @@ export interface CoreDependencies {
   cursor: Cursor;
   toolManager: ToolManager;
   ui: UI
+  renderManager: RenderManager
 
   // specific
   camera: ICamera;
@@ -47,6 +50,7 @@ export class Core implements CoreApi {
   private history: HistoryManager
   private config: Config
   private fontManager: FontManager
+  private renderManager: RenderManager
   private ui: UI
 
   constructor({
@@ -58,7 +62,8 @@ export class Core implements CoreApi {
     layersManager,
     cursor,
     toolManager,
-    ui
+    ui,
+    renderManager,
   }: CoreDependencies) {
     this.camera = camera
     this.busManager = busManager
@@ -69,6 +74,7 @@ export class Core implements CoreApi {
     this.cursor = cursor
     this.toolManager = toolManager
     this.ui = ui
+    this.renderManager = renderManager
   }
 
   getCamera(): ICamera { return this.camera }
@@ -80,18 +86,18 @@ export class Core implements CoreApi {
   getConfig(): Config { return this.config }
   getCursor(): Cursor { return this.cursor }
   getUI(): UI { return this.ui }
+  getRenderManager(): RenderManager { return this.renderManager; }
 
   getCanvases(): { grid: ICanvas, select: ICanvas, ascii: ICanvas } {
     return {
       ascii: this.ui.getAsciiCanvas(),
       select: this.ui.getSelectCanvas(),
       grid: this.ui.getGridCanvas()
-
     }
   }
 
   render(): void {
-    this.ui.render()
+    this.getRenderManager().requestRenderAll()
   }
 
 }

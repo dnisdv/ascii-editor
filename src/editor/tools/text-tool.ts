@@ -1,6 +1,6 @@
 import { BaseTool } from "../tool";
 import type { ITool } from "../tool";
-import type { ILayersManager, ICamera, IRenderManager, ILayer } from "@editor/types";
+import type { ILayersManager, ICamera, IRenderManager, ILayer, ICanvas } from "@editor/types";
 import type {
   CanvasKit,
   Paint,
@@ -28,6 +28,7 @@ export class TextTool extends BaseTool implements ITool {
 
   private paint: Paint;
 
+  private selectCanvas: ICanvas;
   private isLayerVisible: boolean = true;
 
   private editSession: {
@@ -64,8 +65,10 @@ export class TextTool extends BaseTool implements ITool {
     this.camera = coreApi.getCamera();
     this.layers = coreApi.getLayersManager();
 
-    this.renderManager = select.getRenderManager();
+    this.renderManager = this.coreApi.getRenderManager();
     this.historyManager = this.coreApi.getHistoryManager();
+
+    this.selectCanvas = this.coreApi.getCanvases().select;
 
     const { primary } = this.coreApi.getConfig().getTheme();
 
@@ -83,6 +86,7 @@ export class TextTool extends BaseTool implements ITool {
     this.historyManager.onBeforeUndo(() => {
       if (this.isActive && this.editSession && this.editSession.content.size > 0) {
         this.commitEditSession()
+        this.clear()
       }
     });
 
@@ -102,6 +106,15 @@ export class TextTool extends BaseTool implements ITool {
           this.isLayerVisible = after.opts?.visible ?? true;
           this.handleVisibilityChange();
         }
+      }
+    });
+  }
+
+  private clear() {
+    this.renderManager.requestRenderFn(() => {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+      if (this.selectCanvas && this.selectCanvas.surface && !this.selectCanvas.surface.isDeleted()) {
+        this.selectCanvas.surface.flush();
       }
     });
   }
@@ -128,6 +141,7 @@ export class TextTool extends BaseTool implements ITool {
 
       const rect = this.canvasKit.LTRBRect(startX, startY, endX, endY);
       this.skCanvas.drawRect(rect, this.paint);
+      this.selectCanvas.surface.flush();
     });
   }
 
@@ -135,6 +149,7 @@ export class TextTool extends BaseTool implements ITool {
     super.deactivate()
     this.getEventApi().removeToolEvents();
 
+    this.clear()
     this.isActive = false;
     this.commitEditSession()
     this.renderManager.unregister('tool::text', 'selectedOverlay')
@@ -193,7 +208,6 @@ export class TextTool extends BaseTool implements ITool {
       this.editSession = null;
       this.tempLayer = null;
       this.nullSelectedCell();
-      this.coreApi.render();
       return;
     }
 
@@ -236,7 +250,6 @@ export class TextTool extends BaseTool implements ITool {
     this.tempLayer = null;
 
     this.nullSelectedCell();
-    this.coreApi.render();
   }
 
   private handleCanvasMouseUp(): void {
@@ -275,7 +288,7 @@ export class TextTool extends BaseTool implements ITool {
     this.validateAndUpdateRegion(x, y);
 
     this.setSelectedCell(x + 1, y);
-    this.coreApi.render();
+    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
   }
 
 
@@ -298,7 +311,6 @@ export class TextTool extends BaseTool implements ITool {
     this.editSession.content.set(cellKey, ' ');
 
     this.setSelectedCell(newX, newY);
-    this.coreApi.render();
   }
 
   private handlePaste(): void | false {
@@ -338,7 +350,6 @@ export class TextTool extends BaseTool implements ITool {
         this.editSession!.region.endY = Math.max(this.editSession!.region.endY, startY + lines.length - 1);
 
         this.setSelectedCell(newX, newY);
-        this.coreApi.render();
       });
     } catch (err) {
       console.error("Failed to read clipboard:", err);
@@ -373,7 +384,6 @@ export class TextTool extends BaseTool implements ITool {
 
     this.validateAndUpdateRegion(newX, newY);
     this.setSelectedCell(newX, newY);
-    this.coreApi.render();
   }
 
 

@@ -11,8 +11,9 @@ export class Select extends Canvas {
   constructor({ canvas, canvasKit, surface }: SelectOptions) {
     super(canvas, canvasKit, surface);
   }
-  render() {
-    this.getRenderManager().requestRenderAll()
+  render() { }
+  dispose(): void {
+    super.dispose();
   }
 }
 

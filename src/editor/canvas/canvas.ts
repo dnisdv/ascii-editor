@@ -1,4 +1,3 @@
-import { RenderManager, RenderManagerProxy } from '@editor/render-manager';
 import type { ICanvas } from '@editor/types';
 import type { CanvasKit, Surface, Canvas as WasmCanvas } from 'canvaskit-wasm';
 
@@ -29,9 +28,6 @@ export class Canvas implements ICanvas {
   private _surface: Surface;
   private _skCanvas: WasmCanvas;
 
-  private renderManager: RenderManager;
-  private renderManagerProxy: RenderManagerProxy;
-
   private _dynamicSkCanvas: WasmCanvas;
   private _dynamicSurface: Surface;
 
@@ -43,9 +39,6 @@ export class Canvas implements ICanvas {
 
     this._dynamicSkCanvas = createDynamicProxy(() => this._skCanvas);
     this._dynamicSurface = createDynamicProxy(() => this._surface);
-
-    this.renderManager = new RenderManager(canvasKit, surface);
-    this.renderManagerProxy = new RenderManagerProxy(() => this.renderManager);
   }
 
   get skCanvas(): WasmCanvas {
@@ -64,19 +57,22 @@ export class Canvas implements ICanvas {
     return this._dynamicSurface;
   }
 
-  getRenderManager() {
-    return this.renderManagerProxy;
-  }
 
-  updateSurface(newSurface: Surface) {
+  updateSurface(newSurface: Surface): void {
     const oldSurface = this._surface;
 
     this._surface = newSurface;
     this._skCanvas = newSurface.getCanvas();
-    this.renderManager.updateSurface(newSurface);
-    oldSurface.delete();
+
+    if (oldSurface && oldSurface !== newSurface && !oldSurface.isDeleted()) {
+      oldSurface.delete();
+    }
   }
 
   render() {
+  }
+
+  dispose(): void {
+    if (this._surface && !this._surface.isDeleted()) this._surface.delete();
   }
 }

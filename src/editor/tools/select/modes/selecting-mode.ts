@@ -1,4 +1,3 @@
-import type { CoreApi } from "@editor/core.type";
 import { SelectionModeName, type ISelectionMode, type SelectingModePayload } from "./modes.type";
 import type { SelectionModeContext } from "./selection-mode-ctx";
 import type { ICamera } from "@editor/types";
@@ -7,6 +6,7 @@ import { PopulateRegionCommand } from "../session/commands/populateRegion.cmd";
 import { CommitSessionCommand } from "../session/commands/commitSession.cmd";
 import { CreateAndReplaceSessionCommand } from "../session/commands/createAndReplaceSession.cmd";
 import type { SelectionRenderer } from "../renderer/selection-renderer";
+import type { CoreApi } from "@editor/core";
 
 export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING> {
   readonly name = SelectionModeName.SELECTING;
@@ -47,12 +47,13 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
   }
 
   handleMouseUp(event: MouseEvent, context: SelectionModeContext): void {
+    this.selectionRender.clear()
+
     if (context.isRestrictedMode()) {
       context.transitionTo(SelectionModeName.IDLE)
       return
     }
 
-    this.selectionRender.clear()
     this.selectionSessionManager.executeCommand(new CreateAndReplaceSessionCommand())
 
     const { clientX, clientY } = event

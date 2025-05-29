@@ -1,5 +1,4 @@
 import type { ICamera, ICanvas, IRenderManager } from "@editor/types";
-
 import type { CanvasKit, Paint, Canvas as WasmCanvas } from 'canvaskit-wasm';
 import type { SelectionSessionManager } from "../session/selection-session-manager";
 import type { SelectionModeContext } from "../modes/selection-mode-ctx";
@@ -14,7 +13,7 @@ export class SelectionRenderer {
   private rotateDotPaint: Paint;
 
   private selectCanvas: ICanvas;
-  private selectCanvasRenderManager: IRenderManager;
+  private renderManager: IRenderManager;
 
   constructor(
     private coreApi: CoreApi,
@@ -23,7 +22,7 @@ export class SelectionRenderer {
   ) {
     this.camera = this.coreApi.getCamera();
     this.selectCanvas = this.coreApi.getCanvases().select;
-    this.selectCanvasRenderManager = this.selectCanvas.getRenderManager();
+    this.renderManager = this.coreApi.getRenderManager();
 
     const { canvasKit, skCanvas } = this.coreApi.getCanvases().select;
     this.canvasKit = canvasKit;
@@ -46,7 +45,7 @@ export class SelectionRenderer {
     sessionManager.on("manager::session_created", this.triggerDraw.bind(this))
     sessionManager.on("manager::session_destroyed", this.triggerDraw.bind(this))
 
-    this.selectCanvasRenderManager.register('tool::select', 'draw', () => {
+    this.renderManager.register('tool::select', 'draw', () => {
       this.drawSelection()
       this.drawRotationHandles();
     })
@@ -55,13 +54,16 @@ export class SelectionRenderer {
   }
 
   public triggerDraw() {
-    this.selectCanvasRenderManager.requestRender('tool::select', 'draw')
-    this.coreApi.render()
+    this.renderManager.requestRender('tool::select', 'draw')
   }
 
   private drawSelection() {
     const box = this.sessionManager.getActiveSession()?.getSelectedRegion()
-    if (!box) return this.clear()
+    if (!box) {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+      this.selectCanvas.surface.flush();
+      return
+    }
 
     this.drawSelectionOverlay({
       startX: box.startX,
@@ -76,11 +78,11 @@ export class SelectionRenderer {
     startY: number;
     endX: number;
     endY: number;
-  }) {
+  }): void {
     const activeSelectSession = this.sessionManager.getActiveSession();
-    if (!activeSelectSession) return;
-
-    this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+    if (!activeSelectSession) {
+      return
+    }
 
     const screenStart = this.camera.worldToScreen(selectedArea.startX, selectedArea.startY);
     const screenEnd = this.camera.worldToScreen(selectedArea.endX, selectedArea.endY);
@@ -89,20 +91,28 @@ export class SelectionRenderer {
     const rectCenterY = (screenStart.y + screenEnd.y) / 2;
 
     const rect = this.canvasKit.LTRBRect(screenStart.x, screenStart.y, screenEnd.x, screenEnd.y);
-    const rotatingCtx = this.modeCtx.getMode(SelectionModeName.ROTATING)!
+    const rotatingCtxMode = this.modeCtx.getMode(SelectionModeName.ROTATING);
+
+    if (!rotatingCtxMode) {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+      this.selectCanvas.surface.flush();
+      return
+    }
 
     this.skCanvas.save();
-
     this.skCanvas.translate(rectCenterX, rectCenterY);
-    this.skCanvas.rotate(rotatingCtx.getRotationAngle(), 0, 0);
+    this.skCanvas.rotate(rotatingCtxMode.getRotationAngle(), 0, 0);
     this.skCanvas.translate(-rectCenterX, -rectCenterY);
-
     this.skCanvas.drawRect(rect, this.paint);
     this.skCanvas.restore();
+
+    this.selectCanvas.surface.flush();
   }
 
   drawRect(x: number, y: number, width: number, height: number): void {
-    this.selectCanvasRenderManager.requestRenderFn(() => {
+    this.renderManager.requestRenderFn(() => {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+
       const screenStart = this.camera.worldToScreen(x, y);
       const screenEnd = this.camera.worldToScreen(x + width, y + height);
 
@@ -112,14 +122,21 @@ export class SelectionRenderer {
         screenEnd.x,
         screenEnd.y
       );
-
       this.skCanvas.drawRect(rect, this.paint);
 
-    })
+      if (this.selectCanvas && this.selectCanvas.surface && !this.selectCanvas.surface.isDeleted()) {
+        this.selectCanvas.surface.flush();
+      }
+    });
   }
 
-  clear() {
-    this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+  public clear(): void {
+    this.renderManager.requestRenderFn(() => {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+      if (this.selectCanvas && this.selectCanvas.surface && !this.selectCanvas.surface.isDeleted()) {
+        this.selectCanvas.surface.flush();
+      }
+    });
   }
 
   drawRotationHandles(): void {
@@ -187,6 +204,7 @@ export class SelectionRenderer {
       }
 
       skCanvas.restore();
+      this.selectCanvas.surface.flush();
     }
   }
 

@@ -77,13 +77,14 @@ export class SelectTool extends BaseTool {
   private handleLayerChange(): void {
     this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
     this.modeContext.transitionTo(SelectionModeName.IDLE)
+    this.selectionRenderer.clear()
   }
 
   private registerModes(): void {
     this.modeContext.registerMode(SelectionModeName.IDLE, new IdleMode());
     this.modeContext.registerMode(SelectionModeName.SELECTING, new SelectingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
     this.modeContext.registerMode(SelectionModeName.SELECTED, new SelectedMode(this.coreApi, this.selectionSessionManager,));
-    this.modeContext.registerMode(SelectionModeName.MOVING, new MovingMode(this.coreApi, this.selectionSessionManager));
+    this.modeContext.registerMode(SelectionModeName.MOVING, new MovingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
     this.modeContext.registerMode(SelectionModeName.ROTATING, new RotatingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
   }
 
@@ -102,7 +103,7 @@ export class SelectTool extends BaseTool {
 
   deactivate(): void {
     super.deactivate();
-    this.addMouseListeners();
+    this.selectionRenderer.clear()
     this.getEventApi().removeToolEvents();
     this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
   }
@@ -150,7 +151,8 @@ export class SelectTool extends BaseTool {
     if (!activeSession || !activeSession.getSelectedContent()?.data) return;
     this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
     this.modeContext.transitionTo(SelectionModeName.IDLE)
-    this.coreApi.render()
+    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
+    this.selectionRenderer.clear()
   }
 
   private handleDeleteSelected() {
@@ -158,7 +160,8 @@ export class SelectTool extends BaseTool {
     if (!activeSession || !activeSession.getSelectedContent()?.data) return;
     this.selectionSessionManager.executeCommand(new CancelSessionCommand(this.coreApi))
     this.modeContext.transitionTo(SelectionModeName.IDLE)
-    this.coreApi.render()
+    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
+    this.selectionRenderer.clear()
   }
 
 }

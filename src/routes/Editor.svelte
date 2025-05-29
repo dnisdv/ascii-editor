@@ -150,7 +150,6 @@
 				app.registerTool(drawShapeTool);
 				app.registerTool(textTool);
 				app.registerTool(clipboardTool);
-				app.registerTool(clipboardTool);
 				app.registerTool(historyControlTool);
 				app.registerTool(cameraControlTool);
 

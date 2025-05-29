@@ -5,6 +5,7 @@ import type { CanvasKit } from "canvaskit-wasm";
 import type { Config } from "./config";
 import type { ICamera, ILayersManager } from "./types";
 import type { FontManager } from "./font-manager";
+import type { RenderManager } from "./render-manager";
 
 type IUI = {
 	gridCanvasElement: HTMLCanvasElement;
@@ -15,6 +16,7 @@ type IUI = {
 	camera: ICamera;
 	layersManager: ILayersManager
 	fontManager: FontManager;
+	renderManager: RenderManager
 }
 
 export class UI {
@@ -32,6 +34,7 @@ export class UI {
 	private config: Config
 	private layersManager: ILayersManager
 	private fontManager: FontManager
+	private renderManager: RenderManager
 
 	constructor({
 		canvasKitInstance,
@@ -41,7 +44,8 @@ export class UI {
 		camera,
 		config,
 		layersManager,
-		fontManager
+		fontManager,
+		renderManager,
 	}: IUI) {
 		this.gridCanvasElement = gridCanvasElement
 		this.selectCanvasElement = selectCanvasElement
@@ -57,11 +61,12 @@ export class UI {
 		this.grid = this.initGridCanvas(gridCanvasElement);
 		this.ascii = this.initAsciiCanvas(asciiCanvasElement);
 		this.select = this.initSelectCanvas(selectCanvasElement);
-	}
 
-	public render() {
-		this.grid?.render();
-		this.ascii?.render();
+		this.renderManager = renderManager;
+
+		this.renderManager.register("canvas", "grid", () => this.grid.render());
+		this.renderManager.register("canvas", "ascii", () => this.ascii.render());
+		this.renderManager.register("canvas", "select", () => this.select.render());
 	}
 
 	public resizeCanvases() {
@@ -69,7 +74,7 @@ export class UI {
 		this.select.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.selectCanvasElement)!);
 		this.ascii.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.asciiCanvasElement)!);
 
-		this.render();
+		this.renderManager.requestRenderAll();
 	}
 
 	public getGridCanvas() { return this.grid }

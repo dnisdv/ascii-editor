@@ -12,6 +12,7 @@ import { LayersManager } from "./layers/layers-manager";
 import { Cursor } from "./cursor";
 import { ToolManager } from "./tool-manager";
 import { UI } from "./ui";
+import { RenderManager } from "./render-manager";
 
 export interface AppDependencies {
   core: Core
@@ -29,7 +30,7 @@ export class App {
     this.core.render()
   }
 
-  render() { this.core.render(); }
+  render() { this.core.getRenderManager().requestRenderAll(); }
   registerTool(tool: ITool) { this.core.getToolManager().registerTool(tool); }
   hydratateDocument(data: DocumentSchemaType) { this.serializer.deserialize(data); }
 
@@ -64,12 +65,16 @@ export function createAppInstance(options: AppFactoryOptions): [Core, App] {
   const historyManager = new HistoryManager()
   const fontManager = new FontManager(canvasKitInstance, font, { size: 18 });
   const layersManager = new LayersManager({ layersBus: busManager.layers, config, historyManager });
+  const renderManager = new RenderManager()
+
+  layersManager.on('layer::updated', () => renderManager.requestRenderAll())
 
   const ui = new UI({
     canvasKitInstance,
     gridCanvasElement,
     selectCanvasElement,
     asciiCanvasElement,
+    renderManager: renderManager,
 
     config,
     camera,
@@ -89,7 +94,8 @@ export function createAppInstance(options: AppFactoryOptions): [Core, App] {
     layersManager,
     cursor,
     toolManager,
-    ui
+    ui,
+    renderManager
   })
 
   const serializer = new AppSerializer(core)

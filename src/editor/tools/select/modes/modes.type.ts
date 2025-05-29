@@ -5,7 +5,6 @@ import type { SelectedMode } from "./selected-mode";
 import type { SelectingMode } from "./selecting-mode";
 import type { SelectionModeContext } from "./selection-mode-ctx";
 
-
 export type IdleModePayload = undefined;
 export type SelectedModePayload = undefined
 

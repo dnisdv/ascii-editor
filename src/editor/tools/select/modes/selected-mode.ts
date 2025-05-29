@@ -23,7 +23,6 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
     const activeSession = this.selectionSessionManager.getActiveSession()
     const selectedContent = activeSession?.getSelectedContent()
     const rotatingMode = context.getMode(SelectionModeName.ROTATING)!
-    // console.log(selectedContent?.data)
 
     if (this.isMouseInsideSelected(pos.x, pos.y)) {
       context.transitionTo(SelectionModeName.MOVING, { mouseDownEvent: event })
