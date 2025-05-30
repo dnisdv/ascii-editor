@@ -122,7 +122,6 @@ describe('SelectTool', () => {
     vi.restoreAllMocks();
   });
 
-
   const performDrag = (startCellX: number, startCellY: number, endCellX: number, endCellY: number) => {
     const startCoords = cellToWorld(startCellX, startCellY);
     const endCoords = cellToWorld(endCellX, endCellY);

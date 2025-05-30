@@ -1,12 +1,12 @@
 import { BaseTool } from "../tool";
 import type { ITool } from "../tool";
-import type { ILayersManager, ICamera, IRenderManager, ILayer, ICanvas } from "@editor/types";
+import type { ILayersManager, ICamera, IRenderManager, ICanvas } from "@editor/types";
 import type {
   CanvasKit,
   Paint,
   Canvas as WasmCanvas,
 } from "canvaskit-wasm";
-import type { ActionHandler, BaseAction, HistoryManager } from "@editor/history-manager";
+import type { HistoryManager } from "@editor/history-manager";
 import { RequireActiveLayerVisible } from "@editor/tool-requirements";
 import type { CoreApi } from "@editor/core";
 
@@ -24,24 +24,14 @@ export class TextTool extends BaseTool implements ITool {
   private historyManager: HistoryManager;
 
   private selectedCell: { x: number; y: number } | null = null;
-  private isActive: boolean = false;
 
   private paint: Paint;
-
   private selectCanvas: ICanvas;
-  private isLayerVisible: boolean = true;
 
-  private editSession: {
-    region: {
-      startX: number,
-      startY: number,
-      endX: number,
-      endY: number
-    }
-    content: Map<string, string>
-  } | null = null;
+  private historyBatchTransaction: string | null = null;
 
-  private tempLayer: ILayer | null = null;
+  private cursorBlinkState: boolean = true;
+  private cursorBlinkInterval: number | null = null;
 
   constructor(coreApi: CoreApi) {
     super({
@@ -57,60 +47,65 @@ export class TextTool extends BaseTool implements ITool {
     });
 
     const select = coreApi.getCanvases().select;
-
     const { canvasKit, skCanvas } = select;
     this.canvasKit = canvasKit;
     this.skCanvas = skCanvas;
 
     this.camera = coreApi.getCamera();
     this.layers = coreApi.getLayersManager();
-
     this.renderManager = this.coreApi.getRenderManager();
     this.historyManager = this.coreApi.getHistoryManager();
-
     this.selectCanvas = this.coreApi.getCanvases().select;
 
     const { primary } = this.coreApi.getConfig().getTheme();
-
     this.paint = new this.canvasKit.Paint();
-    this.paint.setColor(this.canvasKit.Color4f(primary[0], primary[1], primary[2], 0.5));
+    this.paint.setColor(this.canvasKit.Color4f(primary[0], primary[1], primary[2], 0.8));
     this.paint.setStyle(this.canvasKit.PaintStyle.Fill);
     this.paint.setAntiAlias(true);
 
-    this.historyManager.registerHandler('tool::text::region', new TextWriteAction())
-
-    this.camera.on('change', () => {
-      this.drawSelectedOverlay()
-    })
+    this.camera.on('change', () => this.drawCursorOverlay());
 
     this.historyManager.onBeforeUndo(() => {
-      if (this.isActive && this.editSession && this.editSession.content.size > 0) {
-        this.commitEditSession()
-        this.clear()
-      }
+      this.cursorBlinkState = false;
+      this.commitCurrentBatch();
+      this.selectedCell = null;
+      this.clearCursorOverlay();
     });
 
-    this.layers.on('layer::pre-remove', () => this.commitEditSession());
+    this.historyManager.onAfterUndo(() =>
+      this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
+    );
+    this.historyManager.onAfterRedo(() =>
+      this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
+    );
 
     this.layers.on('layers::active::change', () => {
-      const activeLayer = this.layers.getActiveLayer();
-      this.isLayerVisible = activeLayer?.opts?.visible ?? true;
+      this.commitCurrentBatch();
       this.handleVisibilityChange();
     });
 
+    this.layers.on('layer::pre-remove', ({ layer }) => {
+      if (this.layers.getActiveLayerKey() === layer.id) {
+        this.commitCurrentBatch();
+      }
+    });
     this.layers.on('layer::updated', ({ before, after }) => {
-      const isLayerVisibilityChanged = before.opts?.visible !== after.opts?.visible;
-      if (isLayerVisibilityChanged) {
-        const activeLayer = this.layers.getActiveLayer();
-        if (activeLayer?.id === after.id) {
-          this.isLayerVisible = after.opts?.visible ?? true;
+      const activeLayer = this.layers.getActiveLayer();
+      if (activeLayer?.id === after.id) {
+        const isVisibilityChanged = before.opts?.visible !== after.opts?.visible;
+        if (isVisibilityChanged) {
           this.handleVisibilityChange();
         }
       }
     });
   }
 
-  private clear() {
+  private canInteract(): boolean {
+    if (!this.checkRequirements()) return false;
+    return !!this.layers.getActiveLayer();
+  }
+
+  private clearCursorOverlay() {
     this.renderManager.requestRenderFn(() => {
       this.skCanvas.clear(this.canvasKit.TRANSPARENT);
       if (this.selectCanvas && this.selectCanvas.surface && !this.selectCanvas.surface.isDeleted()) {
@@ -120,301 +115,277 @@ export class TextTool extends BaseTool implements ITool {
   }
 
   private handleVisibilityChange(): void {
-    if (this.editSession) {
-      this.commitEditSession();
-    }
-    this.nullSelectedCell();
-    this.drawSelectedOverlay();
+    this.commitCurrentBatch();
+    this.selectedCell = null;
+    this.drawCursorOverlay();
   }
 
   activate(): void {
-    super.activate()
-    this.isActive = true;
+    super.activate();
     this.addMouseListeners();
 
-    this.renderManager.register('tool::text', 'selectedOverlay', () => {
-      const selectedCell = this.getSelectedCell();
-      if (!selectedCell) return;
+    this.renderManager.register('tool::text', 'cursorOverlay', () => {
+      this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+      if (!this.selectedCell || !this.cursorBlinkState) return;
 
-      const { x, y } = selectedCell;
-      const { startX, startY, endX, endY } = this.cellPositionToMouse(x, y);
+      const { x, y } = this.selectedCell;
+      const { startX, startY, endX, endY } = this.cellPositionToGlobalScreen(x, y);
 
       const rect = this.canvasKit.LTRBRect(startX, startY, endX, endY);
       this.skCanvas.drawRect(rect, this.paint);
       this.selectCanvas.surface.flush();
     });
+
+    if (this.selectedCell) this.drawCursorOverlay();
+    this.startCursorBlink();
   }
 
   deactivate(): void {
-    super.deactivate()
+    super.deactivate();
+    this.stopCursorBlink();
+    this.clearCursorOverlay();
     this.getEventApi().removeToolEvents();
+    this.commitCurrentBatch();
+    this.renderManager.unregister('tool::text', 'cursorOverlay');
+    this.selectedCell = null;
+  }
 
-    this.clear()
-    this.isActive = false;
-    this.commitEditSession()
-    this.renderManager.unregister('tool::text', 'selectedOverlay')
+  private startCursorBlink(): void {
+    this.stopCursorBlink();
+    this.cursorBlinkState = true;
+    this.cursorBlinkInterval = window.setInterval(() => {
+      this.cursorBlinkState = !this.cursorBlinkState;
+      if (this.selectedCell) {
+        this.drawCursorOverlay();
+      } else if (!this.selectedCell && !this.cursorBlinkState) {
+        this.drawCursorOverlay();
+      }
+    }, 500);
+  }
+
+  private stopCursorBlink(): void {
+    if (this.cursorBlinkInterval !== null) {
+      clearInterval(this.cursorBlinkInterval);
+      this.cursorBlinkInterval = null;
+    }
+    this.cursorBlinkState = true;
   }
 
   private addMouseListeners(): void {
     this.getEventApi().registerMouseDown('left', this.handleCanvasMouseDown.bind(this));
-    this.getEventApi().registerMouseMove(this.handleCanvasMouseUp.bind(this));
-
     this.getEventApi().registerKeyPress('<C-v>', this.handlePaste.bind(this));
-    this.getEventApi().registerKeyPress(/^<[CSM]?-?(?:[a-zA-Z0-9 ]|ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Backspace|.)>$/, this.handleKeyPress.bind(this));
+    this.getEventApi().registerKeyPress(/^(?:<[CSM]?-?)?(?:[a-zA-Z0-9 !"#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~]|Backspace|ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Escape)>$/, this.handleKeyPress.bind(this));
   }
 
   private handleCanvasMouseDown(event: MouseEvent): void {
-    this.layers.ensureLayer();
+    if (event.button !== 0) return;
 
-    if (
-      event.button !== 0 || !this.checkRequirements()
-    ) return;
+    this.commitCurrentBatch();
 
-    const { x, y } = this.getCellPos(event);
-    this.startEditSession(x, y);
-    this.setSelectedCell(x, y);
-  }
-
-  private startEditSession(x: number, y: number): void {
-    const activeLayer = this.layers.ensureLayer();
-
-    this.commitEditSession();
-    this.tempLayer = this.layers.addTempLayer()[1];
-
-    const initialState = new Map<string, string>();
-    initialState.set(`${x},${y}`, activeLayer.getChar(x, y) || ' ');
-
-    this.editSession = {
-      region: {
-        startX: x,
-        endX: x,
-        startY: y,
-        endY: y
-      },
-      content: new Map(),
-    };
-  }
-
-  private commitEditSession(): void {
-    const activeLayer = this.layers.getActiveLayer();
-    if (!activeLayer || !this.tempLayer || !this.editSession) return;
-
-    if (
-      this.editSession.region.startX === this.editSession.region.endX &&
-      this.editSession.region.startY === this.editSession.region.endY
-    ) {
-      this.tempLayer?.clear();
-      this.layers.removeTempLayer(this.tempLayer.id);
-      this.editSession = null;
-      this.tempLayer = null;
-      this.nullSelectedCell();
+    if (!this.canInteract()) {
+      this.selectedCell = null;
+      this.drawCursorOverlay();
       return;
     }
+    this.layers.ensureLayer();
 
-    const minX = Math.min(this.editSession.region.startX, this.editSession.region.endX);
-    const maxX = Math.max(this.editSession.region.startX, this.editSession.region.endX);
-    const minY = Math.min(this.editSession.region.startY, this.editSession.region.endY);
-    const maxY = Math.max(this.editSession.region.startY, this.editSession.region.endY);
 
-    const rows: string[] = [];
-    for (let y = minY; y <= maxY; y++) {
-      const row: string[] = [];
-      for (let x = minX; x <= maxX; x++) {
-        const cellKey = `${x},${y}`;
-        const char = this.editSession.content.get(cellKey) || ' ';
-        row.push(char);
-      }
-      rows.push(row.join(''));
-    }
+    const { x, y } = this.getCellPosFromMouseEvent(event);
+    this.selectedCell = { x, y };
 
-    const contentString = rows.join('\n');
-    const beforeRegion = activeLayer.readRegion(minX, minY, maxX - minX + 1, maxY - minY + 1);
-
-    this.historyManager.applyAction({
-      type: 'tool::text::region',
-      targetId: `layer::${activeLayer.id}`,
-      before: {
-        region: { startX: minX, startY: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
-        data: beforeRegion
-      },
-      after: {
-        region: { startX: minX, startY: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
-        data: contentString
-      }
-    });
-
-    this.tempLayer.clear();
-    this.layers.removeTempLayer(this.tempLayer.id);
-
-    this.editSession = null;
-    this.tempLayer = null;
-
-    this.nullSelectedCell();
+    this.stopCursorBlink();
+    this.cursorBlinkState = true;
+    this.drawCursorOverlay();
+    this.startCursorBlink();
   }
 
-  private handleCanvasMouseUp(): void {
+  private commitCurrentBatch(): void {
+    if (this.historyBatchTransaction) {
+      this.historyManager.commitBatch(this.historyBatchTransaction);
+      this.historyBatchTransaction = null;
+    }
+  }
+
+  private ensureHistoryBatch(): void {
+    if (!this.historyBatchTransaction) {
+      this.historyBatchTransaction = this.historyManager.beginBatch();
+    }
   }
 
   private handleKeyPress(event: KeyboardEvent): void {
-    if (!this.isActive || !this.getSelectedCell() || !this.isLayerVisible) return;
+    if (!this.canInteract()) return;
 
-    if (event.key.length === 1) {
-      this.handleTypeCharacter(event.key);
+    if (event.key === "Escape") {
+      this.commitCurrentBatch();
+      this.selectedCell = null;
+      this.stopCursorBlink();
+      this.clearCursorOverlay();
+      this.startCursorBlink();
+      event.preventDefault();
       return;
     }
 
-    switch (event.key) {
-      case "Backspace":
-        event.preventDefault();
-        this.handleBackspace();
-        break;
-      case "ArrowUp":
-      case "ArrowDown":
-      case "ArrowLeft":
-      case "ArrowRight":
-        this.handleArrowKeys(event.key);
-        break;
-      default:
+    if (!this.selectedCell) return;
+
+    this.stopCursorBlink();
+    this.cursorBlinkState = true;
+
+    let handled = false;
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+      this.handleTypeCharacter(event.key);
+      handled = true;
+    } else {
+      switch (event.key) {
+        case "Backspace":
+          this.handleBackspace();
+          handled = true;
+          break;
+        case "ArrowUp":
+        case "ArrowDown":
+        case "ArrowLeft":
+        case "ArrowRight":
+          this.handleArrowKeys(event.key);
+          handled = true;
+          break;
+      }
     }
+
+    if (handled) {
+      this.drawCursorOverlay();
+      event.preventDefault();
+    }
+    this.startCursorBlink();
   }
 
   private handleTypeCharacter(char: string): void {
-    if (!this.tempLayer || !this.selectedCell || !this.editSession) return;
+    if (!this.selectedCell) return;
+    const activeLayer = this.layers.getActiveLayer();
+    if (!activeLayer) return;
 
+    this.ensureHistoryBatch();
     const { x, y } = this.selectedCell;
+    const beforeChar = activeLayer.getChar(x, y);
 
-    this.tempLayer.setChar(x, y, char);
-    this.editSession.content.set(`${x},${y}`, char);
-    this.validateAndUpdateRegion(x, y);
+    this.historyManager.applyAction(
+      {
+        targetId: `layer::${activeLayer.id}`,
+        type: `layer::set_chars`,
+        before: { x, y, char: beforeChar },
+        after: { x, y, char: char },
+      },
+      { batchId: String(this.historyBatchTransaction), applyAction: false }
+    );
 
-    this.setSelectedCell(x + 1, y);
-    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
-  }
-
-
-  private handleBackspace(): void {
-    if (!this.tempLayer || !this.selectedCell || !this.editSession) return;
-
-    const { x, y } = this.selectedCell;
-    let newX = x;
-    let newY = y;
-
-    if (x > 0) {
-      newX = x - 1;
-    } else if (y > 0) {
-      newY = y - 1;
-      newX = this.editSession.region.endX;
-    }
-
-    const cellKey = `${newX},${newY}`;
-    this.tempLayer.setChar(newX, newY, ' ');
-    this.editSession.content.set(cellKey, ' ');
-
-    this.setSelectedCell(newX, newY);
-  }
-
-  private handlePaste(): void | false {
-    if (!this.tempLayer || !this.selectedCell || !this.editSession) return;
-
-    try {
-      navigator.clipboard.readText().then((clipboardText) => {
-        if (!clipboardText || !this.selectedCell || !this.editSession || !this.tempLayer) return;
-
-        const { x: startX, y: startY } = this.selectedCell;
-        const lines = clipboardText.split(/\r?\n/);
-        let maxLineLength = 0;
-        let newX = startX;
-        let newY = startY;
-
-        lines.forEach((line, lineIndex) => {
-          const currentY = startY + lineIndex;
-          const lineLength = line.length;
-          maxLineLength = Math.max(maxLineLength, lineLength);
-
-          for (let i = 0; i < line.length; i++) {
-            const currentX = startX + i;
-            const char = line[i];
-            this.tempLayer!.setChar(currentX, currentY, char);
-            this.editSession!.content.set(`${currentX},${currentY}`, char);
-          }
-
-          if (lineIndex === lines.length - 1) {
-            newX = startX + line.length;
-            newY = currentY;
-          }
-        });
-
-        this.editSession!.region.startX = Math.min(this.editSession!.region.startX, startX);
-        this.editSession!.region.endX = Math.max(this.editSession!.region.endX, startX + maxLineLength - 1);
-        this.editSession!.region.startY = Math.min(this.editSession!.region.startY, startY);
-        this.editSession!.region.endY = Math.max(this.editSession!.region.endY, startY + lines.length - 1);
-
-        this.setSelectedCell(newX, newY);
-      });
-    } catch (err) {
-      console.error("Failed to read clipboard:", err);
-    }
-
-    return false;
-  }
-
-
-
-  private validateAndUpdateRegion(x: number, y: number): void {
-    if (!this.editSession) return;
-
-    this.editSession.region.startX = Math.min(this.editSession.region.startX, x);
-    this.editSession.region.endX = Math.max(this.editSession.region.endX, x);
-    this.editSession.region.startY = Math.min(this.editSession.region.startY, y);
-    this.editSession.region.endY = Math.max(this.editSession.region.endY, y);
+    activeLayer.setChar(x, y, char);
+    this.selectedCell = { x: x + 1, y: y };
+    this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
   }
 
   private handleArrowKeys(key: string): void {
-    if (!this.selectedCell || !this.editSession) return;
+    if (!this.selectedCell) return;
+    this.commitCurrentBatch();
 
-    const { x, y } = this.selectedCell;
-    let newX = x, newY = y;
-
+    let { x, y } = this.selectedCell;
     switch (key) {
-      case 'ArrowUp': newY--; break;
-      case 'ArrowDown': newY++; break;
-      case 'ArrowLeft': newX--; break;
-      case 'ArrowRight': newX++; break;
+      case 'ArrowUp': y--; break;
+      case 'ArrowDown': y++; break;
+      case 'ArrowLeft': x--; break;
+      case 'ArrowRight': x++; break;
     }
-
-    this.validateAndUpdateRegion(newX, newY);
-    this.setSelectedCell(newX, newY);
-  }
-
-
-  private nullSelectedCell() {
-    this.selectedCell = null;
-    this.drawSelectedOverlay();
-  }
-
-  private setSelectedCell(x: number, y: number) {
-    if (!this.editSession) {
-      throw new Error("Cannot set selected cell without an active edit session");
-    }
-
     this.selectedCell = { x, y };
-    this.validateAndUpdateRegion(x, y);
-    this.drawSelectedOverlay();
+  }
+
+  private handleBackspace(): void {
+    if (!this.selectedCell || !this.canInteract()) return;
+
+    const activeLayer = this.layers.getActiveLayer();
+    if (!activeLayer) return;
+
+    this.ensureHistoryBatch();
+
+    const { x: currentX, y: currentY } = this.selectedCell;
+
+    const deleteAtX = currentX - 1;
+    const deleteAtY = currentY;
+
+    const charToDelete = activeLayer.getChar(deleteAtX, deleteAtY);
+
+    this.historyManager.applyAction(
+      {
+        targetId: `layer::${activeLayer.id}`,
+        type: `layer::set_chars`,
+        before: { x: deleteAtX, y: deleteAtY, char: charToDelete || ' ' },
+        after: { x: deleteAtX, y: deleteAtY, char: ' ' },
+      },
+      { batchId: String(this.historyBatchTransaction), applyAction: false }
+    );
+
+    activeLayer.setChar(deleteAtX, deleteAtY, ' ');
+    this.selectedCell = { x: deleteAtX, y: deleteAtY };
+    this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
   }
 
 
-  private getSelectedCell() {
-    return this.selectedCell
-      ? { x: this.selectedCell.x, y: this.selectedCell.y }
-      : null;
+  private async handlePaste(): Promise<void> {
+    if (!this.selectedCell || !this.canInteract()) return;
+
+    const activeLayer = this.layers.getActiveLayer();
+    if (!activeLayer) return;
+
+    this.ensureHistoryBatch();
+
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText) return;
+
+      const { x: initialCursorX, y: initialCursorY } = this.selectedCell;
+      let currentLineY = initialCursorY;
+      let currentLineX = initialCursorX;
+
+      const lines = clipboardText.split(/\r?\n/);
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (i > 0) {
+          currentLineX = initialCursorX;
+          currentLineY++;
+        }
+        for (let j = 0; j < line.length; j++) {
+          const charToPaste = line[j];
+          const pasteX = currentLineX + j;
+          const pasteY = currentLineY;
+
+          const beforeChar = activeLayer.getChar(pasteX, pasteY);
+          this.historyManager.applyAction(
+            {
+              targetId: `layer::${activeLayer.id}`,
+              type: `layer::set_chars`,
+              before: { x: pasteX, y: pasteY, char: beforeChar },
+              after: { x: pasteX, y: pasteY, char: charToPaste },
+            },
+            { batchId: String(this.historyBatchTransaction), applyAction: false }
+          );
+          activeLayer.setChar(pasteX, pasteY, charToPaste);
+        }
+        if (i === lines.length - 1) {
+          this.selectedCell = { x: currentLineX + line.length, y: currentLineY };
+        }
+      }
+    } catch (err) {
+      console.error("Failed to read clipboard:", err);
+    } finally {
+      this.commitCurrentBatch();
+      this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+      this.drawCursorOverlay();
+    }
   }
 
-  private drawSelectedOverlay() {
-    this.renderManager.requestRender('tool::text', 'selectedOverlay');
+  private drawCursorOverlay() {
+    this.renderManager.requestRender('tool::text', 'cursorOverlay');
   }
 
-  private cellPositionToMouse(cellX: number, cellY: number) {
-    const { dimensions: { width: charWidth, height: charHeight } } = this.coreApi.getFontManager().getMetrics()
+  private cellPositionToGlobalScreen(cellX: number, cellY: number) {
+    const { dimensions: { width: charWidth, height: charHeight } } = this.coreApi.getFontManager().getMetrics();
     const startWorldX = cellX * charWidth;
     const startWorldY = cellY * charHeight;
     const endWorldX = startWorldX + charWidth;
@@ -431,48 +402,13 @@ export class TextTool extends BaseTool implements ITool {
     };
   }
 
-  private getCellPos(event: MouseEvent) {
-    const { dimensions: { width: charWidth, height: charHeight } } = this.coreApi.getFontManager().getMetrics()
-
-    const mousePos = this.camera.getMousePosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
+  private getCellPosFromMouseEvent(event: MouseEvent): { x: number, y: number } {
+    const { dimensions: { width: charWidth, height: charHeight } } = this.coreApi.getFontManager().getMetrics();
+    const mousePos = this.camera.getMousePosition({ x: event.clientX, y: event.clientY });
     const worldPos = this.camera.screenToWorld(mousePos.x, mousePos.y);
     const x = Math.floor(worldPos.x / charWidth);
     const y = Math.floor(worldPos.y / charHeight);
     return { x, y };
-  }
-}
-
-type TextRegion = {
-  region: {
-    startX: number,
-    startY: number,
-    width: number,
-    height: number
-  }
-  data: string
-}
-
-export interface TextWriteRegionAction extends BaseAction {
-  type: 'tool::text::region';
-  before: TextRegion;
-  after: TextRegion;
-}
-
-export class TextWriteAction implements ActionHandler<TextWriteRegionAction> {
-  apply(action: TextWriteRegionAction, target: ILayer): void {
-    const { region: afterRegion, data: afterData } = action.after
-    target.setToRegion(afterRegion.startX, afterRegion.startY, afterData, { skipSpaces: true })
-  }
-
-  revert(action: TextWriteRegionAction, target: ILayer): void {
-    const { region: afterRegion } = action.after
-    const { region: beforeRegion, data: beforeData } = action.before
-
-    target.clearRegion(afterRegion.startX, afterRegion.startY, afterRegion.width, afterRegion.height)
-    target.setToRegion(beforeRegion.startX, beforeRegion.startY, beforeData, { skipSpaces: true })
   }
 }
 

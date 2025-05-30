@@ -7,7 +7,7 @@ export interface ToolManagerOptions {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EventHandler = (event: any | Event | MouseEvent | KeyboardEvent | WheelEvent) => boolean | void;
+type EventHandler = (event: any | Event | MouseEvent | KeyboardEvent | WheelEvent) => boolean | void | Promise<void>;
 
 export class ToolEventManager {
 	private keyEventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]> = new Map();

@@ -244,4 +244,3 @@ export class DrawTool extends BaseTool implements ITool {
   }
 }
 
-
