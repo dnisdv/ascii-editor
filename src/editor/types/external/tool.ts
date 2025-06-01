@@ -1,5 +1,5 @@
 import type { BusManager } from "@editor/bus-manager";
-import type { CoreApi } from "@editor/core.type";
+import type { CoreApi } from "@editor/core";
 
 export type IToolOptions = {
   [x: string]: unknown;

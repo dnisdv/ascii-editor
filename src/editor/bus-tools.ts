@@ -36,7 +36,8 @@ export class BaseBusTools extends EventEmitter<ToolEventMap> {
         meta?: MetaData
       ) => {
         const fullEvent: FullToolEvent<ToolName, E> = `tool::${toolName}::${event}`;
-        this.emit(fullEvent, data, meta);
+        if (meta) { this.emit(fullEvent, data, meta) }
+        else { this.emit(fullEvent, data) }
       },
       on: <E extends ToolEventSuffix<ToolName>>(
         event: E,

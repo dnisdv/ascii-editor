@@ -95,11 +95,12 @@ describe('Layers List Manager', () => {
     });
 
     it('should remove a non-active layer, reindex, and active layer remains unchanged', () => {
-      const result = manager.removeLayer('id2');
+      manager.setActiveLayer(layer3.id)
+
+      const result = manager.removeLayer(layer1.id);
       expect(result.removed).toBe(true);
-      expect(result.newActive).toBe('id1');
-      expect(manager.getActiveLayerKey()).toBe('id1');
-      expect(manager.getSortedLayers().map(l => l.id)).toEqual(['id1', 'id3']);
+      expect(manager.getActiveLayerKey()).toBe(layer3.id);
+      expect(manager.getSortedLayers().map(l => l.id)).toEqual(['id2', 'id3']);
     });
 
     it('should remove the only layer, resulting in an empty list and null active layer', () => {

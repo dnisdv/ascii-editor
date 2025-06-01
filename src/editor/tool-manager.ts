@@ -26,13 +26,6 @@ export class ToolManager {
     window.addEventListener('keydown', (e) => this.handleHotkey(e));
   }
 
-  private initializeEventListeners(): void {
-    this.toolBus.on('tool::activate::request', this.handleActivateRequest.bind(this));
-    this.toolBus.on('tool::deactivate::request', this.handleDeactivateRequest.bind(this));
-    this.toolBus.on('tool::deactivate_all::request', this.handleDeactivateAllRequest.bind(this));
-    this.toolBus.on('tool::update_config::request', this.handleUpdateConfig.bind(this))
-  }
-
   public getActiveTool(): ITool | null {
     if (!this.activeTool) return null;
     return this.tools.get(this.activeTool) || null;
@@ -42,7 +35,7 @@ export class ToolManager {
     return this.activeTool;
   }
 
-  handleUpdateConfig({ name, config }: { name: string, config: IToolOptions }) {
+  public handleUpdateConfig({ name, config }: { name: string, config: IToolOptions }) {
     const tool = this.tools.get(name);
     if (!tool) {
       console.warn(`Tool ${name} not found.`);
@@ -58,7 +51,7 @@ export class ToolManager {
     this.toolBus.emit('tool::update_config::response', { name, config });
   }
 
-  registerTool(tool: ITool): void {
+  public registerTool(tool: ITool): void {
     if (this.tools.has(tool.name)) {
       console.warn(`Tool ${tool.name} is already registered.`);
       return;
@@ -68,35 +61,36 @@ export class ToolManager {
 
     if (tool.hotkey) {
       if (this.hotkeyMap.has(tool.hotkey)) {
-        console.error(`key "${tool.hotkey}" already assigned.`);
+        throw Error("Tool with hotkey" + tool.hotkey + "Already registered")
       } else {
         this.hotkeyMap.set(tool.hotkey, tool);
       }
     }
   }
 
-  unregisterTool(toolName: string): void {
+  public unregisterTool(toolName: string): void {
     const tool = this.tools.get(toolName);
-    if (tool) {
-      tool.cleanup();
-      this.tools.delete(toolName);
-    }
+    if (!tool) return
+
+    tool.cleanup();
+    this.tools.delete(toolName);
+    this.activeTool = this.activeTool === toolName ? null : this.activeTool
+    if (tool.hotkey) this.hotkeyMap.delete(tool.hotkey)
   }
 
-  activateTool(toolName: string): void {
+  public activateTool(toolName: string): void {
     const tool = this.tools.get(toolName);
     if (!tool) return;;
 
-    if (toolName !== this.activeTool) {
-      this.deactivateTool();
-    }
+    if (toolName === this.activeTool) return
 
+    this.deactivateTool();
     tool.activate();
     this.activeTool = toolName;
     this.toolBus.emit('tool::activate::response', { name: toolName })
   }
 
-  deactivateTool(): void {
+  public deactivateTool(): void {
     if (this.activeTool) {
       const tool = this.tools.get(this.activeTool);
       if (tool) {
@@ -106,33 +100,42 @@ export class ToolManager {
     }
   }
 
-  deactivateAllTools(): void {
+  public deactivateAllTools(): void {
     this.tools.forEach((tool) => tool.deactivate());
     this.activeTool = null;
+    this.toolBus.emit('tool::deactivate_all::response');
   }
 
-  getTools(): ITool[] {
+  public getTools(): ITool[] {
     return Array.from(this.tools.values());
   }
 
-  getTool(name: string): ITool | undefined {
+  public getTool(name: string): ITool | undefined {
     return this.tools.get(name);
   }
 
-  getToolApi<T>(name: string): T | undefined {
+  public getToolApi<T>(name: string): T | undefined {
     return this.tools.get(name)?.getApi() as T | undefined;
   }
 
-  isActive(toolName: string): boolean {
+  public isActive(toolName: string): boolean {
     return this.activeTool === toolName;
   }
 
-  setDefaultTool(tool: ITool): void {
+  public setDefaultTool(tool: ITool): void {
     if (!this.tools.has(tool.name)) {
       console.warn(`Tool ${tool.name} is not registered. Cannot set as default.`);
       return;
     }
     this.activateTool(tool.name);
+  }
+
+
+  private initializeEventListeners(): void {
+    this.toolBus.on('tool::activate::request', this.handleActivateRequest.bind(this));
+    this.toolBus.on('tool::deactivate::request', this.handleDeactivateRequest.bind(this));
+    this.toolBus.on('tool::deactivate_all::request', this.handleDeactivateAllRequest.bind(this));
+    this.toolBus.on('tool::update_config::request', this.handleUpdateConfig.bind(this))
   }
 
   private handleActivateRequest({ name }: Pick<IToolModel, 'name'>): void {

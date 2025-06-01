@@ -31,6 +31,7 @@ export interface ITool extends IToolModel {
   getApi(): unknown;
 }
 
+// TODO: SCHEMA FOR CONFIG
 export abstract class BaseTool<Api extends object = object> implements ITool {
   requirements: ITool['requirements'] = []
 

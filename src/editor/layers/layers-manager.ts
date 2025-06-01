@@ -98,7 +98,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     }
 
     if (res.reindexed) {
-      this.bus.emit('layers::update::response', res.reindexed, { reason: 'reindexed' });
+      this.bus.emit('layers::update::response', res.reindexed);
     }
 
     this.historyManager.applyAction(
@@ -176,7 +176,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     }
 
     if (res.reindexed) {
-      this.bus.emit('layers::update::response', res.reindexed, { reason: 'reindexed' });
+      this.bus.emit('layers::update::response', res.reindexed);
     }
 
     this.historyManager.applyAction(
@@ -207,7 +207,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     }
 
     if (res.reindexed) {
-      this.bus.emit('layers::update::response', res.reindexed, { reason: 'reindexed' });
+      this.bus.emit('layers::update::response', res.reindexed);
     }
 
     this.emit('layer::updated', {
@@ -236,7 +236,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     const { newActive } = this.removeLayerInternal(id)
     this.bus.emit('layer::remove::response', { id });
     if (newActive) {
-      this.bus.emit('layer::change_active::response', { id: newActive }, { reason: 'auto_switch' });
+      this.bus.emit('layer::change_active::response', { id: newActive });
     }
   }
 
@@ -249,8 +249,9 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 
     if (removed) {
       this.bus.emit('layer::remove::response', { id });
+
       if (newActive) {
-        this.bus.emit('layer::change_active::response', { id: newActive }, { reason: 'auto_switch' });
+        this.bus.emit('layer::change_active::response', { id: newActive });
         this.historyManager.applyAction(
           {
             type: 'layers::remove_and_activate',
@@ -261,7 +262,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
           { applyAction: false }
         );
       } else {
-        this.bus.emit('layer::change_active::response', { id: null }, { reason: 'auto_switch' });
+        this.bus.emit('layer::change_active::response', { id: null });
         this.historyManager.applyAction(
           {
             type: 'layers::remove',
@@ -286,7 +287,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     const success = this.setActiveLayerInternal(id);
 
     if (success) {
-      this.bus.emit('layer::change_active::response', { id }, { reason: 'user_action' });
+      this.bus.emit('layer::change_active::response', { id });
       this.emit('layers::active::change', { oldId, newId: id });
 
       this.historyManager.applyAction(
@@ -305,7 +306,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
     const oldId = this.getActiveLayerKey() || null
     const success = this.setActiveLayerInternal(id);
     if (success) {
-      this.bus.emit('layer::change_active::response', { id }, { reason: 'user_action' });
+      this.bus.emit('layer::change_active::response', { id });
       this.emit('layers::active::change', { oldId, newId: id });
     }
   }
@@ -321,9 +322,9 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 
     this.bus.emit('layer::create::response', { id: layer.id, name: layer.name, index: layer.index, opts: layer.opts });
     if (reindexed && reindexed.length > 0) {
-      this.bus.emit('layers::update::response', reindexed, { reason: 'reindexed' });
+      this.bus.emit('layers::update::response', reindexed);
     }
-    this.bus.emit('layer::change_active::response', { id: layer.id }, { reason: 'user_action' });
+    this.bus.emit('layer::change_active::response', { id: layer.id });
 
     const tiles = layer.queryAllTiles()
     for (const tile of tiles) {

@@ -61,7 +61,6 @@ describe('TextTool', () => {
     return {
       selectedCell: toolInstance['selectedCell'],
       historyBatchTransaction: toolInstance['historyBatchTransaction'],
-      isActive: toolInstance['isActive'],
     };
   };
 

@@ -54,7 +54,8 @@ export class EventEmitter<T extends Record<EventName, any>> implements IEventEmi
     if (!listeners) return false;
 
     for (const listener of [...listeners]) {
-      listener.fn.call(listener.context, data as T[K], meta);
+      if (meta) { listener.fn.call(listener.context, data as T[K], meta) }
+      else { listener.fn.call(listener.context, data as T[K]) }
       if (listener.once) {
         this.off(event, listener.fn, listener.context);
       }

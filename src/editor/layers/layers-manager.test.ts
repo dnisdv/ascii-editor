@@ -198,7 +198,7 @@ describe('LayersManager', () => {
       );
       expect(busSpy).toHaveBeenCalledWith(
         'layer::change_active::response',
-        { id: layerId }, { reason: 'user_action' }
+        { id: layerId }
       );
     });
 
@@ -215,7 +215,7 @@ describe('LayersManager', () => {
         const busSpy = vi.spyOn(layersBus, 'emit');
         layersManager.removeLayer(id2);
         expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id2 });
-        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id3 }, { reason: 'auto_switch' });
+        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id3 });
       });
 
       it('should emit removal and new active layer (next) events when an active first layer is removed', () => {
@@ -223,14 +223,14 @@ describe('LayersManager', () => {
         const busSpy = vi.spyOn(layersBus, 'emit');
         layersManager.removeLayer(id1);
         expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id1 });
-        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 }, { reason: 'auto_switch' });
+        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
       });
 
       it('should emit removal and new active layer (previous) events when an active last layer is removed', () => {
         const busSpy = vi.spyOn(layersBus, 'emit');
         layersManager.removeLayer(id3);
         expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id3 });
-        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 }, { reason: 'auto_switch' });
+        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
       });
 
       it('should emit removal event but not active change if the removed layer was not active', () => {
@@ -248,7 +248,7 @@ describe('LayersManager', () => {
         layersManager.removeLayer(id);
 
         expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id });
-        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null }, { reason: 'auto_switch' });
+        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null });
       });
     });
 
@@ -258,7 +258,7 @@ describe('LayersManager', () => {
       const busSpy = vi.spyOn(layersBus, 'emit');
 
       layersManager.setActiveLayer(id2);
-      expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 }, { reason: 'user_action' });
+      expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
     });
 
     it('should emit update event when a layer is updated', () => {
@@ -314,7 +314,7 @@ describe('LayersManager', () => {
       expect(layersManager.getLayers().length).toBe(1);
       expect(layersManager.getActiveLayerKey()).toBe(layerId);
       expect(busSpy).toHaveBeenNthCalledWith(1, 'layer::create::response', expect.objectContaining({ id: layerId }));
-      expect(busSpy).toHaveBeenNthCalledWith(2, 'layer::change_active::response', { id: layerId }, { reason: 'user_action' });
+      expect(busSpy).toHaveBeenNthCalledWith(2, 'layer::change_active::response', { id: layerId });
       expect(historySpy).not.toHaveBeenCalled();
     });
 
@@ -328,7 +328,7 @@ describe('LayersManager', () => {
       expect(layersManager.getLayers().length).toBe(1);
       expect(layersManager.getActiveLayerKey()).toBe(id1);
       expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id2 });
-      expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id1 }, { reason: 'auto_switch' });
+      expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id1 });
       expect(historySpy).not.toHaveBeenCalled();
     });
 
@@ -451,7 +451,7 @@ describe('LayersManager', () => {
           expect.objectContaining({ id: createdLayerId, name: createdLayer.name, index: 0 })
         );
         expect(busSpy).toHaveBeenNthCalledWith(3, 'layer::change_active::response',
-          { id: createdLayerId }, { reason: 'user_action' }
+          { id: createdLayerId }
         );
 
         const serializedLayer = layerSerializer.serialize(createdLayer);
@@ -475,7 +475,7 @@ describe('LayersManager', () => {
         expect(layersManager.getLayers().length).toBe(0);
         expect(layersManager.getActiveLayerKey()).toBeNull();
         expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: createdLayerId });
-        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null }, { reason: 'auto_switch' });
+        expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null });
 
         historyManager.redo();
         expect(layersManager.getLayers().length).toBe(1);
@@ -487,7 +487,7 @@ describe('LayersManager', () => {
           expect.objectContaining({ id: redoneLayer.id, name: redoneLayer.name, index: redoneLayer.index })
         );
         expect(busSpy).toHaveBeenCalledWith('layer::change_active::response',
-          { id: redoneLayer.id }, { reason: 'user_action' }
+          { id: redoneLayer.id }
         );
       });
     });
