@@ -1,4 +1,4 @@
-import { EventEmitter } from "./event-emitter";
+import { EventEmitter } from './event-emitter';
 export type NotificationType = 'error' | 'warning' | 'info' | 'message' | 'requirement' | string;
 
 export interface NotificationAction {
@@ -26,7 +26,6 @@ export interface NotificationEventMap {
 }
 
 export class BaseBusNotification extends EventEmitter<NotificationEventMap> {
-
 	constructor() {
 		super();
 	}
@@ -50,12 +49,11 @@ export class BaseBusNotification extends EventEmitter<NotificationEventMap> {
 			timestamp: Date.now()
 		};
 
-		this.emit("notify", payload);
+		this.emit('notify', payload);
 		this.emit(type, payload);
 	}
 
 	clearNotification(code: string): void {
-		this.emit("notificationCleared", { code });
+		this.emit('notificationCleared', { code });
 	}
 }
-

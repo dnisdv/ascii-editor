@@ -1,2 +1,1 @@
-
-export type HistoryManagerSerializableSchemaType = any 
+export type HistoryManagerSerializableSchemaType = unknown;

@@ -1,5 +1,3 @@
-import { BaseBusNotification } from "@editor/bus-notification";
+import { BaseBusNotification } from '@editor/bus-notification';
 
-export class EditorNotificationBus extends BaseBusNotification {
-}
-
+export class EditorNotificationBus extends BaseBusNotification {}

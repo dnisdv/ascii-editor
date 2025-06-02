@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="Type extends 'single' | 'multiple' = 'single'">
 	import type { toggleVariants } from '@components/toggle/index.js';
 
 	import type { VariantProps } from 'tailwind-variants';
@@ -6,14 +6,15 @@
 	import { setToggleGroupCtx } from './index.js';
 	import { cn } from '@lib/utils.js';
 
-	type T = $$Generic<'single' | 'multiple'>;
-	type $$Props = ToggleGroupPrimitive.Props<T> & VariantProps<typeof toggleVariants>;
+	interface Props extends ToggleGroupPrimitive.Props<Type>, VariantProps<typeof toggleVariants> {
+		class?: string | undefined | null;
+	}
 
 	let className: string | undefined | null = undefined;
 	export { className as class };
-	export let variant: $$Props['variant'] = 'default';
-	export let size: $$Props['size'] = 'default';
-	export let value: $$Props['value'] = undefined;
+	export let variant: Props['variant'] = 'default';
+	export let size: Props['size'] = 'default';
+	export let value: Props['value'] = undefined;
 
 	setToggleGroupCtx({
 		variant,

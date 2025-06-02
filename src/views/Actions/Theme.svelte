@@ -11,7 +11,7 @@
 	};
 
 	let currThemeIcon = 'moon';
-	$: $theme === 'dark' ? (currThemeIcon = 'sun') : (currThemeIcon = 'moon');
+	$: currThemeIcon = $theme === 'dark' ? 'sun' : 'moon';
 </script>
 
 <Tooltip.Root>

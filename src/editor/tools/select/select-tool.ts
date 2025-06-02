@@ -20,149 +20,161 @@ import { CancelSessionCommand } from './session/commands/cancelSession.cmd';
 import { sessionManagerApi } from './tool-export-api';
 import type { CoreApi } from '@editor/core';
 
-export type SelectToolApi = ReturnType<typeof sessionManagerApi>
+export type SelectToolApi = ReturnType<typeof sessionManagerApi>;
 
 export class SelectTool extends BaseTool {
-  readonly name = "select"
-  private layers: ILayersManager;
+	readonly name = 'select';
+	private layers: ILayersManager;
 
-  private modeContext: SelectionModeContext
-  private selectionSessionManager: SelectionSessionManager;
+	private modeContext: SelectionModeContext;
+	private selectionSessionManager: SelectionSessionManager;
 
-  private selectionRenderer: SelectionRenderer;
-  private historyManager: HistoryManager
+	private selectionRenderer: SelectionRenderer;
+	private historyManager: HistoryManager;
 
-  constructor(coreApi: CoreApi) {
-    super({
-      hotkey: '<A-v>',
-      bus: coreApi.getBusManager(),
-      coreApi,
-      name: "select",
-      isVisible: true,
-      config: {},
-      requirements: [
-        RequireActiveLayerVisible(coreApi, 'select'),
-      ]
-    });
+	constructor(coreApi: CoreApi) {
+		super({
+			hotkey: '<A-v>',
+			bus: coreApi.getBusManager(),
+			coreApi,
+			name: 'select',
+			isVisible: true,
+			config: {},
+			requirements: [RequireActiveLayerVisible(coreApi, 'select')]
+		});
 
-    this.coreApi = coreApi
-    this.layers = coreApi.getLayersManager();
-    this.historyManager = coreApi.getHistoryManager()
+		this.coreApi = coreApi;
+		this.layers = coreApi.getLayersManager();
+		this.historyManager = coreApi.getHistoryManager();
 
-    this.selectionSessionManager = new SelectionSessionManager(this.coreApi);
+		this.selectionSessionManager = new SelectionSessionManager(this.coreApi);
 
-    this.modeContext = new SelectionModeContext(coreApi, this.selectionSessionManager);
-    this.selectionRenderer = new SelectionRenderer(coreApi, this.selectionSessionManager, this.modeContext);
+		this.modeContext = new SelectionModeContext(coreApi, this.selectionSessionManager);
+		this.selectionRenderer = new SelectionRenderer(
+			coreApi,
+			this.selectionSessionManager,
+			this.modeContext
+		);
 
-    this.historyManager.registerHandler('select::session_select', new SelectSession());
-    this.historyManager.registerHandler('select::session_cancel', new SelectSessionCancel());
-    this.historyManager.registerHandler('select::session_commit', new SelectSessionCommit());
-    this.historyManager.registerHandler('select::session_change', new SelectSessionChange());
-    this.historyManager.registerTarget('select::session', this.selectionSessionManager);
+		this.historyManager.registerHandler('select::session_select', new SelectSession());
+		this.historyManager.registerHandler('select::session_cancel', new SelectSessionCancel());
+		this.historyManager.registerHandler('select::session_commit', new SelectSessionCommit());
+		this.historyManager.registerHandler('select::session_change', new SelectSessionChange());
+		this.historyManager.registerTarget('select::session', this.selectionSessionManager);
 
-    this.registerModes()
-    this.selectionSessionManager.on('session::content_updated', () => {
-      if (this.modeContext.getCurrentMode().getName() === SelectionModeName.IDLE) {
-        this.modeContext.transitionTo(SelectionModeName.SELECTED)
-      }
-    });
+		this.registerModes();
+		this.selectionSessionManager.on('session::content_updated', () => {
+			if (this.modeContext.getCurrentMode().getName() === SelectionModeName.IDLE) {
+				this.modeContext.transitionTo(SelectionModeName.SELECTED);
+			}
+		});
 
-    this.layers.on('layers::active::change', this.handleLayerChange.bind(this));
-    this.layers.on('layer::pre-remove', this.handleLayerChange.bind(this));
-    this.layers.on('layer::updated', ({ before, after }) => {
-      if (before.opts?.visible !== after.opts?.visible) this.handleLayerChange();
-    });
-  }
+		this.layers.on('layers::active::change', this.handleLayerChange.bind(this));
+		this.layers.on('layer::pre-remove', this.handleLayerChange.bind(this));
+		this.layers.on('layer::updated', ({ before, after }) => {
+			if (before.opts?.visible !== after.opts?.visible) this.handleLayerChange();
+		});
+	}
 
-  private handleLayerChange(): void {
-    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
-    this.modeContext.transitionTo(SelectionModeName.IDLE)
-    this.selectionRenderer.clear()
-  }
+	private handleLayerChange(): void {
+		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+		this.modeContext.transitionTo(SelectionModeName.IDLE);
+		this.selectionRenderer.clear();
+	}
 
-  private registerModes(): void {
-    this.modeContext.registerMode(SelectionModeName.IDLE, new IdleMode());
-    this.modeContext.registerMode(SelectionModeName.SELECTING, new SelectingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
-    this.modeContext.registerMode(SelectionModeName.SELECTED, new SelectedMode(this.coreApi, this.selectionSessionManager,));
-    this.modeContext.registerMode(SelectionModeName.MOVING, new MovingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
-    this.modeContext.registerMode(SelectionModeName.ROTATING, new RotatingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer));
-  }
+	private registerModes(): void {
+		this.modeContext.registerMode(SelectionModeName.IDLE, new IdleMode());
+		this.modeContext.registerMode(
+			SelectionModeName.SELECTING,
+			new SelectingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer)
+		);
+		this.modeContext.registerMode(
+			SelectionModeName.SELECTED,
+			new SelectedMode(this.coreApi, this.selectionSessionManager)
+		);
+		this.modeContext.registerMode(
+			SelectionModeName.MOVING,
+			new MovingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer)
+		);
+		this.modeContext.registerMode(
+			SelectionModeName.ROTATING,
+			new RotatingMode(this.coreApi, this.selectionSessionManager, this.selectionRenderer)
+		);
+	}
 
-  getApi(): SelectToolApi {
-    return {
-      ...sessionManagerApi(this.coreApi, this.selectionSessionManager),
-    }
-  }
+	getApi(): SelectToolApi {
+		return {
+			...sessionManagerApi(this.coreApi, this.selectionSessionManager)
+		};
+	}
 
-  activate(): void {
-    super.activate();
+	activate(): void {
+		super.activate();
 
-    this.addMouseListeners();
-    this.initKeyListener();
-  }
+		this.addMouseListeners();
+		this.initKeyListener();
+	}
 
-  deactivate(): void {
-    super.deactivate();
-    this.selectionRenderer.clear()
-    this.getEventApi().removeToolEvents();
-    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
-  }
+	deactivate(): void {
+		super.deactivate();
+		this.selectionRenderer.clear();
+		this.getEventApi().removeToolEvents();
+		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+	}
 
-  onRequirementFailure(): void {
-    super.onRequirementFailure()
-    this.modeContext.setRestricted(true)
-    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
-  }
+	onRequirementFailure(): void {
+		super.onRequirementFailure();
+		this.modeContext.setRestricted(true);
+		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+	}
 
-  onRequirementSuccess(): void {
-    super.onRequirementSuccess()
-    this.modeContext.setRestricted(false)
-  }
+	onRequirementSuccess(): void {
+		super.onRequirementSuccess();
+		this.modeContext.setRestricted(false);
+	}
 
-  private addMouseListeners(): void {
-    this.getEventApi().registerMouseDown('left', (e: MouseEvent) => {
-      this.checkRequirements()
-      this.modeContext.onMouseDown(e);
-    });
-    this.getEventApi().registerMouseMove((e: MouseEvent) => {
-      this.checkRequirements()
-      this.modeContext.onMouseMove(e);
-    });
-    this.getEventApi().registerMouseUp((e: MouseEvent) => {
-      this.checkRequirements()
-      this.modeContext.onMouseUp(e);
-    });
-  }
+	private addMouseListeners(): void {
+		this.getEventApi().registerMouseDown('left', (e: MouseEvent) => {
+			this.checkRequirements();
+			this.modeContext.onMouseDown(e);
+		});
+		this.getEventApi().registerMouseMove((e: MouseEvent) => {
+			this.checkRequirements();
+			this.modeContext.onMouseMove(e);
+		});
+		this.getEventApi().registerMouseUp((e: MouseEvent) => {
+			this.checkRequirements();
+			this.modeContext.onMouseUp(e);
+		});
+	}
 
-  private initKeyListener(): void {
-    this.getEventApi().registerUnload(this.handleUnloadPage.bind(this));
+	private initKeyListener(): void {
+		this.getEventApi().registerUnload(this.handleUnloadPage.bind(this));
 
-    this.getEventApi().registerKeyPress('<Backspace>', this.handleDeleteSelected.bind(this));
-    this.getEventApi().registerKeyPress('<Delete>', this.handleDeleteSelected.bind(this));
-    this.getEventApi().registerKeyPress('<Escape>', this.handleCommitSession.bind(this));
-  }
+		this.getEventApi().registerKeyPress('<Backspace>', this.handleDeleteSelected.bind(this));
+		this.getEventApi().registerKeyPress('<Delete>', this.handleDeleteSelected.bind(this));
+		this.getEventApi().registerKeyPress('<Escape>', this.handleCommitSession.bind(this));
+	}
 
-  private handleUnloadPage() {
-    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
-  }
+	private handleUnloadPage() {
+		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+	}
 
-  private handleCommitSession() {
-    const activeSession = this.selectionSessionManager.getActiveSession();
-    if (!activeSession || !activeSession.getSelectedContent()?.data) return;
-    this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi))
-    this.modeContext.transitionTo(SelectionModeName.IDLE)
-    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
-    this.selectionRenderer.clear()
-  }
+	private handleCommitSession() {
+		const activeSession = this.selectionSessionManager.getActiveSession();
+		if (!activeSession || !activeSession.getSelectedContent()?.data) return;
+		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+		this.modeContext.transitionTo(SelectionModeName.IDLE);
+		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.selectionRenderer.clear();
+	}
 
-  private handleDeleteSelected() {
-    const activeSession = this.selectionSessionManager.getActiveSession();
-    if (!activeSession || !activeSession.getSelectedContent()?.data) return;
-    this.selectionSessionManager.executeCommand(new CancelSessionCommand(this.coreApi))
-    this.modeContext.transitionTo(SelectionModeName.IDLE)
-    this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
-    this.selectionRenderer.clear()
-  }
-
+	private handleDeleteSelected() {
+		const activeSession = this.selectionSessionManager.getActiveSession();
+		if (!activeSession || !activeSession.getSelectedContent()?.data) return;
+		this.selectionSessionManager.executeCommand(new CancelSessionCommand(this.coreApi));
+		this.modeContext.transitionTo(SelectionModeName.IDLE);
+		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.selectionRenderer.clear();
+	}
 }
-

@@ -7,11 +7,18 @@
 	export let value = 'Click to edit';
 	export let trigger: 'click' | 'dblclick' = 'dblclick';
 
-	const dispatch = createEventDispatcher();
+	type DispatchProps = {
+		toggled: { isEditing: boolean };
+		change: { value: string };
+		editing: { isEditing: boolean };
+		blur: { value: string };
+	};
+
+	const dispatch = createEventDispatcher<DispatchProps>();
 	let isEditing = false;
 	let className: string | undefined = undefined;
 
-	let clickTimeout: NodeJS.Timeout | null = null;
+	let clickTimeout: ReturnType<typeof setTimeout> | null = null;
 	let inputValue = value;
 
 	$: if (!isEditing && value !== inputValue) {

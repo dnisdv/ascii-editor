@@ -1,9 +1,9 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export type ConfigSerializableSchemaType = {
-  tileSize: number
-}
+	tileSize: number;
+};
 
 export const ConfigSerializableSchema = z.object({
-  tileSize: z.number(),
+	tileSize: z.number()
 });

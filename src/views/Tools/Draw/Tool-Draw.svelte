@@ -34,11 +34,11 @@
 		toolBus.emit('tool::activate::request', { name: toolName });
 	}
 
-	const onSymbolSelect = (e: CustomEvent<{ value: string }>) => {
-		selectedSymbol.set(e.detail.value);
+	const onSymbolSelect = (symbol: string) => {
+		selectedSymbol.set(symbol);
 		toolBus.emit('tool::update_config::request', {
 			name: 'draw',
-			config: { activeSymbol: e.detail.value }
+			config: { activeSymbol: symbol }
 		});
 	};
 	let selectedSymbol = writable('');
@@ -73,7 +73,7 @@
 		<ToolTooltip name="Brush" hotkey="Alt+S" />
 	</Tooltip.Root>
 
-	<ToolSymbols bind:selectedSymbol on:symbolChange={onSymbolSelect}>
+	<ToolSymbols bind:selectedSymbol onSymbolChange={onSymbolSelect}>
 		<Tooltip.Root closeDelay={0}>
 			<Tooltip.Trigger asChild let:builder>
 				<Button
@@ -91,7 +91,7 @@
 	</ToolSymbols>
 </div>
 
-<style lang="scss">
+<style lang="postcss">
 	.symbol {
 		@apply absolute bottom-[8px] text-[10px] leading-none;
 		font-family: 'Liberation Mono', serif;

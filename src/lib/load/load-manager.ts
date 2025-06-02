@@ -9,7 +9,7 @@ type LoaderState = {
 	progress: number;
 	targetProgress: number;
 	promisesResolved: boolean;
-	activePromises: Set<Promise<any>>;
+	activePromises: Set<Promise<unknown>>;
 };
 
 const easeOutQuad = (t: number): number => t * (2 - t);
@@ -22,7 +22,7 @@ const createInitialState = (): LoaderState => ({
 	activePromises: new Set()
 });
 
-const createLoadingState = (existingPromises: Set<Promise<any>> = new Set()): LoaderState => ({
+const createLoadingState = (existingPromises: Set<Promise<unknown>> = new Set()): LoaderState => ({
 	isLoading: true,
 	progress: 0,
 	targetProgress: 0,
@@ -30,10 +30,7 @@ const createLoadingState = (existingPromises: Set<Promise<any>> = new Set()): Lo
 	activePromises: existingPromises
 });
 
-const updateProgress = (
-	state: LoaderState,
-	startTime: number
-): LoaderState => {
+const updateProgress = (state: LoaderState, startTime: number): LoaderState => {
 	if (state.promisesResolved) return state;
 	const elapsed = Date.now() - startTime;
 	const t = Math.min(elapsed / FAKE_LOAD_TIME, 1);
@@ -65,17 +62,20 @@ const smoothProgress = (state: LoaderState): LoaderState => {
 };
 
 const setupFakePromise = (): Promise<void> =>
-	new Promise(resolve => setTimeout(resolve, FAKE_LOAD_TIME));
+	new Promise((resolve) => setTimeout(resolve, FAKE_LOAD_TIME));
 
-const createProgressTracker = (startTime: number, update: (fn: (s: LoaderState) => LoaderState) => void) => {
+const createProgressTracker = (
+	startTime: number,
+	update: (fn: (s: LoaderState) => LoaderState) => void
+) => {
 	return setInterval(() => {
-		update(state => updateProgress(state, startTime));
+		update((state) => updateProgress(state, startTime));
 	}, UPDATE_INTERVAL);
 };
 
 const createAnimationLoop = (update: (fn: (s: LoaderState) => LoaderState) => void) => {
 	return setInterval(() => {
-		update(state => smoothProgress(state));
+		update((state) => smoothProgress(state));
 	}, UPDATE_INTERVAL);
 };
 
@@ -85,11 +85,11 @@ const createLoaderStore = () => {
 	let progressIntervalId: NodeJS.Timeout;
 
 	const handlePromises = (
-		promises: Set<Promise<any>>,
+		promises: Set<Promise<unknown>>,
 		update: (fn: (s: LoaderState) => LoaderState) => void
 	) => {
 		Promise.all(Array.from(promises)).finally(() => {
-			update(state => {
+			update((state) => {
 				if (state.activePromises.size === promises.size) {
 					clearInterval(progressIntervalId);
 					return finalizeProgress(state);
@@ -99,13 +99,11 @@ const createLoaderStore = () => {
 		});
 	};
 
-	const register = (newPromises: Promise<any>[] = []) => {
-		update(state => {
+	const register = (newPromises: Promise<unknown>[] = []) => {
+		update((state) => {
 			const startTime = Date.now();
 
-			const promisesToAdd = newPromises.length > 0
-				? newPromises
-				: [setupFakePromise()];
+			const promisesToAdd = newPromises.length > 0 ? newPromises : [setupFakePromise()];
 
 			const updatedPromises = new Set([
 				...(state.isLoading ? Array.from(state.activePromises) : []),
@@ -135,4 +133,3 @@ const createLoaderStore = () => {
 };
 
 export const loader = createLoaderStore();
-

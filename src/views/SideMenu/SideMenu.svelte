@@ -9,7 +9,7 @@
 	<Layers class="flex min-h-0 flex-grow flex-col" />
 </div>
 
-<style>
+<style lang="postcss">
 	.left-sidemenu {
 		width: 216px;
 		background: hsl(var(--background));

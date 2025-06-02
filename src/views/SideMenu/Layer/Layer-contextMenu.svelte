@@ -13,7 +13,13 @@
 	export let visibleIcon: string;
 	export let onOpenChange: (isOpen: boolean) => void;
 
-	const dispatch = createEventDispatcher();
+	interface ComponentEvents {
+		rename: void;
+		toggleVisibility: void;
+		delete: void;
+	}
+
+	const dispatch = createEventDispatcher<ComponentEvents>();
 
 	const handleOpenChange = (isOpen: boolean) => {
 		onOpenChange(isOpen);
@@ -51,7 +57,7 @@
 	</ContextMenuContent>
 </ContextMenu>
 
-<style lang="scss">
+<style lang="postcss">
 	.option {
 		@apply flex gap-2 text-xs;
 	}

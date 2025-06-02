@@ -3,11 +3,7 @@ import type { RootState } from './store';
 
 type ThunkConfig = { state: RootState };
 
-export const createDocumentScopedThunk = <
-	ReturnType,
-	Payload,
-	ExtraThunkArg = void
->(
+export const createDocumentScopedThunk = <ReturnType, Payload, ExtraThunkArg = void>(
 	typePrefix: string,
 	thunkFn: (
 		payload: Payload & { documentId: string },
@@ -33,8 +29,11 @@ export const createDocumentScopedThunk = <
 					? { ...payload, documentId }
 					: { documentId };
 
-			return await thunkFn(finalPayload as Payload & { documentId: string }, { getState, extra });
+			return await thunkFn(finalPayload as Payload & { documentId: string }, {
+				getState,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				extra: extra as any
+			});
 		}
 	);
 };
-

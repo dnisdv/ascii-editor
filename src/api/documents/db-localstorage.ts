@@ -10,7 +10,7 @@ export class DBLocalStorage<T> {
 			const serializedData = JSON.stringify(data);
 			localStorage.setItem(this.storageKey, serializedData);
 		} catch (error) {
-			console.error("Failed to save data to localStorage:", error);
+			console.error('Failed to save data to localStorage:', error);
 		}
 	}
 
@@ -23,7 +23,7 @@ export class DBLocalStorage<T> {
 			console.warn(`No data found in localStorage under key "${this.storageKey}".`);
 			return null;
 		} catch (error) {
-			console.error("Failed to load data from localStorage:", error);
+			console.error('Failed to load data from localStorage:', error);
 			return null;
 		}
 	}
@@ -32,8 +32,7 @@ export class DBLocalStorage<T> {
 		try {
 			localStorage.removeItem(this.storageKey);
 		} catch (error) {
-			console.error("Failed to clear data from localStorage:", error);
+			console.error('Failed to clear data from localStorage:', error);
 		}
 	}
 }
-

@@ -33,6 +33,7 @@
 		>
 			<ThemeIcon
 				name="mouse"
+				size={16}
 				color={$isActive ? $currentThemeHEX['--primary-foreground'] : undefined}
 			/>
 		</Button>

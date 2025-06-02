@@ -1,8 +1,14 @@
 <script lang="ts">
-	import type { ComponentType } from 'svelte';
+	import type { SvelteComponent } from 'svelte';
 	import { writable } from 'svelte/store';
 
-	const iconMap = {
+	type IconComponentDefinition = typeof SvelteComponent<{ size?: number; color?: string }>;
+
+	type IconLoader = () => Promise<{
+		default: IconComponentDefinition;
+	}>;
+
+	const iconMap: { [x in string]: IconLoader } = {
 		draw: () => import('./DrawIcon.svelte'),
 		mouse: () => import('./MouseIcon.svelte'),
 		layer: () => import('./Layer.svelte'),
@@ -17,7 +23,6 @@
 		hide: () => import('./Hide.svelte'),
 		fitwidth: () => import('./FitWidth.svelte'),
 		eye: () => import('./Eye.svelte'),
-		lock: () => import('./Lock.svelte'),
 		expand: () => import('./Expand.svelte'),
 		moon: () => import('./Moon.svelte'),
 		sun: () => import('./Sun.svelte'),
@@ -48,7 +53,7 @@
 	export let size: number | undefined = undefined;
 	export let color = 'currentColor';
 
-	const iconComponent = writable<ComponentType | null>(null);
+	const iconComponent = writable<IconComponentDefinition | null>(null);
 
 	$: if (name) {
 		loadIcon(name);

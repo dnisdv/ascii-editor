@@ -1,3 +1,3 @@
-export * from './ratio'
-export * from './keymap'
-export * from './hotkey'
+export * from './ratio';
+export * from './keymap';
+export * from './hotkey';

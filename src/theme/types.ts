@@ -1,40 +1,39 @@
-import type { Readable } from "svelte/motion";
-import type { Writable } from "svelte/store";
+import type { Readable, Writable } from 'svelte/store';
 
 export type ThemeVariables = {
 	[key: string]: string;
 } & {
-	"--background": string;
-	"--foreground": string;
+	'--background': string;
+	'--foreground': string;
 
-	"--muted": string;
-	"--muted-foreground": string;
+	'--muted': string;
+	'--muted-foreground': string;
 
-	"--popover": string;
-	"--popover-foreground": string;
+	'--popover': string;
+	'--popover-foreground': string;
 
-	"--card": string;
-	"--card-foreground": string;
+	'--card': string;
+	'--card-foreground': string;
 
-	"--border": string;
-	"--input": string;
+	'--border': string;
+	'--input': string;
 
-	"--primary": string;
-	"--primary-foreground": string;
+	'--primary': string;
+	'--primary-foreground': string;
 
-	"--secondary": string;
-	"--secondary-foreground": string;
+	'--secondary': string;
+	'--secondary-foreground': string;
 
-	"--accent": string;
-	"--accent-foreground": string;
+	'--accent': string;
+	'--accent-foreground': string;
 
-	"--destructive": string;
-	"--destructive-foreground": string;
+	'--destructive': string;
+	'--destructive-foreground': string;
 
-	"--ring": string;
-	"--radius": string;
+	'--ring': string;
+	'--radius': string;
 
-	"--canvas-background": string;
+	'--canvas-background': string;
 };
 
 export interface Themes {
@@ -50,8 +49,7 @@ export interface ThemeContext {
 	themes: Writable<Themes>;
 	currentTheme: Readable<CurrentThemeVariables>;
 	currentThemeHEX: Readable<CurrentThemeVariables>;
-	currentThemeRGBA: Readable<CurrentThemeVariables>,
+	currentThemeRGBA: Readable<CurrentThemeVariables>;
 	setTheme: (theme: Theme) => void;
 	toggleTheme: () => void;
-
 }

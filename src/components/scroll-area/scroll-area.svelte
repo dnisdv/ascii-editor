@@ -2,11 +2,11 @@
 	import { ScrollArea as ScrollAreaPrimitive } from 'bits-ui';
 	import { Scrollbar } from './index.js';
 	import { cn } from '@lib/utils.js';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { nanoid } from '@reduxjs/toolkit';
-	import { writable, type Writable } from 'svelte/store';
+	import { type Writable } from 'svelte/store';
 
-	type $$Props = ScrollAreaPrimitive.Props & {
+	type Props = ScrollAreaPrimitive.Props & {
 		orientation?: 'vertical' | 'horizontal' | 'both';
 		scrollbarXClasses?: string;
 		scrollbarYClasses?: string;
@@ -14,16 +14,16 @@
 		viewPort?: Writable<Element | null>;
 	};
 
-	let className: $$Props['class'] = undefined;
+	let className: Props['class'] = undefined;
 	export { className as class };
 	export let orientation = 'vertical';
 	export let scrollbarXClasses: string = '';
 	export let scrollbarYClasses: string = '';
-	export let onScroll: $$Props['onScroll'];
+	export let onScroll: Props['onScroll'];
 
 	export let viewPortId: string = 'scroll-area-viewport' + nanoid();
 
-	export let viewPort: $$Props['viewPort'] | undefined = undefined;
+	export let viewPort: Props['viewPort'] | undefined = undefined;
 	onMount(() => {
 		const element = document.querySelector(`#${viewPortId}`);
 		if (!element || !viewPort) return;

@@ -10,7 +10,6 @@ import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import type { FontManager } from '@editor/font-manager';
 import type { HistoryManager } from '@editor/history-manager';
 import { BaseTool, type ITool } from '@editor/tool';
-import type { LayersManager } from '@editor/layers/layers-manager';
 import type { ILayersManager } from '@editor/types';
 
 vi.mock('canvaskit-wasm', () => cvk);
@@ -20,15 +19,15 @@ export class FakeTool extends BaseTool implements ITool {
 		super({
 			bus: coreApi.getBusManager(),
 			hotkey: '<A-v>',
-			name: "fakeTool1",
+			name: 'fakeTool1',
 			isVisible: true,
 			config: { option1: true },
-			coreApi,
+			coreApi
 		});
 	}
-	activate(): void { }
-	deactivate(): void { }
-	update(): void { }
+	activate(): void {}
+	deactivate(): void {}
+	update(): void {}
 }
 
 export class FakeTool2 extends BaseTool implements ITool {
@@ -36,15 +35,15 @@ export class FakeTool2 extends BaseTool implements ITool {
 		super({
 			bus: coreApi.getBusManager(),
 			hotkey: '<A-b>',
-			name: "fakeTool2",
+			name: 'fakeTool2',
 			isVisible: true,
 			config: { option1: true },
-			coreApi,
+			coreApi
 		});
 	}
-	activate(): void { }
-	deactivate(): void { }
-	update(): void { }
+	activate(): void {}
+	deactivate(): void {}
+	update(): void {}
 }
 
 describe('Layer Bus Contract Integration Test', () => {
@@ -53,13 +52,13 @@ describe('Layer Bus Contract Integration Test', () => {
 	let historyManager: HistoryManager;
 	let fontManager: FontManager;
 	let busLayers: BaseBusLayers;
-	let layersManager: ILayersManager
+	let layersManager: ILayersManager;
 
 	beforeEach(() => {
 		busManager = new BusManager({
 			layers: new BaseBusLayers(),
 			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification(),
+			notifications: new BaseBusNotification()
 		});
 
 		const camera = new Camera(1200, 800);
@@ -71,24 +70,26 @@ describe('Layer Bus Contract Integration Test', () => {
 		const selectCanvasElement = document.createElement('canvas');
 		const asciiEl = document.createElement('canvas');
 
-		const [_core,] = createAppInstance({
+		const [_core] = createAppInstance({
 			canvasKitInstance,
 			gridCanvasElement: gridEl,
 			selectCanvasElement,
 			asciiCanvasElement: asciiEl,
 			busManager,
 			camera,
-			font: appFontData,
+			font: appFontData
 		});
 
 		core = _core;
 		historyManager = core.getHistoryManager();
 		fontManager = core.getFontManager();
 		busLayers = core.getBusManager().layers;
-		layersManager = core.getLayersManager()
+		layersManager = core.getLayersManager();
 
 		vi.spyOn(fontManager, 'getMetrics').mockReturnValue({
-			size: 18, dimensions: { width: 10, height: 18 }, lineHeight: 22
+			size: 18,
+			dimensions: { width: 10, height: 18 },
+			lineHeight: 22
 		});
 	});
 
@@ -96,7 +97,6 @@ describe('Layer Bus Contract Integration Test', () => {
 		vi.restoreAllMocks();
 		historyManager.clear();
 	});
-
 
 	describe('Layer Creation Behavior', () => {
 		it('direct call add a layer internaly should make it active, emit create/activate events', () => {
@@ -111,9 +111,10 @@ describe('Layer Bus Contract Integration Test', () => {
 			expect(layersManager.getLayer(newLayerId)?.id).toBe(newLayer.id);
 			expect(layersManager.getActiveLayerKey()).toBe(newLayerId);
 
-			expect(createListener).toHaveBeenCalledWith(expect.objectContaining({ id: newLayerId, name: newLayer.name }));
+			expect(createListener).toHaveBeenCalledWith(
+				expect.objectContaining({ id: newLayerId, name: newLayer.name })
+			);
 			expect(activateListener).toHaveBeenCalledWith({ id: newLayerId });
-
 		});
 
 		it('Bus Request: "layer::create::request" should create/activate a layer, emit responses', () => {
@@ -133,7 +134,6 @@ describe('Layer Bus Contract Integration Test', () => {
 		});
 	});
 
-
 	describe('Layer Removal Behavior', () => {
 		let l1Id: string, l2Id: string, l3Id: string;
 
@@ -144,8 +144,8 @@ describe('Layer Bus Contract Integration Test', () => {
 		});
 
 		afterEach(() => {
-			layersManager.clearLayers()
-		})
+			layersManager.clearLayers();
+		});
 
 		it('direct removing an active layer should activate next neighbour with priority of top one, emit events', () => {
 			layersManager.setActiveLayer(l2Id);
@@ -179,7 +179,7 @@ describe('Layer Bus Contract Integration Test', () => {
 			expect(removeListener).toHaveBeenCalledWith({ id: l1Id });
 
 			// TODO: think about this
-			expect(activateListener).toHaveBeenCalledWith({ id: l3Id })
+			expect(activateListener).toHaveBeenCalledWith({ id: l3Id });
 		});
 
 		it('Removing the only layer results in no active layer and appropriate events active=null, remove', () => {
@@ -213,9 +213,7 @@ describe('Layer Bus Contract Integration Test', () => {
 			expect(layersManager.getLayers().length).toBe(initialLayerCount);
 			expect(removeSuccessListener).not.toHaveBeenCalled();
 		});
-
 	});
 
 	// TODO: add more test cases in future
 });
-

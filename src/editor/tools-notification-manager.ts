@@ -1,5 +1,5 @@
-import type { NotificationAction, BaseBusNotification, NotificationType } from "./bus-notification";
-import type { CoreApi } from "./core";
+import type { NotificationAction, BaseBusNotification, NotificationType } from './bus-notification';
+import type { CoreApi } from './core';
 
 export interface NotificationContext {
 	timestamp: string;
@@ -11,8 +11,8 @@ export const CORE_NOTIFICATION_CODES = {
 	LAYER: {
 		NOT_FOUND: 'LAYER_NOT_FOUND',
 		HIDDEN: 'LAYER_HIDDEN',
-		INVALID: 'LAYER_INVALID',
-	},
+		INVALID: 'LAYER_INVALID'
+	}
 };
 
 export class ToolNotificationManager {
@@ -34,7 +34,7 @@ export class ToolNotificationManager {
 		return {
 			timestamp: this.getCurrentTimestamp(),
 			toolName: this.toolName,
-			...context,
+			...context
 		};
 	}
 
@@ -109,9 +109,10 @@ export class ToolNotificationManager {
 					{
 						label: 'Show Layer',
 						callback: (() =>
-							this.coreApi.getLayersManager().updateLayer(layer.id, { opts: { visible: true } })
-						).bind(this),
-					},
+							this.coreApi
+								.getLayersManager()
+								.updateLayer(layer.id, { opts: { visible: true } })).bind(this)
+					}
 				]
 			);
 		}
@@ -126,46 +127,43 @@ export class ToolNotificationManager {
 		context?: Record<string, unknown>,
 		actions?: NotificationAction[]
 	): void {
-		this.notificationBus.emitNotification(
-			code,
-			message,
-			type,
-			{
-				meta: this.createContext(context),
-				actions,
-			}
-		);
+		this.notificationBus.emitNotification(code, message, type, {
+			meta: this.createContext(context),
+			actions
+		});
 	}
 
 	clear(code: string): void {
 		this.notificationBus.clearNotification(code);
 	}
 
-
-	checkAll(checks: Array<{
-		condition: boolean;
-		code: string;
-		message: string;
-		type?: NotificationType;
-		context?: Record<string, unknown>;
-		actions?: NotificationAction[];
-	}>): boolean {
+	checkAll(
+		checks: Array<{
+			condition: boolean;
+			code: string;
+			message: string;
+			type?: NotificationType;
+			context?: Record<string, unknown>;
+			actions?: NotificationAction[];
+		}>
+	): boolean {
 		return checks.every(({ condition, code, message, type, context, actions }) =>
 			this.check(condition, code, message, type || 'warning', context, actions)
 		);
 	}
 
-	checkAllRequirements(checks: Array<{
-		condition: boolean;
-		code: string;
-		message: string;
-		type?: NotificationType;
-		context?: Record<string, unknown>;
-		actions?: NotificationAction[];
-	}>): boolean {
+	checkAllRequirements(
+		checks: Array<{
+			condition: boolean;
+			code: string;
+			message: string;
+			type?: NotificationType;
+			context?: Record<string, unknown>;
+			actions?: NotificationAction[];
+		}>
+	): boolean {
 		return checks.every(({ condition, code, message, type, context, actions }) =>
 			this.checkRequirement(condition, code, message, type || 'requirement', context, actions)
 		);
 	}
 }
-

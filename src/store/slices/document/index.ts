@@ -1,2 +1,2 @@
 export * from './document.slice';
-export * from './document.actions'
+export * from './document.actions';

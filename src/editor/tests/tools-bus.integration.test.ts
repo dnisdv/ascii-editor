@@ -19,15 +19,15 @@ export class FakeTool extends BaseTool implements ITool {
 		super({
 			bus: coreApi.getBusManager(),
 			hotkey: '<A-v>',
-			name: "fakeTool1",
+			name: 'fakeTool1',
 			isVisible: true,
 			config: { option1: true },
-			coreApi,
+			coreApi
 		});
 	}
-	activate(): void { }
-	deactivate(): void { }
-	update(): void { }
+	activate(): void {}
+	deactivate(): void {}
+	update(): void {}
 }
 
 export class FakeTool2 extends BaseTool implements ITool {
@@ -35,15 +35,15 @@ export class FakeTool2 extends BaseTool implements ITool {
 		super({
 			bus: coreApi.getBusManager(),
 			hotkey: '<A-b>',
-			name: "fakeTool2",
+			name: 'fakeTool2',
 			isVisible: true,
 			config: { option1: true },
-			coreApi,
+			coreApi
 		});
 	}
-	activate(): void { }
-	deactivate(): void { }
-	update(): void { }
+	activate(): void {}
+	deactivate(): void {}
+	update(): void {}
 }
 
 describe('Tool Bus Contract Integration Test', () => {
@@ -58,7 +58,7 @@ describe('Tool Bus Contract Integration Test', () => {
 		busManager = new BusManager({
 			layers: new BaseBusLayers(),
 			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification(),
+			notifications: new BaseBusNotification()
 		});
 
 		const camera = new Camera(1200, 800);
@@ -70,14 +70,14 @@ describe('Tool Bus Contract Integration Test', () => {
 		const selectCanvasElement = document.createElement('canvas');
 		const asciiEl = document.createElement('canvas');
 
-		const [_core,] = createAppInstance({
+		const [_core] = createAppInstance({
 			canvasKitInstance,
 			gridCanvasElement: gridEl,
 			selectCanvasElement,
 			asciiCanvasElement: asciiEl,
 			busManager,
 			camera,
-			font: appFontData,
+			font: appFontData
 		});
 
 		core = _core;
@@ -88,7 +88,9 @@ describe('Tool Bus Contract Integration Test', () => {
 
 		core.getLayersManager().ensureLayer();
 		vi.spyOn(fontManager, 'getMetrics').mockReturnValue({
-			size: 18, dimensions: { width: 10, height: 18 }, lineHeight: 22
+			size: 18,
+			dimensions: { width: 10, height: 18 },
+			lineHeight: 22
 		});
 	});
 
@@ -101,29 +103,29 @@ describe('Tool Bus Contract Integration Test', () => {
 		it('should emit "tool::register::response" with correct payload when a tool is registered', () => {
 			const listener = vi.fn();
 			busTools.on('tool::register::response', listener);
-			const fakeTool = new FakeTool(core)
+			const fakeTool = new FakeTool(core);
 			toolManager.registerTool(fakeTool);
 			expect(listener).toHaveBeenCalledWith({
 				name: fakeTool.name,
 				isVisible: fakeTool.isVisible,
-				config: fakeTool.config,
+				config: fakeTool.config
 			});
 		});
 
 		it('should not emit event if registration fail', () => {
-			const fakeTool1 = new FakeTool(core)
+			const fakeTool1 = new FakeTool(core);
 			toolManager.registerTool(fakeTool1);
 			const listener = vi.fn();
 			busTools.on('tool::register::response', listener);
 
-			const fakeTool2 = new FakeTool(core)
+			const fakeTool2 = new FakeTool(core);
 			toolManager.registerTool(fakeTool2);
 
 			expect(listener).not.toHaveBeenCalled();
 		});
 
-		it('should register a tool without an initial config, defaulting to it\'s config in response', () => {
-			const fakeTool = new FakeTool(core)
+		it("should register a tool without an initial config, defaulting to it's config in response", () => {
+			const fakeTool = new FakeTool(core);
 			const listener = vi.fn();
 			busTools.on('tool::register::response', listener);
 			toolManager.registerTool(fakeTool);
@@ -131,18 +133,18 @@ describe('Tool Bus Contract Integration Test', () => {
 			expect(listener).toHaveBeenCalledWith({
 				name: fakeTool.name,
 				isVisible: fakeTool.isVisible,
-				config: { option1: true },
+				config: { option1: true }
 			});
 		});
 	});
 
 	describe('Tool Activation', () => {
-		let fakeTool1: BaseTool
-		let fakeTool2: BaseTool
+		let fakeTool1: BaseTool;
+		let fakeTool2: BaseTool;
 
 		beforeEach(() => {
-			fakeTool1 = new FakeTool(core)
-			fakeTool2 = new FakeTool2(core)
+			fakeTool1 = new FakeTool(core);
+			fakeTool2 = new FakeTool2(core);
 
 			toolManager.registerTool(fakeTool1);
 			toolManager.registerTool(fakeTool2);
@@ -154,7 +156,7 @@ describe('Tool Bus Contract Integration Test', () => {
 			busTools.on('tool::activate::response', listener);
 			toolManager.activateTool('fakeTool1');
 
-			expect(toolManager.getActiveToolName()).toBe(fakeTool1.name)
+			expect(toolManager.getActiveToolName()).toBe(fakeTool1.name);
 			expect(listener).toHaveBeenCalledWith({ name: fakeTool1.name });
 		});
 
@@ -194,17 +196,17 @@ describe('Tool Bus Contract Integration Test', () => {
 	});
 
 	describe('Tool Deactivation', () => {
-		let fakeTool1: BaseTool
-		let fakeTool2: BaseTool
+		let fakeTool1: BaseTool;
+		let fakeTool2: BaseTool;
 
 		beforeEach(() => {
-			fakeTool1 = new FakeTool(core)
-			fakeTool2 = new FakeTool2(core)
+			fakeTool1 = new FakeTool(core);
+			fakeTool2 = new FakeTool2(core);
 
 			toolManager.registerTool(fakeTool1);
 			toolManager.registerTool(fakeTool2);
 
-			toolManager.activateTool(fakeTool1.name)
+			toolManager.activateTool(fakeTool1.name);
 		});
 
 		it('should deactivate the active tool and emit "tool::deactivate::response" via "tool::deactivate::request" bus event', () => {
@@ -252,19 +254,18 @@ describe('Tool Bus Contract Integration Test', () => {
 		});
 	});
 
-
 	describe('Tool Configuration Update', () => {
-		let fakeTool1: BaseTool
-		let fakeTool2: BaseTool
+		let fakeTool1: BaseTool;
+		let fakeTool2: BaseTool;
 
 		beforeEach(() => {
-			fakeTool1 = new FakeTool(core)
-			fakeTool2 = new FakeTool2(core)
+			fakeTool1 = new FakeTool(core);
+			fakeTool2 = new FakeTool2(core);
 
 			toolManager.registerTool(fakeTool1);
 			toolManager.registerTool(fakeTool2);
 
-			toolManager.activateTool(fakeTool1.name)
+			toolManager.activateTool(fakeTool1.name);
 		});
 
 		it('should update tool config and emit "tool::update_config::response" via "tool::update_config::request" bus event', () => {
@@ -285,23 +286,26 @@ describe('Tool Bus Contract Integration Test', () => {
 
 			fakeTool1.saveConfig(configToSave);
 
-			expect(listener).toHaveBeenCalledWith(
-				{ name: fakeTool1.name, config: { ...fakeTool1.config, ...configToSave } }
-			);
+			expect(listener).toHaveBeenCalledWith({
+				name: fakeTool1.name,
+				config: { ...fakeTool1.config, ...configToSave }
+			});
 		});
 
 		it('should not emit "tool::update_config::response" for a non-existent tool via bus request', () => {
 			const listener = vi.fn();
 			busTools.on('tool::update_config::response', listener);
-			busTools.emit('tool::update_config::request', { name: 'nonExistentTool', config: { data: 'test' } });
+			busTools.emit('tool::update_config::request', {
+				name: 'nonExistentTool',
+				config: { data: 'test' }
+			});
 			expect(listener).not.toHaveBeenCalled();
 		});
-
 	});
 
 	describe('Tool-Specific Bus Events', () => {
 		it('should correctly scope emit and on for a registered tool', () => {
-			const fakeTool1 = new FakeTool(core)
+			const fakeTool1 = new FakeTool(core);
 			toolManager.registerTool(fakeTool1);
 
 			const tool1Bus = busTools.withTool(fakeTool1.name);
@@ -316,4 +320,3 @@ describe('Tool Bus Contract Integration Test', () => {
 		});
 	});
 });
-

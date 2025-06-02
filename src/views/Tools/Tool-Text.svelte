@@ -32,6 +32,7 @@
 			builders={[builder]}
 		>
 			<ThemeIcon
+				size={16}
 				name="typo"
 				color={$isActive ? $currentThemeHEX['--primary-foreground'] : undefined}
 			/>

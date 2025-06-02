@@ -9,4 +9,3 @@
 	<p class="text-xs font-medium">{name}</p>
 	<p class="text-xs font-medium opacity-50">{hotkey}</p>
 </Tooltip.Content>
-

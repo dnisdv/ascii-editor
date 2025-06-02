@@ -97,10 +97,12 @@
 			value={layer.name}
 		/>
 		{#if !$isEditing}
-			<button
+			<div
 				on:mousedown|stopPropagation
 				class="actions flex gap-2"
 				class:always-visible={!isVisible}
+				role="button"
+				tabindex="0"
 			>
 				<Button
 					on:click={toggleLayerVisibility}
@@ -110,12 +112,12 @@
 				>
 					<ThemeIcon name={visibleIcon} />
 				</Button>
-			</button>
+			</div>
 		{/if}
 	</button>
 </LayerContextMenu>
 
-<style lang="scss">
+<style lang="postcss">
 	.layer {
 		@apply relative z-10 grid h-full w-full cursor-default items-center gap-1 overflow-hidden rounded-md border-none bg-none px-1 py-1;
 		grid-template-columns: 1rem 1fr auto;

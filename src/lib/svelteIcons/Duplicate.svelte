@@ -1,9 +1,17 @@
 <script>
 	export let color = 'white';
 	export let size = 16;
+
+	$: calculatedHeight = (size / 16) * 17;
 </script>
 
-<svg width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg
+	width={size}
+	height={calculatedHeight}
+	viewBox="0 0 16 17"
+	fill="none"
+	xmlns="http://www.w3.org/2000/svg"
+>
 	<path
 		fill-rule="evenodd"
 		clip-rule="evenodd"

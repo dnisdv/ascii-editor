@@ -1,2 +1,2 @@
-export * from './layers.slice'
-export * from './layers.actions'
+export * from './layers.slice';
+export * from './layers.actions';

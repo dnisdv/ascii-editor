@@ -18,7 +18,9 @@ function hslToNormalizedRgbaArray(value: string): string {
 	const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
 	const m = l - c / 2;
 
-	let r = 0, g = 0, b = 0;
+	let r = 0,
+		g = 0,
+		b = 0;
 
 	if (0 <= h && h < 60) [r, g, b] = [c, x, 0];
 	else if (60 <= h && h < 120) [r, g, b] = [x, c, 0];
@@ -48,16 +50,37 @@ function hslToHex(value: string): string {
 	if (h < 0) h += 360;
 
 	const c = (1 - Math.abs(2 * l - 1)) * s;
-	const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+	const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
 	const m = l - c / 2;
 
-	let r = 0, g = 0, b = 0;
-	if (0 <= h && h < 60) { r = c; g = x; b = 0; }
-	else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
-	else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
-	else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
-	else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
-	else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+	let r = 0,
+		g = 0,
+		b = 0;
+	if (0 <= h && h < 60) {
+		r = c;
+		g = x;
+		b = 0;
+	} else if (60 <= h && h < 120) {
+		r = x;
+		g = c;
+		b = 0;
+	} else if (120 <= h && h < 180) {
+		r = 0;
+		g = c;
+		b = x;
+	} else if (180 <= h && h < 240) {
+		r = 0;
+		g = x;
+		b = c;
+	} else if (240 <= h && h < 300) {
+		r = x;
+		g = 0;
+		b = c;
+	} else if (300 <= h && h < 360) {
+		r = c;
+		g = 0;
+		b = x;
+	}
 
 	const red = Math.round((r + m) * 255);
 	const green = Math.round((g + m) * 255);
@@ -80,12 +103,11 @@ function parseThemes(): Themes {
 	const themes: Themes = { light: {} as ThemeVariables, dark: {} as ThemeVariables };
 	if (typeof window === 'undefined') return themes;
 
-	const isStyleRule = (rule: CSSRule): rule is CSSStyleRule =>
-		rule instanceof CSSStyleRule;
+	const isStyleRule = (rule: CSSRule): rule is CSSStyleRule => rule instanceof CSSStyleRule;
 
-	Array.from(document.styleSheets).forEach(sheet => {
+	Array.from(document.styleSheets).forEach((sheet) => {
 		try {
-			Array.from(sheet.cssRules).forEach(rule => {
+			Array.from(sheet.cssRules).forEach((rule) => {
 				if (!isStyleRule(rule)) return;
 
 				if (rule.selectorText === ':root') {
@@ -103,7 +125,7 @@ function parseThemes(): Themes {
 }
 
 function parseRule(rule: CSSStyleRule, themeObj: ThemeVariables): void {
-	Array.from(rule.style).forEach(prop => {
+	Array.from(rule.style).forEach((prop) => {
 		if (prop.startsWith('--')) {
 			themeObj[prop] = rule.style.getPropertyValue(prop).trim();
 		}
@@ -113,9 +135,12 @@ function parseRule(rule: CSSStyleRule, themeObj: ThemeVariables): void {
 export function createTheme(): ThemeContext {
 	const theme = writable<Theme>('light');
 	const themes = writable<Themes>({ light: {} as ThemeVariables, dark: {} as ThemeVariables });
-	const currentTheme = derived([theme, themes], ([$theme, $themes]) => $themes[$theme] || ({} as ThemeVariables));
+	const currentTheme = derived(
+		[theme, themes],
+		([$theme, $themes]) => $themes[$theme] || ({} as ThemeVariables)
+	);
 
-	const currentThemeRGBA = derived(currentTheme, $theme => {
+	const currentThemeRGBA = derived(currentTheme, ($theme) => {
 		const converted: ThemeVariables = {} as ThemeVariables;
 		for (const [key, value] of Object.entries($theme)) {
 			const convertedValue = hslToNormalizedRgbaArray(value);
@@ -124,7 +149,7 @@ export function createTheme(): ThemeContext {
 		return converted;
 	});
 
-	const currentThemeHEX = derived(currentTheme, $theme => {
+	const currentThemeHEX = derived(currentTheme, ($theme) => {
 		const converted: ThemeVariables = {} as ThemeVariables;
 		for (const [key, value] of Object.entries($theme)) {
 			converted[key] = hslToHex(value);
@@ -137,7 +162,7 @@ export function createTheme(): ThemeContext {
 	document.body.classList.toggle('dark', initialTheme === 'dark');
 	theme.set(initialTheme);
 
-	theme.subscribe(newTheme => {
+	theme.subscribe((newTheme) => {
 		document.body.classList.toggle('dark', newTheme === 'dark');
 		localStorage.setItem('theme', newTheme);
 	});
@@ -149,7 +174,6 @@ export function createTheme(): ThemeContext {
 		currentThemeRGBA,
 		currentThemeHEX,
 		setTheme: theme.set,
-		toggleTheme: () => theme.update(current => current === 'dark' ? 'light' : 'dark'),
+		toggleTheme: () => theme.update((current) => (current === 'dark' ? 'light' : 'dark'))
 	};
 }
-

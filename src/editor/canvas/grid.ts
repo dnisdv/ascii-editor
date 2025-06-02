@@ -6,43 +6,43 @@ import type { Config } from '@editor/config';
 import type { FontManager } from '@editor/font-manager';
 
 export type GridOptions = {
-  canvas: HTMLCanvasElement,
-  canvasKit: CanvasKit,
-  surface: Surface,
-  camera: ICamera,
-  config: Config
-  fontManager: FontManager
-}
+	canvas: HTMLCanvasElement;
+	canvasKit: CanvasKit;
+	surface: Surface;
+	camera: ICamera;
+	config: Config;
+	fontManager: FontManager;
+};
 
 export class Grid extends Canvas implements ICanvas {
-  private paint: Paint;
-  private shader: Shader | undefined;
-  private runtimeEffect: RuntimeEffect | undefined;
-  private camera: ICamera;
-  private config: Config
-  private fontManager: FontManager
+	private paint: Paint;
+	private shader: Shader | undefined;
+	private runtimeEffect: RuntimeEffect | undefined;
+	private camera: ICamera;
+	private config: Config;
+	private fontManager: FontManager;
 
-  constructor({ canvas, canvasKit, surface, camera, config, fontManager }: GridOptions) {
-    super(canvas, canvasKit, surface);
+	constructor({ canvas, canvasKit, surface, camera, config, fontManager }: GridOptions) {
+		super(canvas, canvasKit, surface);
 
-    this.camera = camera
-    this.config = config
-    this.fontManager = fontManager
+		this.camera = camera;
+		this.config = config;
+		this.fontManager = fontManager;
 
-    this.paint = new canvasKit.Paint();
-    this.paint.setAntiAlias(true);
-    this.paint.setStyle(this.canvasKit.PaintStyle.Fill);
+		this.paint = new canvasKit.Paint();
+		this.paint.setAntiAlias(true);
+		this.paint.setStyle(this.canvasKit.PaintStyle.Fill);
 
-    this.config.on('changed', () => this.render())
-    this.createGridShader();
-  }
+		this.config.on('changed', () => this.render());
+		this.createGridShader();
+	}
 
-  public prepareForConfigChange(): void {
-    this.createGridShader();
-  }
+	public prepareForConfigChange(): void {
+		this.createGridShader();
+	}
 
-  private createGridShader(): void {
-    const skslCode = `
+	private createGridShader(): void {
+		const skslCode = `
       uniform float2 u_resolution;
       uniform float2 u_offset;
       uniform float u_scale;
@@ -79,58 +79,63 @@ export class Grid extends Canvas implements ICanvas {
       }
     `;
 
-    const effect = this.canvasKit.RuntimeEffect.Make(skslCode);
+		const effect = this.canvasKit.RuntimeEffect.Make(skslCode);
 
-    if (!effect) {
-      throw new Error('Failed to compile shader');
-    }
+		if (!effect) {
+			throw new Error('Failed to compile shader');
+		}
 
-    this.runtimeEffect = effect;
+		this.runtimeEffect = effect;
 
-    const uniforms = this.getUniforms();
-    const uniformData = new Float32Array(uniforms);
+		const uniforms = this.getUniforms();
+		const uniformData = new Float32Array(uniforms);
 
-    this.shader = this.runtimeEffect.makeShader(uniformData);
-    this.paint.setShader(this.shader);
-  }
+		this.shader = this.runtimeEffect.makeShader(uniformData);
+		this.paint.setShader(this.shader);
+	}
 
-  private getUniforms(): number[] {
-    const { offsetX, offsetY, scale } = this.camera;
+	private getUniforms(): number[] {
+		const { offsetX, offsetY, scale } = this.camera;
 
-    const { dimensions: { width: charWidth, height: charHeight } } = this.fontManager.getMetrics()
-    const { grid: backgroundDots } = this.config.getTheme();
+		const {
+			dimensions: { width: charWidth, height: charHeight }
+		} = this.fontManager.getMetrics();
+		const { grid: backgroundDots } = this.config.getTheme();
 
-    const baseDotSize = 1;
+		const baseDotSize = 1;
 
-    return [
-      this.canvas.width,        // u_resolution.x
-      this.canvas.height,       // u_resolution.y
-      offsetX * scale,          // u_offset.x
-      offsetY * scale,          // u_offset.y
-      scale,                    // u_scale
-      charWidth,                // u_charWidth 
-      charHeight,               // u_charHeight 
-      baseDotSize,             // u_dotSize 
-      backgroundDots[0], backgroundDots[1], backgroundDots[2], backgroundDots[3]       // u_color 
-    ];
-  }
+		return [
+			this.canvas.width, // u_resolution.x
+			this.canvas.height, // u_resolution.y
+			offsetX * scale, // u_offset.x
+			offsetY * scale, // u_offset.y
+			scale, // u_scale
+			charWidth, // u_charWidth
+			charHeight, // u_charHeight
+			baseDotSize, // u_dotSize
+			backgroundDots[0],
+			backgroundDots[1],
+			backgroundDots[2],
+			backgroundDots[3] // u_color
+		];
+	}
 
-  render() {
-    const uniforms = this.getUniforms();
-    const uniformData = new Float32Array(uniforms);
+	render() {
+		const uniforms = this.getUniforms();
+		const uniformData = new Float32Array(uniforms);
 
-    this.shader = this.runtimeEffect?.makeShader(uniformData);
-    this.paint.setShader(this.shader!);
+		this.shader = this.runtimeEffect?.makeShader(uniformData);
+		this.paint.setShader(this.shader!);
 
-    this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-    this.skCanvas.drawPaint(this.paint);
-    this.surface.flush();
-  }
+		this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+		this.skCanvas.drawPaint(this.paint);
+		this.surface.flush();
+	}
 
-  dispose(): void {
-    super.dispose();
-    this.paint.delete();
-    this.shader?.delete();
-    this.runtimeEffect?.delete();
-  }
+	dispose(): void {
+		super.dispose();
+		this.paint.delete();
+		this.shader?.delete();
+		this.runtimeEffect?.delete();
+	}
 }

@@ -1,5 +1,5 @@
-import type { CanvasKit, FontMgr } from "canvaskit-wasm";
-import { EventEmitter } from "./event-emitter";
+import type { CanvasKit, FontMgr } from 'canvaskit-wasm';
+import { EventEmitter } from './event-emitter';
 
 export interface CharDimensions {
 	width: number;
@@ -25,8 +25,8 @@ export interface FontData {
 }
 
 type FontEvents = {
-	'changed': FontMetrics;
-}
+	changed: FontMetrics;
+};
 
 export class Font extends EventEmitter<FontEvents> {
 	private config: FontConfig = {
@@ -96,7 +96,7 @@ export class Font extends EventEmitter<FontEvents> {
 
 		const paraStyle = new this.canvasKit.ParagraphStyle({
 			textStyle: textStyle,
-			textAlign: this.canvasKit.TextAlign.Left,
+			textAlign: this.canvasKit.TextAlign.Left
 		});
 
 		const builder = this.canvasKit.ParagraphBuilder.Make(paraStyle, this.fontMgr);
@@ -110,5 +110,3 @@ export class Font extends EventEmitter<FontEvents> {
 		};
 	}
 }
-
-

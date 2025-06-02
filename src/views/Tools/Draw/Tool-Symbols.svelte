@@ -3,10 +3,9 @@
 	import { ScrollArea } from '@components/scroll-area';
 	import { Separator } from '@components/separator';
 	import * as ToggleGroup from '@components/toggle-group';
-	import { createEventDispatcher } from 'svelte';
 	import { writable } from 'svelte/store';
 
-	const dispatch = createEventDispatcher();
+	export let onSymbolChange: (symbol: string) => void;
 
 	const symbols = [
 		'!',
@@ -230,7 +229,7 @@
 	let lettersSection: HTMLDivElement;
 	let numbersSection: HTMLDivElement;
 
-	const onSectionCategoryChange = (section: string | undefined) => {
+	const onSectionCategoryChange = (section: string) => {
 		switch (section) {
 			case 'letters':
 				scrollToSection(lettersSection);
@@ -273,7 +272,7 @@
 		if (!symbol) return;
 
 		selectedSymbol.set(symbol);
-		dispatch('symbolChange', { value: symbol });
+		onSymbolChange(symbol);
 	}
 
 	const sectionCategory = writable('letters');
@@ -297,7 +296,7 @@
 			class=" sticky flex gap-4  pl-4 pt-4 text-base"
 			variant="hover"
 			value={$sectionCategory}
-			onValueChange={(value) => onSectionCategoryChange(value)}
+			onValueChange={(value: string) => onSectionCategoryChange(value)}
 			size="auto"
 			type="single"
 		>
@@ -305,7 +304,7 @@
 				class="relative pr-5"
 				value="letters"
 				on:click={() => scrollToSection(lettersSection)}
-				aria-label={`select letters`}
+				aria-label="select letters"
 				>letters
 				<div class="overlay-symbols">ABC</div></ToggleGroup.Item
 			>
@@ -313,7 +312,7 @@
 				class="relative pr-3.5"
 				value="numbers"
 				on:click={() => scrollToSection(numbersSection)}
-				aria-label={`select numbers`}
+				aria-label="select numbers"
 				>numbers
 				<div class="overlay-symbols">123</div></ToggleGroup.Item
 			>
@@ -321,7 +320,7 @@
 				class="relative pr-5"
 				value="symbols"
 				on:click={() => scrollToSection(symbolsSection)}
-				aria-label={`select symbols`}
+				aria-label="select symbols"
 				>symbols
 				<div class="overlay-symbols">!@&</div></ToggleGroup.Item
 			>
@@ -334,12 +333,12 @@
 				class="flex h-full flex-col items-start gap-6  pl-2 pt-4"
 				size="icon"
 				value={$selectedSymbol}
-				onValueChange={(value) => onSelectSymbol(value)}
+				onValueChange={(value: string) => onSelectSymbol(value)}
 				type="single"
 			>
 				<div class="symbols-group" bind:this={lettersSection}>
 					<p class="symbols_title">Letters</p>
-					{#each letters as letter}
+					{#each letters as letter (letter)}
 						<ToggleGroup.Item value={letter} aria-label={`select ${letter}`}>
 							{letter}
 						</ToggleGroup.Item>
@@ -347,7 +346,7 @@
 				</div>
 				<div bind:this={numbersSection}>
 					<p class="symbols_title">Numbers</p>
-					{#each numbers as number}
+					{#each numbers as number (number)}
 						<ToggleGroup.Item value={number} aria-label={`select ${number}`}>
 							{number}
 						</ToggleGroup.Item>
@@ -355,7 +354,7 @@
 				</div>
 				<div bind:this={symbolsSection}>
 					<p class="symbols_title">Symbols</p>
-					{#each symbols as symbol}
+					{#each symbols as symbol (symbol)}
 						<ToggleGroup.Item value={symbol} aria-label={`select ${symbol}`}>
 							{symbol}
 						</ToggleGroup.Item>
@@ -366,7 +365,7 @@
 	</Popover.Content>
 </Popover.Root>
 
-<style>
+<style lang="postcss">
 	.symbols-group {
 		font-family: 'Liberation Mono', serif;
 		font-optical-sizing: auto;

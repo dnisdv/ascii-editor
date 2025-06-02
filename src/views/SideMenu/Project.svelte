@@ -21,6 +21,6 @@
 	</div>
 
 	<div class="flex items-center justify-start gap-1 text-sm font-medium">
-		<EditableText on:change={onTitleChange} bind:value={projectTitle} />
+		<EditableText on:change={onTitleChange} value={projectTitle} />
 	</div>
 </div>

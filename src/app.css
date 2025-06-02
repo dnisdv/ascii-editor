@@ -1,118 +1,113 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body,html{
-  padding:0;
-  margin: 0;
-  overflow: hidden;
+body,
+html {
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
 }
 
 * {
-  font-family: "DM Sans", serif;
-  font-optical-sizing: auto;
-  font-weight: 400;
-  font-style: normal;
- }
-
-
+	font-family: 'DM Sans', serif;
+	font-optical-sizing: auto;
+	font-weight: 400;
+	font-style: normal;
+}
 
 button:focus,
 input:focus,
 textarea:focus,
 select:focus {
-  outline: none;
+	outline: none;
 }
 
 * {
-  user-select: none;
+	user-select: none;
 }
 
 button {
-  cursor: default;
+	cursor: default;
 }
 
- 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
- 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
- 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
- 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
- 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
- 
+	:root {
+		--background: 0 0% 100%;
+		--foreground: 240 10% 4%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
- 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
- 
-    --accent: 240 5% 96%;
-    --accent-foreground: 240 6% 10%;
- 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
- 
-    --ring: 240 10% 3.9%;
-    --radius: 0.625rem;
+		--muted: 240 5% 96%;
+		--muted-foreground: 240 4% 46%;
 
-    /* custom */
-    --canvas-background: 0 0% 98%;
-  }
- 
-  .dark {
-     --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
- 
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 65%;
- 
-    --popover: 240 10% 4%;
-    --popover-foreground: 0 0% 98%;
- 
-    --card: 240 10% 4%;
-    --card-foreground: 0 0% 98%;
- 
-    --border: 240 5% 26%;
-    --input: 240 5% 26%;
- 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 98%;
- 
-    --secondary: 240 4% 16%;
-    --secondary-foreground: 0 0% 98%;
- 
-    --accent: 240 4% 16%;
-    --accent-foreground: 0 0% 98%;
- 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 98%;
- 
-    --ring: 240 10% 3.9%;
-    --radius: 0.625rem;
+		--popover: 0 0% 100%;
+		--popover-foreground: 240 10% 4%;
 
-    /* custom */
-    --canvas-background: 0 0% 98%;
-  }
+		--card: 0 0% 100%;
+		--card-foreground: 240 10% 4%;
 
+		--border: 240 6% 90%;
+		--input: 240 6% 90%;
+
+		--primary: 217 91% 60%;
+		--primary-foreground: 0 0% 98%;
+
+		--secondary: 240 5% 96%;
+		--secondary-foreground: 240 6% 10%;
+
+		--accent: 240 5% 96%;
+		--accent-foreground: 240 6% 10%;
+
+		--destructive: 0 84% 60%;
+		--destructive-foreground: 0 0% 98%;
+
+		--ring: 240 10% 3.9%;
+		--radius: 0.625rem;
+
+		/* custom */
+		--canvas-background: 0 0% 98%;
+	}
+
+	.dark {
+		--background: 240 10% 4%;
+		--foreground: 0 0% 98%;
+
+		--muted: 240 4% 16%;
+		--muted-foreground: 240 5% 65%;
+
+		--popover: 240 10% 4%;
+		--popover-foreground: 0 0% 98%;
+
+		--card: 240 10% 4%;
+		--card-foreground: 0 0% 98%;
+
+		--border: 240 5% 26%;
+		--input: 240 5% 26%;
+
+		--primary: 217 91% 60%;
+		--primary-foreground: 0 0% 98%;
+
+		--secondary: 240 4% 16%;
+		--secondary-foreground: 0 0% 98%;
+
+		--accent: 240 4% 16%;
+		--accent-foreground: 0 0% 98%;
+
+		--destructive: 0 63% 31%;
+		--destructive-foreground: 0 0% 98%;
+
+		--ring: 240 10% 3.9%;
+		--radius: 0.625rem;
+
+		/* custom */
+		--canvas-background: 0 0% 98%;
+	}
 }
- 
+
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+	* {
+		@apply border-border;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
 }

@@ -1,14 +1,13 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export type CameraSerializableSchemaType = {
-  offsetX: number;
-  offsetY: number;
-  scale: number;
-}
+	offsetX: number;
+	offsetY: number;
+	scale: number;
+};
 
 export const CameraSerializableSchema = z.object({
-  offsetX: z.number(),
-  offsetY: z.number(),
-  scale: z.number(),
+	offsetX: z.number(),
+	offsetY: z.number(),
+	scale: z.number()
 });
-

@@ -33,6 +33,7 @@
 			builders={[builder]}
 		>
 			<ThemeIcon
+				size={16}
 				name="rectangle"
 				color={$isActive ? $currentThemeHEX['--primary-foreground'] : undefined}
 			/>

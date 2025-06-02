@@ -1,9 +1,17 @@
 <script>
 	export let color = 'white';
-	export let size = 16;
+	export let size = 20;
+
+	$: calculatedHeight = (size / 20) * 21;
 </script>
 
-<svg width="20" height="21" viewBox="0 0 20 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg
+	width={size}
+	height={calculatedHeight}
+	viewBox="0 0 20 21"
+	fill="none"
+	xmlns="http://www.w3.org/2000/svg"
+>
 	<g id="system-uicons:fullscreen">
 		<path
 			id="Vector (Stroke)"

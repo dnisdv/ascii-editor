@@ -21,12 +21,7 @@
 	const onChange = (e: CustomEvent<ChangeEventDetail>) => {
 		const toIndex = e.detail.toIndex;
 		const layer = e.detail.fromItem;
-
 		layerBus.emit('layer::update::request', { id: layer.id, index: toIndex });
-
-		sortedLayers = Object.entries($layers)
-			.map(([, layer]) => ({ ...layer }))
-			.sort((a, b) => a.index - b.index);
 	};
 
 	const addNewLayer = () => {
@@ -36,6 +31,8 @@
 	const onContextMenu = (e: Event) => {
 		e.preventDefault();
 	};
+
+	const handleScroll = () => {};
 
 	type $$Props = {
 		class?: string;
@@ -69,7 +66,7 @@
 			</Tooltip.Root>
 		</div>
 
-		<ScrollArea hideDelay={0} class="flex h-full flex-col overflow-y-auto">
+		<ScrollArea hideDelay={0} onScroll={handleScroll} class="flex h-full flex-col overflow-y-auto">
 			<div class="px-1.5 pb-1.5 pt-1.5">
 				<DndList on:change={onChange} itemHeight={28}>
 					{#each sortedLayers as layer (layer.id)}

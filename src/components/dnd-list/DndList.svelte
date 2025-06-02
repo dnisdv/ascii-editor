@@ -129,7 +129,7 @@
 		registerItem: (item: DraggableItem): ((callback: (index: number) => void) => () => void) => {
 			items.update((i) => {
 				const updatedItems = [...i, item];
-				updatedItems.sort((a, b) => a.index - b.index); // Sort by 'id' in ascending order.
+				updatedItems.sort((a, b) => a.index - b.index);
 				return updatedItems;
 			});
 
@@ -167,7 +167,7 @@
 	{/if}
 </div>
 
-<style>
+<style lang="postcss">
 	.dnd-container {
 		position: relative;
 	}

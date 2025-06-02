@@ -6,7 +6,7 @@ export default defineConfig({
 	test: {
 		environment: 'happy-dom', // or 'jsdom', 'node'
 		coverage: {
-			reporter: ['text', 'json', 'html'],
-		},
-	},
+			reporter: ['text', 'json', 'html']
+		}
+	}
 });

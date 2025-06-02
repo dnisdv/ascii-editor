@@ -1,13 +1,19 @@
-import type { BaseTool } from "@editor/tool";
-import { VimKeyMapper } from "@editor/utils/hotkey";
-import type { ICanvas } from "./types";
+import type { BaseTool } from '@editor/tool';
+import { VimKeyMapper } from '@editor/utils/hotkey';
+import type { ICanvas } from './types';
 
 export interface ToolManagerOptions {
-	canvas: ICanvas
+	canvas: ICanvas;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EventHandler = (event: any | Event | MouseEvent | KeyboardEvent | WheelEvent) => boolean | void | Promise<void>;
+type EventHandler = (
+	event: Event | MouseEvent | KeyboardEvent | WheelEvent
+) => boolean | void | Promise<void>;
+
+type SpecificMouseEventHandler = (event: MouseEvent) => boolean | void | Promise<void>;
+type SpecificKeyboardEventHandler = (event: KeyboardEvent) => boolean | void | Promise<void>;
+type SpecificWheelEventHandler = (event: WheelEvent) => boolean | void | Promise<void>;
+type SpecificGenericEventHandler = (event: Event) => boolean | void | Promise<void>;
 
 export class ToolEventManager {
 	private keyEventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]> = new Map();
@@ -42,63 +48,59 @@ export class ToolEventManager {
 		return {
 			removeToolEvents: () => this.removeToolEvents(tool),
 
-			registerKeyPress: (key: string | RegExp, handler: EventHandler) => {
+			registerKeyPress: (key: string | RegExp, handler: SpecificKeyboardEventHandler) => {
 				const keyPattern = key instanceof RegExp ? key.source : key;
-				this._registerEvent(tool, this.keyEventMap, "keydown", keyPattern, handler);
+				this._registerEvent(tool, this.keyEventMap, 'keydown', keyPattern, handler as EventHandler);
 			},
-			registerKeyUp: (key: string, handler: EventHandler) =>
-				this._registerEvent(tool, this.keyEventMap, "keyup", key, handler),
+			registerKeyUp: (key: string, handler: SpecificKeyboardEventHandler) =>
+				this._registerEvent(tool, this.keyEventMap, 'keyup', key, handler as EventHandler),
 			unregisterKeyPress: (key: string) =>
-				this._unregisterEvent(tool, this.keyEventMap, "keydown", key),
-			unregisterKeyUp: (key: string) =>
-				this._unregisterEvent(tool, this.keyEventMap, "keyup", key),
+				this._unregisterEvent(tool, this.keyEventMap, 'keydown', key),
+			unregisterKeyUp: (key: string) => this._unregisterEvent(tool, this.keyEventMap, 'keyup', key),
 
-			registerLeftClick: (handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, "leftclick", null, handler),
-			registerRightClick: (handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, "rightclick", null, handler),
-			registerMouseDown: (button: "left" | "right", handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, `mousedown:${button}`, null, handler),
+			registerLeftClick: (handler: SpecificMouseEventHandler) =>
+				this._registerEvent(tool, this.mouseEventMap, 'leftclick', null, handler as EventHandler),
+			registerRightClick: (handler: SpecificMouseEventHandler) =>
+				this._registerEvent(tool, this.mouseEventMap, 'rightclick', null, handler as EventHandler),
+			registerMouseDown: (button: 'left' | 'right', handler: SpecificMouseEventHandler) =>
+				this._registerEvent(
+					tool,
+					this.mouseEventMap,
+					`mousedown:${button}`,
+					null,
+					handler as EventHandler
+				),
 
-			registerMouseMove: (handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, "mousemove", null, handler),
-
-			registerMouseUp: (handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, "mouseup", null, handler),
-
-			registerMouseLeave: (handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, "mouseleave", null, handler),
+			registerMouseMove: (handler: SpecificMouseEventHandler) =>
+				this._registerEvent(tool, this.mouseEventMap, 'mousemove', null, handler as EventHandler),
+			registerMouseUp: (handler: SpecificMouseEventHandler) => {
+				this._registerEvent(tool, this.mouseEventMap, 'mouseup', null, handler as EventHandler);
+			},
+			registerMouseLeave: (handler: SpecificMouseEventHandler) =>
+				this._registerEvent(tool, this.mouseEventMap, 'mouseleave', null, handler as EventHandler),
 
 			unregisterMouseLeave: () =>
-				this._unregisterEvent(tool, this.mouseEventMap, "mouseleave", null),
-
-
-			unregisterMouseMove: () =>
-				this._unregisterEvent(tool, this.mouseEventMap, "mousemove", null),
-			unregisterMouseUp: () =>
-				this._unregisterEvent(tool, this.mouseEventMap, "mouseup", null),
-
-			unregisterLeftClick: () =>
-				this._unregisterEvent(tool, this.mouseEventMap, "leftclick", null),
+				this._unregisterEvent(tool, this.mouseEventMap, 'mouseleave', null),
+			unregisterMouseMove: () => this._unregisterEvent(tool, this.mouseEventMap, 'mousemove', null),
+			unregisterMouseUp: () => this._unregisterEvent(tool, this.mouseEventMap, 'mouseup', null),
+			unregisterLeftClick: () => this._unregisterEvent(tool, this.mouseEventMap, 'leftclick', null),
 			unregisterRightClick: () =>
-				this._unregisterEvent(tool, this.mouseEventMap, "rightclick", null),
-			unregisterMouseDown: (button: "left" | "right") =>
+				this._unregisterEvent(tool, this.mouseEventMap, 'rightclick', null),
+			unregisterMouseDown: (button: 'left' | 'right') =>
 				this._unregisterEvent(tool, this.mouseEventMap, `mousedown:${button}`, null),
 
-			registerWheel: (handler: EventHandler) =>
-				this._registerEvent(tool, this.mouseEventMap, "wheel", null, handler),
-			unregisterWheel: () =>
-				this._unregisterEvent(tool, this.mouseEventMap, "wheel", null),
+			registerWheel: (handler: SpecificWheelEventHandler) =>
+				this._registerEvent(tool, this.mouseEventMap, 'wheel', null, handler as EventHandler),
+			unregisterWheel: () => this._unregisterEvent(tool, this.mouseEventMap, 'wheel', null),
 
-			registerUnload: (handler: EventHandler) =>
-				this._registerEvent(tool, this.customEventMap, "unload", null, handler),
-			unregisterUnload: () =>
-				this._unregisterEvent(tool, this.customEventMap, "unload", null),
+			registerUnload: (handler: SpecificGenericEventHandler) =>
+				this._registerEvent(tool, this.customEventMap, 'unload', null, handler as EventHandler),
+			unregisterUnload: () => this._unregisterEvent(tool, this.customEventMap, 'unload', null),
 
-			registerCustomEvent: (eventName: string, handler: EventHandler) =>
-				this._registerEvent(tool, this.customEventMap, eventName, null, handler),
+			registerCustomEvent: (eventName: string, handler: SpecificGenericEventHandler) =>
+				this._registerEvent(tool, this.customEventMap, eventName, null, handler as EventHandler),
 			unregisterCustomEvent: (eventName: string) =>
-				this._unregisterEvent(tool, this.customEventMap, eventName, null),
+				this._unregisterEvent(tool, this.customEventMap, eventName, null)
 		};
 	}
 
@@ -113,7 +115,10 @@ export class ToolEventManager {
 		if (!eventMap.has(eventKey)) {
 			eventMap.set(eventKey, []);
 		}
-		eventMap.set(eventKey, eventMap.get(eventKey)!.filter(({ tool: t }) => t.name !== tool.name));
+		eventMap.set(
+			eventKey,
+			eventMap.get(eventKey)!.filter(({ tool: t }) => t.name !== tool.name)
+		);
 		eventMap.get(eventKey)!.unshift({ tool, handler });
 	}
 
@@ -132,28 +137,34 @@ export class ToolEventManager {
 		}
 	}
 
-	private _removeToolEvents(toolName: string, eventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]>) {
+	private _removeToolEvents(
+		toolName: string,
+		eventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]>
+	) {
 		for (const [eventKey, handlers] of eventMap.entries()) {
-			eventMap.set(eventKey, handlers.filter(({ tool }) => tool.name !== toolName));
+			eventMap.set(
+				eventKey,
+				handlers.filter(({ tool }) => tool.name !== toolName)
+			);
 		}
 	}
 
 	private registerDefaultListeners() {
 		const selectCanvas = this.canvas.canvas;
 
-		document.addEventListener("keydown", (e) => this._dispatchKeyboardEvent("keydown", e));
-		document.addEventListener("keyup", (e) => this._dispatchKeyboardEvent("keyup", e));
+		document.addEventListener('keydown', (e) => this._dispatchKeyboardEvent('keydown', e));
+		document.addEventListener('keyup', (e) => this._dispatchKeyboardEvent('keyup', e));
 
-		selectCanvas.addEventListener("wheel", (e) => this._dispatchMouseEvent("wheel", e));
-		window.addEventListener("beforeunload", (e) => this._dispatchCustomEvent("unload", e));
+		selectCanvas.addEventListener('wheel', (e) => this._dispatchMouseEvent('wheel', e));
+		window.addEventListener('beforeunload', (e) => this._dispatchCustomEvent('unload', e));
 
-		selectCanvas.addEventListener("mousedown", (e) => this._dispatchMouseEvent("mousedown", e));
-		selectCanvas.addEventListener("mousemove", (e) => this._dispatchMouseEvent("mousemove", e));
-		selectCanvas.addEventListener("mouseleave", (e) => this._dispatchMouseEvent("mouseleave", e));
-		selectCanvas.addEventListener("mouseup", (e) => this._dispatchMouseEvent("mouseup", e));
-		selectCanvas.addEventListener("dblclick", (e) => this._dispatchMouseEvent("doubleclick", e));
-		selectCanvas.addEventListener("contextmenu", (e) => this._dispatchMouseEvent("rightclick", e));
-		selectCanvas.addEventListener("click", (e) => this._dispatchMouseEvent("leftclick", e));
+		selectCanvas.addEventListener('mousedown', (e) => this._dispatchMouseEvent('mousedown', e));
+		selectCanvas.addEventListener('mousemove', (e) => this._dispatchMouseEvent('mousemove', e));
+		selectCanvas.addEventListener('mouseleave', (e) => this._dispatchMouseEvent('mouseleave', e));
+		selectCanvas.addEventListener('mouseup', (e) => this._dispatchMouseEvent('mouseup', e));
+		selectCanvas.addEventListener('dblclick', (e) => this._dispatchMouseEvent('doubleclick', e));
+		selectCanvas.addEventListener('contextmenu', (e) => this._dispatchMouseEvent('rightclick', e));
+		selectCanvas.addEventListener('click', (e) => this._dispatchMouseEvent('leftclick', e));
 	}
 
 	private _dispatchCustomEvent(eventType: string, event: Event) {
@@ -206,14 +217,19 @@ export class ToolEventManager {
 	}
 
 	private _dispatchMouseEvent(eventType: string, event: MouseEvent) {
-		event.preventDefault()
+		event.preventDefault();
 
-		if (eventType === "mousemove" || eventType === "mouseup" || eventType === "mouseleave" || eventType === "wheel") {
+		if (
+			eventType === 'mousemove' ||
+			eventType === 'mouseup' ||
+			eventType === 'mouseleave' ||
+			eventType === 'wheel'
+		) {
 			this._dispatchEvent(this.mouseEventMap, eventType, event);
 			return;
 		}
 
-		const button = event.button === 0 ? "left" : event.button === 2 ? "right" : null;
+		const button = event.button === 0 ? 'left' : event.button === 2 ? 'right' : null;
 		if (!button) return;
 
 		this._dispatchEvent(this.mouseEventMap, `${eventType}:${button}`, event);
@@ -237,4 +253,3 @@ export class ToolEventManager {
 		}
 	}
 }
-

@@ -1,23 +1,23 @@
-import { Grid } from "./canvas/grid";
-import { Ascii } from "./canvas/ascii";
-import { Select } from "./canvas/select";
-import type { CanvasKit } from "canvaskit-wasm";
-import type { Config } from "./config";
-import type { ICamera, ILayersManager } from "./types";
-import type { FontManager } from "./font-manager";
-import type { RenderManager } from "./render-manager";
+import { Grid } from './canvas/grid';
+import { Ascii } from './canvas/ascii';
+import { Select } from './canvas/select';
+import type { CanvasKit } from 'canvaskit-wasm';
+import type { Config } from './config';
+import type { ICamera, ILayersManager } from './types';
+import type { FontManager } from './font-manager';
+import type { RenderManager } from './render-manager';
 
 type IUI = {
 	gridCanvasElement: HTMLCanvasElement;
 	selectCanvasElement: HTMLCanvasElement;
 	asciiCanvasElement: HTMLCanvasElement;
 	canvasKitInstance: CanvasKit;
-	config: Config
+	config: Config;
 	camera: ICamera;
-	layersManager: ILayersManager
+	layersManager: ILayersManager;
 	fontManager: FontManager;
-	renderManager: RenderManager
-}
+	renderManager: RenderManager;
+};
 
 export class UI {
 	private gridCanvasElement: HTMLCanvasElement;
@@ -31,10 +31,10 @@ export class UI {
 	private canvasKit: CanvasKit;
 
 	private camera: ICamera;
-	private config: Config
-	private layersManager: ILayersManager
-	private fontManager: FontManager
-	private renderManager: RenderManager
+	private config: Config;
+	private layersManager: ILayersManager;
+	private fontManager: FontManager;
+	private renderManager: RenderManager;
 
 	constructor({
 		canvasKitInstance,
@@ -45,18 +45,18 @@ export class UI {
 		config,
 		layersManager,
 		fontManager,
-		renderManager,
+		renderManager
 	}: IUI) {
-		this.gridCanvasElement = gridCanvasElement
-		this.selectCanvasElement = selectCanvasElement
-		this.asciiCanvasElement = asciiCanvasElement
+		this.gridCanvasElement = gridCanvasElement;
+		this.selectCanvasElement = selectCanvasElement;
+		this.asciiCanvasElement = asciiCanvasElement;
 
-		this.canvasKit = canvasKitInstance
+		this.canvasKit = canvasKitInstance;
 
 		this.camera = camera;
 		this.config = config;
 		this.layersManager = layersManager;
-		this.fontManager = fontManager
+		this.fontManager = fontManager;
 
 		this.grid = this.initGridCanvas(gridCanvasElement);
 		this.ascii = this.initAsciiCanvas(asciiCanvasElement);
@@ -64,9 +64,9 @@ export class UI {
 
 		this.renderManager = renderManager;
 
-		this.renderManager.register("canvas", "grid", () => this.grid.render());
-		this.renderManager.register("canvas", "ascii", () => this.ascii.render());
-		this.renderManager.register("canvas", "select", () => this.select.render());
+		this.renderManager.register('canvas', 'grid', () => this.grid.render());
+		this.renderManager.register('canvas', 'ascii', () => this.ascii.render());
+		this.renderManager.register('canvas', 'select', () => this.select.render());
 	}
 
 	public resizeCanvases() {
@@ -77,9 +77,15 @@ export class UI {
 		this.renderManager.requestRenderAll();
 	}
 
-	public getGridCanvas() { return this.grid }
-	public getAsciiCanvas() { return this.ascii }
-	public getSelectCanvas() { return this.select }
+	public getGridCanvas() {
+		return this.grid;
+	}
+	public getAsciiCanvas() {
+		return this.ascii;
+	}
+	public getSelectCanvas() {
+		return this.select;
+	}
 
 	private initGridCanvas(canvas: HTMLCanvasElement) {
 		const surface = this.canvasKit.MakeWebGLCanvasSurface(canvas)!;
@@ -91,7 +97,7 @@ export class UI {
 			surface,
 			camera: this.camera,
 			config: this.config,
-			fontManager: this.fontManager,
+			fontManager: this.fontManager
 		});
 	}
 
@@ -102,9 +108,8 @@ export class UI {
 		return new Select({
 			canvas,
 			canvasKit: this.canvasKit,
-			surface,
+			surface
 		});
-
 	}
 
 	private initAsciiCanvas(canvas: HTMLCanvasElement) {

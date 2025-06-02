@@ -1,12 +1,36 @@
-import globals from "globals";
-import pluginJs from "@eslint/js";
-import tseslint from "typescript-eslint";
+import globals from 'globals';
+import svelte from 'eslint-plugin-svelte';
+import svelteConfig from './svelte.config.js';
+import js from '@eslint/js';
+import ts from 'typescript-eslint';
 
-
-/** @type {import('eslint').Linter.Config[]} */
-export default [
-  {files: ["**/*.{js,mjs,cjs,ts}"]},
-  {languageOptions: { globals: globals.browser }},
-  pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
-];
+export default ts.config(
+	js.configs.recommended,
+	...ts.configs.recommended,
+	...svelte.configs.recommended,
+	{
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node
+			}
+		}
+	},
+	{
+		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
+		languageOptions: {
+			parserOptions: {
+				projectService: true,
+				extraFileExtensions: ['.svelte'],
+				parser: ts.parser,
+				svelteConfig
+			}
+		}
+	},
+	{
+		rules: {}
+	},
+	{
+		ignores: ['.svelte-kit/**', 'build/**']
+	}
+);

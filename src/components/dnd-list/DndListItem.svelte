@@ -3,7 +3,7 @@
 	import type { DndListCtx, DraggableItem } from '.';
 	import { isDefined } from '@lib/utils';
 
-	export let item: any & DraggableItem;
+	export let item: DraggableItem;
 
 	const { registerItem, unregisterItem, startDrag, dragState } = getContext<DndListCtx>('dndList');
 

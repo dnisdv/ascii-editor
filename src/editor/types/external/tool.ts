@@ -1,31 +1,31 @@
-import type { BusManager } from "@editor/bus-manager";
-import type { CoreApi } from "@editor/core";
+import type { BusManager } from '@editor/bus-manager';
+import type { CoreApi } from '@editor/core';
 
 export type IToolOptions = {
-  [x: string]: unknown;
-}
+	[x: string]: unknown;
+};
 
 export interface ToolRequirements {
-  layer?: {
-    visible?: boolean;
-    locked?: boolean;
-    exists?: boolean;
-  };
+	layer?: {
+		visible?: boolean;
+		locked?: boolean;
+		exists?: boolean;
+	};
 }
 
 export type IToolConfig = {
-  name: string
-  isVisible: boolean
+	name: string;
+	isVisible: boolean;
 
-  hotkey?: string | null;
-  config: IToolOptions
-  bus: BusManager
-  requirements?: ToolRequirements
-  coreApi: CoreApi
-}
+	hotkey?: string | null;
+	config: IToolOptions;
+	bus: BusManager;
+	requirements?: ToolRequirements;
+	coreApi: CoreApi;
+};
 
 export type IToolModel = {
-  name: string,
-  isVisible: boolean
-  config?: IToolOptions
-}
+	name: string;
+	isVisible: boolean;
+	config?: IToolOptions;
+};

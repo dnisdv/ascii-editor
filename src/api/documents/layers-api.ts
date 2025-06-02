@@ -1,7 +1,7 @@
-import type { DocumentSchemaType, ILayerModel, RequireAtLeastOne } from "@editor/types";
-import { DBLocalStorage } from "./db-localstorage";
-import { DocumentsApi } from "./document-api";
-import { DocumentController } from "./document";
+import type { DocumentSchemaType, ILayerModel, RequireAtLeastOne } from '@editor/types';
+import { DBLocalStorage } from './db-localstorage';
+import { DocumentsApi } from './document-api';
+import { DocumentController } from './document';
 
 export const LayersApi = (documentId: string) => ({
 	listLayers(): string[] {
@@ -13,7 +13,6 @@ export const LayersApi = (documentId: string) => ({
 	},
 
 	moveLayer(layerId: string, newPosition: number): void {
-
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
@@ -27,8 +26,7 @@ export const LayersApi = (documentId: string) => ({
 		db.save(documentController.getSchema());
 	},
 
-	setActiveLayer(layerId: string): void {
-
+	setActiveLayer(layerId: string | null): void {
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
@@ -39,7 +37,6 @@ export const LayersApi = (documentId: string) => ({
 	},
 
 	addLayer(layer: ILayerModel) {
-
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
@@ -49,14 +46,13 @@ export const LayersApi = (documentId: string) => ({
 		db.save(documentController.getSchema());
 	},
 
-	updateLayer(layer: RequireAtLeastOne<ILayerModel, "id">): void {
+	updateLayer(layer: RequireAtLeastOne<ILayerModel, 'id'>): void {
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
 
 		const layerId = layer.id!;
 		documentController.updateLayer(layerId, layer);
-
 
 		db.save(documentController.getSchema());
 	},
@@ -72,7 +68,6 @@ export const LayersApi = (documentId: string) => ({
 	},
 
 	removeLayer(layerId: string): void {
-
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
@@ -82,9 +77,7 @@ export const LayersApi = (documentId: string) => ({
 		db.save(documentController.getSchema());
 	},
 
-
 	updateTile(layerId: string, x: number, y: number, newData: string): void {
-
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
@@ -97,8 +90,8 @@ export const LayersApi = (documentId: string) => ({
 		if (!layer.tileMap) {
 			documentController.updateLayer(layerId, {
 				tileMap: {
-					map: {},
-				},
+					map: {}
+				}
 			});
 
 			layer = documentController.getSchema().layers.data[layerId];
@@ -112,7 +105,7 @@ export const LayersApi = (documentId: string) => ({
 				tileSize: documentSchema.config.tileSize,
 				x,
 				y,
-				data: newData,
+				data: newData
 			};
 		} else {
 			tileMap[tileKey].data = newData;
@@ -122,7 +115,6 @@ export const LayersApi = (documentId: string) => ({
 	},
 
 	duplicateLayer(layerId: string): void {
-
 		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
 		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
 		const documentController = new DocumentController(documentSchema);
@@ -133,12 +125,14 @@ export const LayersApi = (documentId: string) => ({
 		}
 
 		const newLayerId = `${layerId}_copy`;
-		const duplicatedLayer = { ...originalLayer, id: newLayerId, name: `${originalLayer.name} (Copy)` };
+		const duplicatedLayer = {
+			...originalLayer,
+			id: newLayerId,
+			name: `${originalLayer.name} (Copy)`
+		};
 
 		documentController.addLayer(duplicatedLayer);
 
 		db.save(documentController.getSchema());
-	},
+	}
 });
-
-

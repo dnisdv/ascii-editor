@@ -1,11 +1,11 @@
-import type { CanvasKit, FontMgr } from "canvaskit-wasm";
-import { EventEmitter } from "./event-emitter";
-import { Font, type FontConfig, type FontData, type FontMetrics } from "./font";
+import type { CanvasKit, FontMgr } from 'canvaskit-wasm';
+import { EventEmitter } from './event-emitter';
+import { Font, type FontConfig, type FontData, type FontMetrics } from './font';
 
 type FontManagerEvents = {
 	'font:changed': Font;
 	'metrics:changed': FontMetrics;
-}
+};
 
 export class FontManager extends EventEmitter<FontManagerEvents> {
 	private currentFont: Font;
@@ -65,13 +65,9 @@ export class FontManager extends EventEmitter<FontManagerEvents> {
 	}
 
 	private createFont(fontMgr: FontMgr, family: string, config?: Partial<FontConfig>): Font {
-		return new Font(
-			this.canvasKit,
-			fontMgr,
-			{
-				family,
-				...config
-			}
-		);
+		return new Font(this.canvasKit, fontMgr, {
+			family,
+			...config
+		});
 	}
 }

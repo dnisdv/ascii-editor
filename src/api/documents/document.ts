@@ -1,20 +1,17 @@
-// FAST WRITTEN, BAD CODE, WARNING: 
-
+// FAST WRITTEN, BAD CODE, WARNING:
 import {
 	DocumentSchema,
 	LayerSerializableSchema,
 	type DocumentSchemaType,
 	type ILayerModel,
-	type LayerSerializableSchemaType,
-} from "@editor/types";
+	type LayerSerializableSchemaType
+} from '@editor/types';
 
 export class DocumentController {
 	private schema: DocumentSchemaType;
 
 	constructor(defaultSchema?: DocumentSchemaType) {
-		this.schema = defaultSchema
-			? this.initializeSchema(defaultSchema)
-			: this.createDefaultSchema();
+		this.schema = defaultSchema ? this.initializeSchema(defaultSchema) : this.createDefaultSchema();
 	}
 
 	private initializeSchema(defaultSchema: DocumentSchemaType): DocumentSchemaType {
@@ -25,28 +22,28 @@ export class DocumentController {
 	private createDefaultSchema(): DocumentSchemaType {
 		return {
 			// WARNING: Hardcoded until multiple documents/document selection
-			meta: { id: "__PROJECT__", version: "1.0", title: "Untitled" },
+			meta: { id: '__PROJECT__', version: '1.0', title: 'Untitled' },
 			config: { tileSize: 25 },
 			layers: { activeLayerKey: null, data: {} },
 			camera: { offsetX: 0, offsetY: 0, scale: 3 },
 			tools: { activeTool: null, data: {} },
-			history: null,
+			history: null
 		};
 	}
 
 	private validateSchema(newSchema: DocumentSchemaType): void {
 		const validation = DocumentSchema.safeParse(newSchema);
 		if (!validation.success) {
-			console.error("Schema validation failed:", validation.error);
-			throw new Error("Invalid schema");
+			console.error('Schema validation failed:', validation.error);
+			throw new Error('Invalid schema');
 		}
 	}
 
 	private validateLayer(layer: LayerSerializableSchemaType): void {
 		const validation = LayerSerializableSchema.safeParse(layer);
 		if (!validation.success) {
-			console.error("Layer validation failed:", validation.error);
-			throw new Error("Invalid layer schema");
+			console.error('Layer validation failed:', validation.error);
+			throw new Error('Invalid layer schema');
 		}
 	}
 
@@ -87,9 +84,9 @@ export class DocumentController {
 					...layer.tileMap,
 					map: {
 						...layer.tileMap?.map,
-						...updates.tileMap.map,
-					},
-				},
+						...updates.tileMap.map
+					}
+				}
 			};
 		}
 		return { ...layer, ...updates };
@@ -112,7 +109,7 @@ export class DocumentController {
 
 		const newLayer: LayerSerializableSchemaType = {
 			...layer,
-			tileMap: hasTileMap ? { map: {} } : undefined,
+			tileMap: hasTileMap ? { map: {} } : undefined
 		};
 
 		this.validateLayer(newLayer);
@@ -141,10 +138,7 @@ export class DocumentController {
 		this.reindexLayers();
 	}
 
-
-
-	setActiveLayer(layerId: string): void {
-		this.getLayerOrThrow(layerId);
+	setActiveLayer(layerId: string | null): void {
 		this.schema.layers.activeLayerKey = layerId;
 	}
 
@@ -189,4 +183,3 @@ export class DocumentController {
 		return this.schema;
 	}
 }
-
