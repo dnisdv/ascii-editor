@@ -26,7 +26,7 @@ export type CoreApi = {
 };
 
 export interface CoreDependencies {
-	// abstract
+	// specific
 	busManager: BusManager;
 	config: Config;
 	fontManager: FontManager;
@@ -36,7 +36,7 @@ export interface CoreDependencies {
 	ui: UI;
 	renderManager: RenderManager;
 
-	// specific
+	// abstract
 	camera: ICamera;
 	layersManager: ILayersManager;
 }

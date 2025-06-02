@@ -67,6 +67,8 @@ export class UI {
 		this.renderManager.register('canvas', 'grid', () => this.grid.render());
 		this.renderManager.register('canvas', 'ascii', () => this.ascii.render());
 		this.renderManager.register('canvas', 'select', () => this.select.render());
+
+		this.config.on('changed', this.onConfigChanged.bind(this))
 	}
 
 	public resizeCanvases() {
@@ -85,6 +87,12 @@ export class UI {
 	}
 	public getSelectCanvas() {
 		return this.select;
+	}
+
+	private onConfigChanged() {
+		this.grid.prepareForConfigChange()
+		this.ascii.prepareForConfigChange()
+		this.renderManager.requestRenderAll();
 	}
 
 	private initGridCanvas(canvas: HTMLCanvasElement) {
