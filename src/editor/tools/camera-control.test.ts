@@ -108,19 +108,19 @@ describe('Camera Control Tool', () => {
 			selectCanvasElement.dispatchEvent(createMouseEvent('mousedown', 100, 100, 2));
 
 			await new Promise((resolve) => requestAnimationFrame(resolve));
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', 150, 120, 2));
+			window.dispatchEvent(createMouseEvent('mousemove', 150, 120, 2));
 			await new Promise((resolve) => requestAnimationFrame(resolve));
 
 			expect(camera.offsetX).not.toBe(initialOffsetX);
 			expect(camera.offsetY).not.toBe(initialOffsetY);
 
-			selectCanvasElement.dispatchEvent(createMouseEvent('mouseup', 150, 120, 2));
+			window.dispatchEvent(createMouseEvent('mouseup', 150, 120, 2));
 		});
 
 		it('should not pan if mouse moves without the right button being pressed', () => {
 			const initialOffsetX = camera.offsetX;
 			const initialOffsetY = camera.offsetY;
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', 150, 120, 0));
+			window.dispatchEvent(createMouseEvent('mousemove', 150, 120, 0));
 			expect(camera.offsetX).toBe(initialOffsetX);
 			expect(camera.offsetY).toBe(initialOffsetY);
 		});

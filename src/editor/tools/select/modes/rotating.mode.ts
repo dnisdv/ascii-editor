@@ -41,6 +41,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 	}
 
 	public onEnter(_: SelectionModeContext, payload: RotatingModePayload): void {
+		// this.clear()
 		this.sessionBeforeRotate = this.selectionSessionManager.serializeActiveSession()!;
 
 		const {
@@ -52,7 +53,17 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 	}
 
 	public onExit(): void {
+		// this.clear()
 		this.coreApi.getCursor().setCursor('default');
+	}
+
+	private clear() {
+		this.rotationAngle = 0;
+		this.fixedCenter = null;
+		this.lastAngle = 0;
+		this.initialAngle = 0;
+		this.cumulativeRotation = 0;
+		this.hoveredCorner = null;
 	}
 
 	public handleMouseDown(): void {}

@@ -66,6 +66,9 @@ describe('Clipboard Tool', () => {
 
 	beforeEach(() => {
 		mockClipboardData.text = '';
+
+		mockClipboard.writeText.mockClear();
+		mockClipboard.readText.mockClear();
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue(mockClipboard as any);
 
@@ -116,8 +119,13 @@ describe('Clipboard Tool', () => {
 	});
 
 	afterEach(() => {
+		if (selectTool && typeof selectTool.deactivate === 'function') {
+			selectTool.deactivate();
+		}
+		if (clipboardTool && typeof clipboardTool.deactivate === 'function') {
+			clipboardTool.deactivate();
+		}
 		vi.restoreAllMocks();
-		selectTool.deactivate();
 	});
 
 	const simulateSelection = (text: string, startX = 0, startY = 0) => {
@@ -164,30 +172,6 @@ describe('Clipboard Tool', () => {
 	});
 
 	describe('Paste Behavior (Ctrl+V)', () => {
-		it('should create a selection with clipboard text at mouse position, activate select tool, and request render', async () => {
-			const clipboardText = 'Pasted\nText';
-			mockClipboardData.text = clipboardText;
-
-			const mouseEvent = createMouseEvent('mousemove', 100, 150);
-			selectCanvasElement.dispatchEvent(mouseEvent);
-
-			document.dispatchEvent(createKeyboardEvent('keydown', 'v', true));
-			await new Promise((resolve) => setTimeout(resolve, 0));
-
-			const activeSession = selectToolApi.getActiveSession();
-			expect(activeSession).not.toBeNull();
-			expect(activeSession?.getSelectedContent()?.data).toBe(clipboardText);
-
-			const { x: cellX, y: cellY } = clipboardTool['getCellPos'](
-				mouseEvent.clientX,
-				mouseEvent.clientY
-			);
-			expect(activeSession?.getSelectedContent()?.region.startX).toBe(cellX);
-			expect(activeSession?.getSelectedContent()?.region.startY).toBe(cellY);
-
-			expect(toolManager.getActiveToolName()).toBe('select');
-		});
-
 		it('should do nothing if clipboard is empty', async () => {
 			mockClipboardData.text = '';
 
@@ -203,13 +187,37 @@ describe('Clipboard Tool', () => {
 
 			expect(selectToolApi.getActiveSession()).toBeNull();
 		});
+
+		it('should create a selection with clipboard text at mouse position, and activate select tool', async () => {
+			const clipboardText = 'Pasted\nText';
+			mockClipboardData.text = clipboardText;
+
+			const mouseEvent = createMouseEvent('mousemove', 100, 150);
+			window.dispatchEvent(mouseEvent);
+
+			document.dispatchEvent(createKeyboardEvent('keydown', 'v', true));
+			await new Promise((resolve) => setImmediate(resolve));
+
+			const activeSession = selectToolApi.getActiveSession();
+			expect(activeSession).not.toBeNull();
+			expect(activeSession?.getSelectedContent()?.data).toBe(clipboardText);
+
+			const { x: cellX, y: cellY } = clipboardTool['getCellPos'](
+				mouseEvent.clientX,
+				mouseEvent.clientY
+			);
+			expect(activeSession?.getSelectedContent()?.region.startX).toBe(cellX);
+			expect(activeSession?.getSelectedContent()?.region.startY).toBe(cellY);
+
+			expect(toolManager.getActiveToolName()).toBe('select');
+		});
 	});
 
 	describe('Mouse Position Tracking', () => {
 		it('should update internal mouse position on mouse move', () => {
 			const clientX = 250;
 			const clientY = 350;
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', clientX, clientY));
+			window.dispatchEvent(createMouseEvent('mousemove', clientX, clientY));
 			expect(clipboardTool['mousePosition']).toEqual({ x: clientX, y: clientY });
 		});
 	});

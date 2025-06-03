@@ -159,9 +159,9 @@ export class ToolEventManager {
 		window.addEventListener('beforeunload', (e) => this._dispatchCustomEvent('unload', e));
 
 		selectCanvas.addEventListener('mousedown', (e) => this._dispatchMouseEvent('mousedown', e));
-		selectCanvas.addEventListener('mousemove', (e) => this._dispatchMouseEvent('mousemove', e));
+		window.addEventListener('mousemove', (e) => this._dispatchMouseEvent('mousemove', e));
 		selectCanvas.addEventListener('mouseleave', (e) => this._dispatchMouseEvent('mouseleave', e));
-		selectCanvas.addEventListener('mouseup', (e) => this._dispatchMouseEvent('mouseup', e));
+		window.addEventListener('mouseup', (e) => this._dispatchMouseEvent('mouseup', e));
 		selectCanvas.addEventListener('dblclick', (e) => this._dispatchMouseEvent('doubleclick', e));
 		selectCanvas.addEventListener('contextmenu', (e) => this._dispatchMouseEvent('rightclick', e));
 		selectCanvas.addEventListener('click', (e) => this._dispatchMouseEvent('leftclick', e));

@@ -7,8 +7,7 @@ import type { DeepPartial } from './utils.type';
 export type LayersManagerIEvents = {
 	'layers::active::change': { oldId: string | null; newId: string | null };
 	'layer::pre-remove': { layer: ILayer };
-	'layer::created': { layer: ILayer; lastActiveKey: string | null };
-	'layer::deleted': { layer: ILayer; lastActiveKey: string | null };
+	'layer::removed': undefined;
 	'layer::updated': {
 		before: Partial<ILayerModel>;
 		after: Partial<ILayerModel>;

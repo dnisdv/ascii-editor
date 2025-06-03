@@ -72,26 +72,6 @@ export class TextTool extends BaseTool implements ITool {
 		this.historyManager.onAfterRedo(() =>
 			this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
 		);
-
-		this.layers.on('layers::active::change', () => {
-			this.commitCurrentBatch();
-			this.handleVisibilityChange();
-		});
-
-		this.layers.on('layer::pre-remove', ({ layer }) => {
-			if (this.layers.getActiveLayerKey() === layer.id) {
-				this.commitCurrentBatch();
-			}
-		});
-		this.layers.on('layer::updated', ({ before, after }) => {
-			const activeLayer = this.layers.getActiveLayer();
-			if (activeLayer?.id === after.id) {
-				const isVisibilityChanged = before.opts?.visible !== after.opts?.visible;
-				if (isVisibilityChanged) {
-					this.handleVisibilityChange();
-				}
-			}
-		});
 	}
 
 	private canInteract(): boolean {
@@ -112,13 +92,18 @@ export class TextTool extends BaseTool implements ITool {
 		});
 	}
 
-	private handleVisibilityChange(): void {
+	public onRequirementFailure(): void {
+		super.onRequirementFailure();
 		this.commitCurrentBatch();
 		this.selectedCell = null;
 		this.drawCursorOverlay();
 	}
 
-	activate(): void {
+	public onRequirementSuccess(): void {
+		super.onRequirementSuccess();
+	}
+
+	public activate(): void {
 		super.activate();
 		this.addMouseListeners();
 
@@ -138,7 +123,7 @@ export class TextTool extends BaseTool implements ITool {
 		this.startCursorBlink();
 	}
 
-	deactivate(): void {
+	public deactivate(): void {
 		super.deactivate();
 		this.stopCursorBlink();
 		this.clearCursorOverlay();

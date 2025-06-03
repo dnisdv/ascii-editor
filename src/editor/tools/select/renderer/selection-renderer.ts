@@ -46,6 +46,7 @@ export class SelectionRenderer {
 		sessionManager.on('manager::session_destroyed', this.triggerDraw.bind(this));
 
 		this.renderManager.register('tool::select', 'draw', () => {
+			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
 			this.drawSelection();
 			this.drawRotationHandles();
 		});

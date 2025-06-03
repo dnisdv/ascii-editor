@@ -109,7 +109,7 @@ describe('History Control Tool', () => {
 
 		const coords = cellToWorld(cellX, cellY);
 		selectCanvasElement.dispatchEvent(createMouseEvent('mousedown', coords.x, coords.y));
-		selectCanvasElement.dispatchEvent(createMouseEvent('mouseup', coords.x, coords.y));
+		window.dispatchEvent(createMouseEvent('mouseup', coords.x, coords.y));
 	};
 
 	it('should not be visible in the toolbar', () => {

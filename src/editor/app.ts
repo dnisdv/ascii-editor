@@ -80,6 +80,8 @@ export function createAppInstance(options: AppFactoryOptions): [Core, App] {
 	const renderManager = new RenderManager();
 
 	layersManager.on('layer::updated', () => renderManager.requestRenderAll());
+	layersManager.on('layer::removed', () => renderManager.requestRenderAll());
+	layersManager.on('layer::pre-remove', () => renderManager.requestRenderAll());
 
 	const ui = new UI({
 		canvasKitInstance,

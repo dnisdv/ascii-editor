@@ -21,6 +21,8 @@ export class ClipboardTool extends BaseTool {
 	}
 
 	activate(): void {
+		super.activate();
+
 		this.getEventApi().registerKeyPress('<C-c>', this.copyToClipboard.bind(this));
 		this.getEventApi().registerKeyPress('<C-v>', this.pasteFromClipboard.bind(this));
 		this.getEventApi().registerKeyPress('<C-x>', this.cutToClipboard.bind(this));
@@ -28,7 +30,11 @@ export class ClipboardTool extends BaseTool {
 		this.getEventApi().registerMouseMove(this.trackMousePosition.bind(this));
 	}
 
-	deactivate(): void {}
+	deactivate(): void {
+		super.deactivate();
+		this.getEventApi().removeToolEvents();
+	}
+
 	cleanup(): void {}
 
 	private getCellPos(_x: number, _y: number) {

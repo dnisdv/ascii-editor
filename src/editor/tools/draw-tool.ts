@@ -60,73 +60,35 @@ export class DrawTool extends BaseTool implements ITool {
 		this.paragraphs = new Map();
 		this.renderManager = this.coreApi.getRenderManager();
 		this.historyManager = this.coreApi.getHistoryManager();
-
-		this.layers.on('layers::active::change', () => {
-			const activeLayer = this.layers.getActiveLayer();
-			this.isLayerVisible = activeLayer?.opts?.visible ?? true;
-			this.updateCursorVisibility();
-		});
-
-		this.layers.on('layer::updated', ({ before, after }) => {
-			const isLayerVisibilityChanged = before.opts?.visible !== after.opts?.visible;
-			if (isLayerVisibilityChanged) {
-				const activeLayer = this.layers.getActiveLayer();
-				if (activeLayer?.id === after.id) {
-					this.isLayerVisible = after.opts?.visible ?? true;
-					this.updateCursorVisibility();
-
-					if (!this.isLayerVisible && this.isDrawing) {
-						this.cancelDrawing();
-					}
-				}
-			}
-		});
-	}
-
-	activate(): void {
-		super.activate();
-		this.addMouseListeners();
-
 		this.renderManager.register('tool::draw', 'draw::symbol', () => {
 			if (!this.lastMousePos) return;
 			this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y);
 		});
 	}
 
+	activate(): void {
+		super.activate();
+		this.addMouseListeners();
+	}
+
 	deactivate(): void {
 		super.deactivate();
 		this.clear();
 		this.getEventApi().removeToolEvents();
-		this.renderManager.unregister('tool::draw', 'draw::symbol');
 	}
 
 	private clear() {
 		this.renderManager.requestRenderFn(() => {
 			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			if (
-				this.selectCanvas &&
-				this.selectCanvas.surface &&
-				!this.selectCanvas.surface.isDeleted()
-			) {
-				this.selectCanvas.surface.flush();
-			}
 		});
 	}
 
-	private cancelDrawing(): void {
-		this.isDrawing = false;
-		if (this.historyBatchTransaction) {
-			this.historyManager.commitBatch(this.historyBatchTransaction);
-			this.historyBatchTransaction = null;
-		}
-		this.lastMousePos = null;
-		this.coreApi.render();
+	public onRequirementFailure(): void {
+		super.onRequirementFailure();
 	}
 
-	private updateCursorVisibility(): void {
-		if (this.lastMousePos && this.isLayerVisible) {
-			this.renderManager.requestRender('tool::draw', 'draw::symbol');
-		}
+	public onRequirementSuccess(): void {
+		super.onRequirementSuccess();
 	}
 
 	private changeActiveKey(newKey: string) {
@@ -157,6 +119,7 @@ export class DrawTool extends BaseTool implements ITool {
 			dimensions: { width: charWidth }
 		} = this.coreApi.getFontManager().getMetrics();
 
+		this.skCanvas.clear(this.canvasKit.TRANSPARENT);
 		const paragraph = this.getParagraph(String(this.config.activeSymbol), charWidth);
 		this.skCanvas.drawParagraph(paragraph, x + 20, y + 20);
 		this.selectCanvas.surface.flush();
@@ -171,10 +134,8 @@ export class DrawTool extends BaseTool implements ITool {
 	}
 
 	private handleKeyDown(event: KeyboardEvent): void {
-		if (event.key.length === 1) {
-			this.changeActiveKey(event.key);
-			this.coreApi.render();
-		}
+		if (event.key.length !== 1) return;
+		this.changeActiveKey(event.key);
 	}
 
 	private handleCanvasMouseDown(event: MouseEvent): void {

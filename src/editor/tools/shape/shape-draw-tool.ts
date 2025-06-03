@@ -54,26 +54,6 @@ export class DrawShapeTool extends BaseTool implements ITool {
 		this.renderManager = this.coreApi.getRenderManager();
 
 		const [, layer] = this.coreApi.getLayersManager().addTempLayer();
-
-		this.layers.on('layers::active::change', () => {
-			const activeLayer = this.layers.getActiveLayer();
-			this.isLayerVisible = activeLayer?.opts?.visible ?? true;
-		});
-
-		this.layers.on('layer::updated', ({ before, after }) => {
-			const isLayerVisibilityChanged = before.opts?.visible !== after.opts?.visible;
-			if (isLayerVisibilityChanged) {
-				const activeLayer = this.layers.getActiveLayer();
-				if (activeLayer?.id === after.id) {
-					this.isLayerVisible = after.opts?.visible ?? true;
-
-					if (!this.isLayerVisible && this.isDrawing) {
-						this.cancelDrawing();
-					}
-				}
-			}
-		});
-
 		this.registerShape(Shapes.rectangle, new Rectangle(this.coreApi, layer, 'P'));
 	}
 
@@ -87,16 +67,12 @@ export class DrawShapeTool extends BaseTool implements ITool {
 		this.getEventApi().removeToolEvents();
 	}
 
-	private cancelDrawing(): void {
-		this.isDrawing = false;
-		if (this.tempLayer) {
-			this.tempLayer.clear();
-			this.coreApi.getLayersManager().removeTempLayer(this.tempLayer.id);
-			this.tempLayer = null;
-		}
-		this.selectSession = null;
-		this.currentShape = null;
-		this.coreApi.render();
+	public onRequirementFailure(): void {
+		super.onRequirementFailure();
+	}
+
+	public onRequirementSuccess(): void {
+		super.onRequirementSuccess();
 	}
 
 	private registerShape(type: Shapes, shape: Shape): void {

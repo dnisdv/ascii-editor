@@ -35,6 +35,7 @@ describe('Layers List Manager', () => {
 
 		it('should initialize with layers, set first as active, and reindex them', () => {
 			manager = new LayersListManager([layer1, layer2]);
+			manager.setActiveLayer(layer1.id);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2']);
 			expect(manager.getActiveLayerKey()).toBe('id1');
 			expect(layer1.index).toBe(0);
@@ -47,31 +48,34 @@ describe('Layers List Manager', () => {
 			manager = new LayersListManager();
 		});
 
-		it('should add to empty list, make active', () => {
+		it('should add to empty list, not making it active', () => {
 			manager.addLayer(layer1);
 			expect(manager.getSortedLayers()).toEqual([layer1]);
-			expect(manager.getActiveLayerKey()).toBe('id1');
+			expect(manager.getActiveLayerKey()).toBe(null);
 			expect(layer1.index).toBe(0);
 		});
 
 		it('should insert into populated list, reindex, and maintain active layer', () => {
 			manager.addLayer(layer1);
+			manager.setActiveLayer(layer1.id);
+
 			manager.addLayer(layer3);
 
 			manager.insertLayerAtIndex(layer2, 1);
 
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-			expect(manager.getActiveLayerKey()).toBe('id1');
+			expect(manager.getActiveLayerKey()).toBe(layer1.id);
 			expect(layer2.index).toBe(1);
 		});
 
 		it('re-adding an existing layer moves it to end and reindexes', () => {
 			manager.addLayer(layer1);
+			manager.setActiveLayer(layer1.id);
 			manager.addLayer(layer2);
 			manager.addLayer(layer1);
 
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1']);
-			expect(manager.getActiveLayerKey()).toBe('id1');
+			expect(manager.getActiveLayerKey()).toBe(layer1.id);
 			expect(layer1.index).toBe(1);
 		});
 	});
@@ -79,6 +83,7 @@ describe('Layers List Manager', () => {
 	describe('Removing Layers', () => {
 		beforeEach(() => {
 			manager = new LayersListManager([layer1, layer2, layer3]);
+			manager.setActiveLayer(layer1.id);
 		});
 
 		it('should remove the active layer, select next as new active, reindex, and return newActive', () => {
@@ -111,6 +116,7 @@ describe('Layers List Manager', () => {
 	describe('Moving and Updating Layers', () => {
 		beforeEach(() => {
 			manager = new LayersListManager([layer1, layer2, layer3]);
+			manager.setActiveLayer(layer1.id);
 		});
 
 		it('should move a layer, reindex, and keep active layer', () => {
@@ -159,6 +165,7 @@ describe('Layers List Manager', () => {
 	describe('Active Layer Management and Clearing', () => {
 		beforeEach(() => {
 			manager = new LayersListManager([layer1, layer2]);
+			manager.setActiveLayer(layer1.id);
 		});
 
 		it('should set active layer and getActiveLayer/Key should reflect it', () => {

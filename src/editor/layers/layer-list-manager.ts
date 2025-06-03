@@ -38,11 +38,6 @@ export class LayersListManager {
 		}
 
 		this.sortedLayerIds.push(layerId);
-
-		if (this.sortedLayerIds.length === 1 && this.layers.size === 1) {
-			this.activeLayerKey = layerId;
-		}
-
 		this.reindexLayers();
 	}
 
@@ -71,8 +66,6 @@ export class LayersListManager {
 			return;
 		}
 
-		const hadActiveLayerInitially = this.activeLayerKey !== null;
-
 		layersToAdd.forEach((layer) => {
 			const layerId = layer.id;
 			this.layers.set(layerId, layer);
@@ -83,10 +76,6 @@ export class LayersListManager {
 			}
 			this.sortedLayerIds.push(layerId);
 		});
-
-		if (!hadActiveLayerInitially && this.sortedLayerIds.length > 0) {
-			this.activeLayerKey = this.sortedLayerIds[0];
-		}
 
 		this.reindexLayers();
 	}

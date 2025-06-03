@@ -154,7 +154,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	private setActiveLayerInternal(id: string): boolean {
-		// if (String(id) === String(this.getActiveLayerKey())) return false;
+		if (String(id) === String(this.getActiveLayerKey())) return false;
 		const success = this.layers.setActiveLayer(id);
 		return success;
 	}
@@ -285,29 +285,17 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		if (removed) {
 			this.bus.emit('layer::remove::response', { id });
 
-			if (newActive) {
-				this.bus.emit('layer::change_active::response', { id: newActive });
-				this.historyManager.applyAction(
-					{
-						type: 'layers::remove_and_activate',
-						targetId: `layers`,
-						before: { layer: this.layerSerializer.serialize(layer), activeKey },
-						after: { layer: null, activeKey: newActive }
-					},
-					{ applyAction: false }
-				);
-			} else {
-				this.bus.emit('layer::change_active::response', { id: null });
-				this.historyManager.applyAction(
-					{
-						type: 'layers::remove',
-						targetId: `layers`,
-						before: { layer: this.layerSerializer.serialize(layer) },
-						after: { layer: null }
-					},
-					{ applyAction: false }
-				);
-			}
+			this.bus.emit('layer::change_active::response', { id: newActive || null });
+			this.historyManager.applyAction(
+				{
+					type: 'layers::remove_and_activate',
+					targetId: `layers`,
+					before: { layer: this.layerSerializer.serialize(layer), activeKey },
+					after: { layer: null, activeKey: newActive || null }
+				},
+				{ applyAction: false }
+			);
+			this.emit('layer::removed');
 		}
 	}
 

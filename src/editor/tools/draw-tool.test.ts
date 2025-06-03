@@ -126,13 +126,13 @@ describe('Draw Tool', () => {
 			);
 			expect(activeLayer.getChar(2, 3)).toBe(activeSymbol);
 
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', midCoords.x, midCoords.y));
+			window.dispatchEvent(createMouseEvent('mousemove', midCoords.x, midCoords.y));
 			expect(activeLayer.getChar(3, 3)).toBe(activeSymbol);
 
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', endCoords.x, endCoords.y));
+			window.dispatchEvent(createMouseEvent('mousemove', endCoords.x, endCoords.y));
 			expect(activeLayer.getChar(4, 4)).toBe(activeSymbol);
 
-			selectCanvasElement.dispatchEvent(createMouseEvent('mouseup', endCoords.x, endCoords.y));
+			window.dispatchEvent(createMouseEvent('mouseup', endCoords.x, endCoords.y));
 		});
 
 		it('should not draw if the active layer is not visible', () => {
@@ -185,7 +185,7 @@ describe('Draw Tool', () => {
 			const activeSymbol = drawTool.getConfig().activeSymbol;
 
 			selectCanvasElement.dispatchEvent(createMouseEvent('mousedown', drawCoords.x, drawCoords.y));
-			selectCanvasElement.dispatchEvent(createMouseEvent('mouseup', drawCoords.x, drawCoords.y));
+			window.dispatchEvent(createMouseEvent('mouseup', drawCoords.x, drawCoords.y));
 
 			expect(activeLayer.getChar(1, 1)).toBe(activeSymbol);
 
@@ -209,9 +209,9 @@ describe('Draw Tool', () => {
 			selectCanvasElement.dispatchEvent(
 				createMouseEvent('mousedown', startCoords.x, startCoords.y)
 			);
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', midCoords.x, midCoords.y));
-			selectCanvasElement.dispatchEvent(createMouseEvent('mousemove', endCoords.x, endCoords.y));
-			selectCanvasElement.dispatchEvent(createMouseEvent('mouseup', endCoords.x, endCoords.y));
+			window.dispatchEvent(createMouseEvent('mousemove', midCoords.x, midCoords.y));
+			window.dispatchEvent(createMouseEvent('mousemove', endCoords.x, endCoords.y));
+			window.dispatchEvent(createMouseEvent('mouseup', endCoords.x, endCoords.y));
 
 			expect(activeLayer.getChar(0, 0)).toBe(activeSymbol);
 			expect(activeLayer.getChar(1, 0)).toBe(activeSymbol);

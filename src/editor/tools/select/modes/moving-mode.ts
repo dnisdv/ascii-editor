@@ -91,4 +91,21 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
 		this.lastDeltaChars = { x: 0, y: 0 };
 		context.transitionTo(SelectionModeName.SELECTED);
 	}
+
+	public handleMouseLeave(_: MouseEvent, context: SelectionModeContext): void {
+		const after = this.selectionSessionManager.serializeActiveSession();
+
+		this.historyManager.applyAction(
+			{
+				type: 'select::session_change',
+				targetId: `select::session`,
+				before: this.initializedSession,
+				after
+			},
+			{ applyAction: false }
+		);
+
+		this.lastDeltaChars = { x: 0, y: 0 };
+		context.transitionTo(SelectionModeName.SELECTED);
+	}
 }

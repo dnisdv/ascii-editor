@@ -11,15 +11,9 @@
 		actions?: { label: string; callback: () => void }[];
 	}
 
-	type ToastAction = { label: string; onClick: () => void };
-	type ToastOptions = {
-		id: string;
-		description: string;
-		action?: ToastAction;
-	};
-
 	const bus = useNotificationBus();
 	const pendingDismissals: Record<string, ReturnType<typeof setTimeout>> = {};
+	const activeToastCodes = new Set<string>();
 
 	const clearPendingDismissal = (code: string) => {
 		if (pendingDismissals[code]) {
@@ -36,49 +30,48 @@
 		}, delay);
 	};
 
-	const createToastOptions = (notification: Notification): ToastOptions => ({
-		id: notification.code,
-		description: notification.message,
-		...(notification.actions && notification.actions.length > 0
-			? {
-					action: {
-						label: notification.actions[0].label,
-						onClick: notification.actions[0].callback
-					}
-				}
-			: {})
-	});
-
 	const handleNotificationCleared = ({ code }: { code: string }) => {
 		scheduleDismissal(code);
 	};
 
 	const handleNotification = (notification: Notification) => {
-		clearPendingDismissal(notification.code);
-		const options = createToastOptions(notification);
+		const code = notification.code;
+
+		if (activeToastCodes.has(code)) {
+			clearPendingDismissal(code);
+
+			return;
+		}
+		clearPendingDismissal(code);
+		activeToastCodes.add(code);
+
 		if (notification.type === 'requirement') {
-			const componentProps: {
-				description: string;
-				close: () => void;
-				action: { label: string; onClick: () => void };
-			} = {
-				description: options.description,
-				close: () => toast.dismiss(notification.code),
+			const componentPropsForCustomToast = {
+				description: notification.message,
+				close: () => {
+					toast.dismiss(notification.code);
+				},
 				action: {
 					label: notification.actions![0].label,
 					onClick: notification.actions![0].callback
 				}
 			};
 
-			if (options.action) componentProps.action = options.action;
 			toast.custom(InvisibleLayerRequirement, {
-				...options,
+				id: notification.code,
+				onDismiss: () => {
+					activeToastCodes.delete(notification.code);
+				},
+
 				duration: Infinity,
-				dismissable: false,
 				position: 'bottom-center',
 				classes: { toast: 'flex items-center justify-center w-full' },
-				componentProps
+
+				componentProps: componentPropsForCustomToast
 			});
+		} else {
+			// TODO: handle all types of notifications
+			return;
 		}
 	};
 
@@ -90,5 +83,10 @@
 	onDestroy(() => {
 		bus.off('notificationCleared', handleNotificationCleared);
 		bus.off('notify', handleNotification);
+
+		Object.keys(pendingDismissals).forEach((code) => {
+			clearTimeout(pendingDismissals[code]);
+		});
+		activeToastCodes.clear();
 	});
 </script>

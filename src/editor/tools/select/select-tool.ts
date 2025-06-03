@@ -71,9 +71,6 @@ export class SelectTool extends BaseTool {
 
 		this.layers.on('layers::active::change', this.handleLayerChange.bind(this));
 		this.layers.on('layer::pre-remove', this.handleLayerChange.bind(this));
-		this.layers.on('layer::updated', ({ before, after }) => {
-			if (before.opts?.visible !== after.opts?.visible) this.handleLayerChange();
-		});
 	}
 
 	private handleLayerChange(): void {
@@ -102,33 +99,34 @@ export class SelectTool extends BaseTool {
 		);
 	}
 
-	getApi(): SelectToolApi {
+	public getApi(): SelectToolApi {
 		return {
 			...sessionManagerApi(this.coreApi, this.selectionSessionManager)
 		};
 	}
 
-	activate(): void {
+	public activate(): void {
 		super.activate();
 
 		this.addMouseListeners();
 		this.initKeyListener();
 	}
 
-	deactivate(): void {
+	public deactivate(): void {
 		super.deactivate();
 		this.selectionRenderer.clear();
 		this.getEventApi().removeToolEvents();
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
 	}
 
-	onRequirementFailure(): void {
+	public onRequirementFailure(): void {
 		super.onRequirementFailure();
 		this.modeContext.setRestricted(true);
+		this.modeContext.transitionTo(SelectionModeName.IDLE);
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
 	}
 
-	onRequirementSuccess(): void {
+	public onRequirementSuccess(): void {
 		super.onRequirementSuccess();
 		this.modeContext.setRestricted(false);
 	}
@@ -138,14 +136,8 @@ export class SelectTool extends BaseTool {
 			this.checkRequirements();
 			this.modeContext.onMouseDown(e);
 		});
-		this.getEventApi().registerMouseMove((e: MouseEvent) => {
-			this.checkRequirements();
-			this.modeContext.onMouseMove(e);
-		});
-		this.getEventApi().registerMouseUp((e: MouseEvent) => {
-			this.checkRequirements();
-			this.modeContext.onMouseUp(e);
-		});
+		this.getEventApi().registerMouseMove((e: MouseEvent) => this.modeContext.onMouseMove(e));
+		this.getEventApi().registerMouseUp((e: MouseEvent) => this.modeContext.onMouseUp(e));
 	}
 
 	private initKeyListener(): void {

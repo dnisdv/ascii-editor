@@ -98,6 +98,10 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 		this.currentState.handleMouseUp(event, this);
 	}
 
+	public onMouseLeave(event: MouseEvent): void {
+		this.currentState.handleMouseLeave?.(event, this);
+	}
+
 	public onKeyPress(event: KeyboardEvent): void {
 		this.currentState.handleKeyDown?.(event, this);
 	}

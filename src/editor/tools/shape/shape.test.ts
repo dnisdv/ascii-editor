@@ -92,12 +92,10 @@ describe('DrawShapeTool', () => {
 		selectCanvasElement.dispatchEvent(
 			createMouseEvent('mousedown', startClientCoords.x, startClientCoords.y, button)
 		);
-		selectCanvasElement.dispatchEvent(
+		window.dispatchEvent(
 			createMouseEvent('mousemove', endClientCoords.x, endClientCoords.y, button)
 		);
-		selectCanvasElement.dispatchEvent(
-			createMouseEvent('mouseup', endClientCoords.x, endClientCoords.y, button)
-		);
+		window.dispatchEvent(createMouseEvent('mouseup', endClientCoords.x, endClientCoords.y, button));
 	};
 
 	it('should initially be configured to draw a rectangle', () => {

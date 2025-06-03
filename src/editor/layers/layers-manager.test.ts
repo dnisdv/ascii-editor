@@ -23,6 +23,7 @@ describe('LayersManager', () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		layersManager.clearLayers();
 	});
 
 	describe('Initial State and Basic Properties', () => {
@@ -192,11 +193,11 @@ describe('LayersManager', () => {
 			const busSpy = vi.spyOn(layersBus, 'emit');
 			const [layerId, layerInstance] = layersManager.addLayer();
 
+			expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: layerId });
 			expect(busSpy).toHaveBeenCalledWith(
 				'layer::create::response',
 				expect.objectContaining({ id: layerId, name: layerInstance.name, index: 0 })
 			);
-			expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: layerId });
 		});
 
 		describe('Bus Events During Layer Removal', () => {
@@ -253,13 +254,13 @@ describe('LayersManager', () => {
 			});
 		});
 
-		it('should emit active change event when setting an active layer', () => {
+		it('should not emit active change event when setting an active layer that already is active', () => {
 			layersManager.addLayer();
 			const [id2] = layersManager.addLayer();
 			const busSpy = vi.spyOn(layersBus, 'emit');
 
 			layersManager.setActiveLayer(id2);
-			expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
+			expect(busSpy).not.toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
 		});
 
 		it('should emit update event when a layer is updated', () => {
@@ -289,12 +290,12 @@ describe('LayersManager', () => {
 			});
 		});
 
-		it('should emit an internal active change event even if re-activating the same layer', () => {
+		it('should not emit an internal active change event even if re-activating the same layer', () => {
 			const [id1] = layersManager.addLayer();
 
 			const managerEventSpy = vi.spyOn(layersManager, 'emit');
 			layersManager.setActiveLayer(id1);
-			expect(managerEventSpy).toHaveBeenCalledWith('layers::active::change', {
+			expect(managerEventSpy).not.toHaveBeenCalledWith('layers::active::change', {
 				oldId: id1,
 				newId: id1
 			});

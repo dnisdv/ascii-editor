@@ -33,6 +33,7 @@ export interface ISelectionModeBase {
 	handleMouseDown(event: MouseEvent, ctx: SelectionModeContext): void;
 	handleMouseMove(event: MouseEvent, ctx: SelectionModeContext): void;
 	handleMouseUp(event: MouseEvent, ctx: SelectionModeContext): void;
+	handleMouseLeave?(event: MouseEvent, ctx: SelectionModeContext): void;
 	handleKeyDown?(event: KeyboardEvent, ctx: SelectionModeContext): void;
 
 	getName(): string;

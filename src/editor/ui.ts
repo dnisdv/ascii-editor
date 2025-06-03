@@ -68,7 +68,7 @@ export class UI {
 		this.renderManager.register('canvas', 'ascii', () => this.ascii.render());
 		this.renderManager.register('canvas', 'select', () => this.select.render());
 
-		this.config.on('changed', this.onConfigChanged.bind(this))
+		this.config.on('changed', this.onConfigChanged.bind(this));
 	}
 
 	public resizeCanvases() {
@@ -90,8 +90,8 @@ export class UI {
 	}
 
 	private onConfigChanged() {
-		this.grid.prepareForConfigChange()
-		this.ascii.prepareForConfigChange()
+		this.grid.prepareForConfigChange();
+		this.ascii.prepareForConfigChange();
 		this.renderManager.requestRenderAll();
 	}
 
