@@ -123,7 +123,7 @@ describe('Clipboard Tool', () => {
 			selectTool.deactivate();
 		}
 		if (clipboardTool && typeof clipboardTool.deactivate === 'function') {
-			clipboardTool.deactivate();
+			clipboardTool.cleanup();
 		}
 		vi.restoreAllMocks();
 	});

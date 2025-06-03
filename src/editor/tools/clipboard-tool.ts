@@ -32,10 +32,11 @@ export class ClipboardTool extends BaseTool {
 
 	deactivate(): void {
 		super.deactivate();
-		this.getEventApi().removeToolEvents();
 	}
 
-	cleanup(): void {}
+	cleanup(): void {
+		this.getEventApi().removeToolEvents();
+	}
 
 	private getCellPos(_x: number, _y: number) {
 		const {
@@ -69,6 +70,7 @@ export class ClipboardTool extends BaseTool {
 	}
 
 	private copyToClipboard(): void {
+		console.log('COPY TO CLIPBOARD');
 		const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select');
 		if (!selectTool) return;
 
