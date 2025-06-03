@@ -39,7 +39,7 @@
 			/>
 		</Button>
 	</Tooltip.Trigger>
-	<ToolTooltip name="Rectangle" hotkey="Alt+R" />
+	<ToolTooltip name="Rectangle" hotkey="Alt+S" />
 </Tooltip.Root>
 
 <style>

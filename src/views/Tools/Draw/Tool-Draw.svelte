@@ -70,7 +70,7 @@
 				>
 			</Button>
 		</Tooltip.Trigger>
-		<ToolTooltip name="Brush" hotkey="Alt+S" />
+		<ToolTooltip name="Brush" hotkey="Alt+D" />
 	</Tooltip.Root>
 
 	<ToolSymbols bind:selectedSymbol onSymbolChange={onSymbolSelect}>
