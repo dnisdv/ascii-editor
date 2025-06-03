@@ -87,7 +87,7 @@ describe('Layers List Manager', () => {
 		});
 
 		it('should remove the active layer, select next as new active, reindex, and return newActive', () => {
-			const result = manager.removeLayer('id1');
+			const result = manager.removeLayerWithNewActive('id1');
 			expect(result.removed).toBe(true);
 			expect(result.newActive).toBe('id2');
 			expect(manager.getActiveLayerKey()).toBe('id2');
@@ -97,7 +97,7 @@ describe('Layers List Manager', () => {
 		it('should remove a non-active layer, reindex, and active layer remains unchanged', () => {
 			manager.setActiveLayer(layer3.id);
 
-			const result = manager.removeLayer(layer1.id);
+			const result = manager.removeLayerWithNewActive(layer1.id);
 			expect(result.removed).toBe(true);
 			expect(manager.getActiveLayerKey()).toBe(layer3.id);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3']);
@@ -105,7 +105,7 @@ describe('Layers List Manager', () => {
 
 		it('should remove the only layer, resulting in an empty list and null active layer', () => {
 			manager = new LayersListManager([layer1]);
-			const result = manager.removeLayer('id1');
+			const result = manager.removeLayerWithNewActive('id1');
 			expect(result.removed).toBe(true);
 			expect(result.newActive).toBeNull();
 			expect(manager.getActiveLayerKey()).toBeNull();

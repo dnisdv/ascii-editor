@@ -23,7 +23,7 @@
 
 	const layerBus = useLayerBus();
 
-	const _setActiveLayer = () => {
+	const setActiveLayer = () => {
 		layerBus.emit('layer::change_active::request', { id });
 	};
 
@@ -38,8 +38,8 @@
 		editableText.startEditing();
 	};
 
-	const nameChange = (e: CustomEvent<{ value: string }>) => {
-		const newName = e.detail.value;
+	const nameChange = (e: { value: string }) => {
+		const newName = e.value;
 		layerBus.emit('layer::update::request', { id, name: newName });
 	};
 
@@ -61,8 +61,8 @@
 		});
 	};
 
-	const editableTextChange = (e: CustomEvent<{ isEditing: boolean }>) => {
-		isEditing.set(e.detail.isEditing);
+	const editableTextChange = (e: { isEditing: boolean }) => {
+		isEditing.set(e.isEditing);
 	};
 
 	$: isOpen = $activeMenu === id;
@@ -80,7 +80,7 @@
 	on:delete={remove}
 >
 	<button
-		on:mousedown={_setActiveLayer}
+		on:click={setActiveLayer}
 		class="layer h-full"
 		class:dragging
 		class:active
@@ -90,8 +90,8 @@
 			<ThemeIcon name="file" size={16} />
 		</div>
 		<EditableText
-			on:blur={nameChange}
-			on:toggled={editableTextChange}
+			onBlur={nameChange}
+			onToggled={editableTextChange}
 			bind:this={editableText}
 			class="text-xs"
 			value={layer.name}

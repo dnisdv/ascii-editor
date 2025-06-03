@@ -53,11 +53,6 @@ export class LayersListManager {
 
 		const effectiveIndex = Math.max(0, Math.min(index, this.sortedLayerIds.length));
 		this.sortedLayerIds.splice(effectiveIndex, 0, layerId);
-
-		if (!this.activeLayerKey && this.sortedLayerIds.length === 1) {
-			this.activeLayerKey = layerId;
-		}
-
 		return this.reindexLayers();
 	}
 
@@ -80,7 +75,10 @@ export class LayersListManager {
 		this.reindexLayers();
 	}
 
-	public removeLayer(layerId: string): { removed: boolean; newActive?: string | null } {
+	public removeLayerWithNewActive(layerId: string): {
+		removed: boolean;
+		newActive?: string | null;
+	} {
 		const index = this.sortedLayerIds.indexOf(layerId);
 		if (index === -1) {
 			if (this.layers.has(layerId)) {

@@ -217,8 +217,6 @@ export class ToolEventManager {
 	}
 
 	private _dispatchMouseEvent(eventType: string, event: MouseEvent) {
-		event.preventDefault();
-
 		if (
 			eventType === 'mousemove' ||
 			eventType === 'mouseup' ||

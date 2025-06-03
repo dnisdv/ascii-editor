@@ -8,7 +8,7 @@
 	const dispatch = useDispatch();
 	const document = useSelector(selectDocument);
 
-	const onTitleChange = ({ detail: { value } }: CustomEvent<{ value: string }>) => {
+	const onTitleChange = ({ value }: { value: string }) => {
 		if (!$document) return;
 		dispatch(updateDocument({ title: value }));
 	};
@@ -21,6 +21,6 @@
 	</div>
 
 	<div class="flex items-center justify-start gap-1 text-sm font-medium">
-		<EditableText on:change={onTitleChange} value={projectTitle} />
+		<EditableText onChange={onTitleChange} value={projectTitle} />
 	</div>
 </div>

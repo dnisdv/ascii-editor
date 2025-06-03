@@ -70,7 +70,6 @@ export class ClipboardTool extends BaseTool {
 	}
 
 	private copyToClipboard(): void {
-		console.log('COPY TO CLIPBOARD');
 		const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select');
 		if (!selectTool) return;
 

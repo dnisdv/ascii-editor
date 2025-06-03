@@ -70,6 +70,14 @@
 			animationCanvas.width = canvasContainer!.clientWidth;
 			animationCanvas.height = canvasContainer!.clientHeight;
 
+			[canvasContainer, gridCanvas, selectCanvas, animationCanvas].map((item) =>
+				item!.addEventListener('contextmenu', (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					return false;
+				})
+			);
+
 			ckLoaded.then(async (canvasKit) => {
 				async function loadFont(url: string, family: string): Promise<FontData> {
 					const response = await fetch(url);

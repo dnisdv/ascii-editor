@@ -174,7 +174,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		if (!layer) return { removed: false, newActive: null };
 		this.emit('layer::pre-remove', { layer });
 
-		const { removed, newActive } = this.layers.removeLayer(id);
+		const { removed, newActive } = this.layers.removeLayerWithNewActive(id);
 		return { removed, newActive };
 	}
 

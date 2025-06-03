@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher, tick, onMount } from 'svelte';
+	import { tick, onMount } from 'svelte';
 	import { cn } from '@lib/utils.js';
 
 	let input: HTMLInputElement;
@@ -7,14 +7,18 @@
 	export let value = 'Click to edit';
 	export let trigger: 'click' | 'dblclick' = 'dblclick';
 
-	type DispatchProps = {
+	type EventDetailMap = {
 		toggled: { isEditing: boolean };
 		change: { value: string };
 		editing: { isEditing: boolean };
 		blur: { value: string };
 	};
 
-	const dispatch = createEventDispatcher<DispatchProps>();
+	export let onToggled: (detail: EventDetailMap['toggled']) => void = () => {};
+	export let onChange: (detail: EventDetailMap['change']) => void = () => {};
+	export let onEditing: (detail: EventDetailMap['editing']) => void = () => {};
+	export let onBlur: (detail: EventDetailMap['blur']) => void = () => {};
+
 	let isEditing = false;
 	let className: string | undefined = undefined;
 
@@ -27,11 +31,19 @@
 
 	function toggle() {
 		isEditing = !isEditing;
-		dispatch('toggled', { isEditing });
+		onToggled({ isEditing });
 
 		if (!isEditing && inputValue !== value) {
 			value = inputValue;
-			dispatch('change', { value });
+			onChange({ value });
+		}
+	}
+
+	function handleBeforeUnload() {
+		if (isEditing) {
+			toggle();
+			onBlur({ value: inputValue });
+			onChange({ value: inputValue });
 		}
 	}
 
@@ -56,13 +68,12 @@
 		tick().then(() => {
 			setTimeout(() => {
 				input.focus();
-				input.select();
 			}, 10);
 		});
 	}
 
 	$: if (isEditing) {
-		dispatch('editing', { isEditing });
+		onEditing({ isEditing: isEditing });
 	}
 
 	function handleWindowClick(event: MouseEvent) {
@@ -73,6 +84,7 @@
 
 	onMount(() => {
 		window.addEventListener('click', handleWindowClick);
+		window.addEventListener('beforeunload', handleBeforeUnload);
 		return () => {
 			window.removeEventListener('click', handleWindowClick);
 		};
@@ -90,6 +102,7 @@
 			className
 		)}
 		type="text"
+		on:focus={() => input.select()}
 		on:keydown={(event) => {
 			if (event.key === 'Enter') {
 				event.preventDefault();
@@ -98,8 +111,8 @@
 		}}
 		on:blur={() => {
 			toggle();
-			dispatch('blur', { value: inputValue });
-			dispatch('change', { value: inputValue });
+			onBlur({ value: inputValue });
+			onChange({ value: inputValue });
 		}}
 	/>
 {:else}
