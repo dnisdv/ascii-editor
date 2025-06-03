@@ -80,6 +80,7 @@ export class DrawTool extends BaseTool implements ITool {
 	private clear() {
 		this.renderManager.requestRenderFn(() => {
 			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
+			this.selectCanvas.surface.flush()
 		});
 	}
 
