@@ -10,6 +10,7 @@ import { DrawShapeTool } from './shape-draw-tool';
 import { SelectTool, type SelectToolApi } from '../select/select-tool';
 import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import type { ToolManager } from '@editor/tool-manager';
+import type { HistoryManager } from '@editor/history-manager';
 
 vi.mock('canvaskit-wasm', () => cvk);
 
@@ -22,12 +23,13 @@ const createMouseEvent = (
 	return new MouseEvent(type, { clientX, clientY, buttons }) as MouseEvent;
 };
 
-describe('DrawShapeTool', () => {
+describe('Draw Shape Tool', () => {
 	let core: Core;
 	let drawShapeTool: DrawShapeTool;
 	let selectTool: SelectTool;
 	let camera: Camera;
 	let toolManager: ToolManager;
+	let historyManager: HistoryManager;
 
 	beforeEach(() => {
 		const busManager = new BusManager({
@@ -50,7 +52,7 @@ describe('DrawShapeTool', () => {
 		});
 
 		core = _core;
-
+		historyManager = core.getHistoryManager();
 		selectTool = new SelectTool(core);
 		_app.registerTool(selectTool);
 
@@ -241,5 +243,69 @@ describe('DrawShapeTool', () => {
 │ │
 └─┘`);
 		expect(toolManager.getActiveToolName()).toBe('select');
+	});
+
+	describe('History (Undo/Redo) for Shape Drawing', () => {
+		it('should correctly undo and redo a shape drawing operation', () => {
+			const selectToolApi = core.getToolManager().getToolApi<SelectToolApi>('select')!;
+			const expectedShapeData = `┌──┐
+│  │
+└──┘`;
+
+			performShapeDraw(1, 1, 4, 3);
+			let activeSession = selectToolApi.getActiveSession();
+			expect(activeSession).toBeDefined();
+			expect(activeSession?.getSelectedContent()?.data).toBe(expectedShapeData);
+			expect(toolManager.getActiveToolName()).toBe('select');
+
+			historyManager.undo();
+			activeSession = selectToolApi.getActiveSession();
+			expect(activeSession).toBeNull();
+			expect(toolManager.getActiveToolName()).toBe('select');
+
+			historyManager.redo();
+			activeSession = selectToolApi.getActiveSession();
+			expect(activeSession).toBeDefined();
+			expect(activeSession?.getSelectedContent()?.data).toBe(expectedShapeData);
+			expect(toolManager.getActiveToolName()).toBe('select');
+		});
+
+		it('should correctly undo and redo multiple consecutive shape drawings', () => {
+			const selectToolApi = core.getToolManager().getToolApi<SelectToolApi>('select')!;
+			const shape1Data = `┌┐
+└┘`;
+			const shape2Data = `───`;
+
+			performShapeDraw(0, 0, 1, 1);
+			const session1 = selectToolApi.getActiveSession();
+			expect(session1?.getSelectedContent()?.data).toBe(shape1Data);
+			toolManager.activateTool(drawShapeTool.name);
+
+			performShapeDraw(5, 5, 7, 5);
+			const session2 = selectToolApi.getActiveSession();
+			expect(session2?.getSelectedContent()?.data).toBe(shape2Data);
+			toolManager.activateTool(drawShapeTool.name);
+
+			historyManager.undo();
+			historyManager.undo();
+
+			let currentSession = selectToolApi.getActiveSession();
+			expect(currentSession).toBeNull();
+
+			historyManager.undo();
+			historyManager.undo();
+			currentSession = selectToolApi.getActiveSession();
+			expect(currentSession).toBeNull();
+
+			historyManager.redo();
+			currentSession = selectToolApi.getActiveSession();
+			expect(currentSession?.getSelectedContent()?.data).toBe(shape1Data);
+			toolManager.activateTool(drawShapeTool.name);
+
+			historyManager.redo();
+			historyManager.redo();
+			currentSession = selectToolApi.getActiveSession();
+			expect(currentSession?.getSelectedContent()?.data).toBe(shape2Data);
+		});
 	});
 });

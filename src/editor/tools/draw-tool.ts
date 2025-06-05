@@ -60,21 +60,22 @@ export class DrawTool extends BaseTool implements ITool {
 		this.paragraphs = new Map();
 		this.renderManager = this.coreApi.getRenderManager();
 		this.historyManager = this.coreApi.getHistoryManager();
+	}
+
+	activate(): void {
+		super.activate();
+		this.addMouseListeners();
 		this.renderManager.register('tool::draw', 'draw::symbol', () => {
 			if (!this.lastMousePos) return;
 			this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y);
 		});
 	}
 
-	activate(): void {
-		super.activate();
-		this.addMouseListeners();
-	}
-
 	deactivate(): void {
 		super.deactivate();
 		this.clear();
 		this.getEventApi().removeToolEvents();
+		this.renderManager.unregister('tool::draw', 'draw::symbol');
 	}
 
 	private clear() {

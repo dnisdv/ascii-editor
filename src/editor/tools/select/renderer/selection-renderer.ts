@@ -14,6 +14,7 @@ export class SelectionRenderer {
 
 	private selectCanvas: ICanvas;
 	private renderManager: IRenderManager;
+	private isEnabled: boolean = false;
 
 	constructor(
 		private coreApi: CoreApi,
@@ -46,12 +47,22 @@ export class SelectionRenderer {
 		sessionManager.on('manager::session_destroyed', this.triggerDraw.bind(this));
 
 		this.renderManager.register('tool::select', 'draw', () => {
+			if (!this.isEnabled) return;
 			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
 			this.drawSelection();
 			this.drawRotationHandles();
 		});
 
 		modeCtx.on('ctx::transitioned', this.triggerDraw.bind(this));
+	}
+
+	public enable() {
+		this.isEnabled = true;
+		this.triggerDraw();
+	}
+	public disable() {
+		this.clear();
+		this.isEnabled = false;
 	}
 
 	public triggerDraw() {
@@ -110,7 +121,7 @@ export class SelectionRenderer {
 		this.selectCanvas.surface.flush();
 	}
 
-	drawRect(x: number, y: number, width: number, height: number): void {
+	public drawRect(x: number, y: number, width: number, height: number): void {
 		this.renderManager.requestRenderFn(() => {
 			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
 
@@ -143,11 +154,11 @@ export class SelectionRenderer {
 		});
 	}
 
-	drawRotationHandles(): void {
+	public drawRotationHandles(): void {
 		const activeSession = this.sessionManager.getActiveSession();
-		const rotatingCtx = this.modeCtx.getMode(SelectionModeName.ROTATING)!;
-
 		if (!activeSession) return;
+
+		const rotatingCtx = this.modeCtx.getMode(SelectionModeName.ROTATING)!;
 
 		const selectedContent = activeSession.getSelectedContent();
 		if (selectedContent && selectedContent.data.trim().length === 1) return;

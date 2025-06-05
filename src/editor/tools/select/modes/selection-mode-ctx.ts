@@ -27,7 +27,8 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 		this.modes = new Map();
 
 		const activeSession = sessionManager.getActiveSession();
-		if (!activeSession || !activeSession?.isEmpty()) {
+
+		if (activeSession && !activeSession?.isEmpty()) {
 			this.currentState = new SelectedMode(coreApi, sessionManager);
 			this.currentState.onEnter(this, undefined);
 			return;
@@ -78,8 +79,8 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 	}
 
 	public getCurrentModeName(): SelectionModeName {
-		for (const [name, mode] of this.modes.entries()) {
-			if (mode === this.currentState) {
+		for (const [name] of this.modes.entries()) {
+			if (name === this.currentState.name) {
 				return name;
 			}
 		}

@@ -325,4 +325,162 @@ describe('TextTool', () => {
 			expect(activeLayer.getChar(0, 0)).toBe('Y');
 		});
 	});
+
+	describe('History (Undo/Redo) Behavior', () => {
+		it('should correctly undo/redo a single character input committed via Escape', () => {
+			clickAtCell(0, 0);
+			typeCharacters('A');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+		});
+
+		it('should correctly undo/redo a multi-character input committed by clicking away', () => {
+			clickAtCell(1, 1);
+			typeCharacters('XYZ');
+			clickAtCell(5, 5);
+			expect(activeLayer.getChar(1, 1)).toBe('X');
+			expect(activeLayer.getChar(2, 1)).toBe('Y');
+			expect(activeLayer.getChar(3, 1)).toBe('Z');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(1, 1)).toBe(' ');
+			expect(activeLayer.getChar(2, 1)).toBe(' ');
+			expect(activeLayer.getChar(3, 1)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(1, 1)).toBe('X');
+			expect(activeLayer.getChar(2, 1)).toBe('Y');
+			expect(activeLayer.getChar(3, 1)).toBe('Z');
+		});
+
+		it('should correctly undo/redo text input involving arrow key navigation', () => {
+			clickAtCell(0, 0);
+			typeCharacters('A');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'ArrowRight'));
+			typeCharacters('B');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'ArrowDown'));
+			typeCharacters('C');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+			expect(activeLayer.getChar(2, 0)).toBe('B');
+			expect(activeLayer.getChar(3, 1)).toBe('C');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+			expect(activeLayer.getChar(2, 0)).toBe(' ');
+			expect(activeLayer.getChar(3, 1)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+			expect(activeLayer.getChar(2, 0)).toBe('B');
+			expect(activeLayer.getChar(3, 1)).toBe('C');
+		});
+
+		it('should correctly undo/redo text input involving Backspace', () => {
+			clickAtCell(0, 0);
+			typeCharacters('ABC');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Backspace'));
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Backspace'));
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+			expect(activeLayer.getChar(1, 0)).toBe(' ');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+			expect(activeLayer.getChar(1, 0)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+			expect(activeLayer.getChar(1, 0)).toBe(' ');
+		});
+
+		it('should correctly undo/redo pasted text', async () => {
+			const pasteText = 'PASTE\nME';
+			mockClipboardData.text = pasteText;
+
+			clickAtCell(2, 2);
+			document.dispatchEvent(createKeyboardEvent('keydown', 'v', true));
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+
+			expect(activeLayer.getChar(2, 2)).toBe('P');
+			expect(activeLayer.getChar(3, 2)).toBe('A');
+			expect(activeLayer.getChar(2, 3)).toBe('M');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(2, 2)).toBe(' ');
+			expect(activeLayer.getChar(3, 2)).toBe(' ');
+			expect(activeLayer.getChar(2, 3)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(2, 2)).toBe('P');
+			expect(activeLayer.getChar(3, 2)).toBe('A');
+			expect(activeLayer.getChar(2, 3)).toBe('M');
+		});
+
+		it('should handle multiple undo/redo operations across different committed sessions', () => {
+			clickAtCell(0, 0);
+			typeCharacters('S1');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+			expect(activeLayer.getChar(0, 0)).toBe('S');
+			expect(activeLayer.getChar(1, 0)).toBe('1');
+
+			clickAtCell(0, 1);
+			typeCharacters('S2');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+			expect(activeLayer.getChar(0, 1)).toBe('S');
+			expect(activeLayer.getChar(1, 1)).toBe('2');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 1)).toBe(' ');
+			expect(activeLayer.getChar(1, 1)).toBe(' ');
+			expect(activeLayer.getChar(0, 0)).toBe('S');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+			expect(activeLayer.getChar(1, 0)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 0)).toBe('S');
+			expect(activeLayer.getChar(1, 0)).toBe('1');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 1)).toBe('S');
+			expect(activeLayer.getChar(1, 1)).toBe('2');
+		});
+
+		it('undo should clear the selectedCell and historyBatchTransaction if an edit was active', () => {
+			clickAtCell(0, 0);
+			typeCharacters('A');
+
+			expect(getToolState(textTool).selectedCell).toEqual({ x: 1, y: 0 });
+			expect(getToolState(textTool).historyBatchTransaction).not.toBeNull();
+
+			if (getToolState(textTool).historyBatchTransaction) {
+				historyManager.commitBatch(getToolState(textTool).historyBatchTransaction!);
+				textTool['historyBatchTransaction'] = null;
+			}
+			clickAtCell(5, 5);
+			typeCharacters('X');
+			document.dispatchEvent(createKeyboardEvent('keydown', 'Escape'));
+
+			expect(getToolState(textTool).selectedCell).toBeNull();
+
+			historyManager.undo();
+			expect(activeLayer.getChar(5, 5)).toBe(' ');
+			expect(getToolState(textTool).selectedCell).toBeNull();
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+			expect(getToolState(textTool).selectedCell).toBeNull();
+		});
+	});
 });

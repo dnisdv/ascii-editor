@@ -66,7 +66,6 @@ export class UI {
 
 		this.renderManager.register('canvas', 'grid', () => this.grid.render());
 		this.renderManager.register('canvas', 'ascii', () => this.ascii.render());
-		this.renderManager.register('canvas', 'select', () => this.select.render());
 
 		this.config.on('changed', this.onConfigChanged.bind(this));
 	}

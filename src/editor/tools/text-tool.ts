@@ -72,6 +72,18 @@ export class TextTool extends BaseTool implements ITool {
 		this.historyManager.onAfterRedo(() =>
 			this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
 		);
+
+		this.layers.on('layer::pre-remove', () => {
+			this.commitCurrentBatch();
+			this.selectedCell = null;
+			this.drawCursorOverlay();
+		});
+
+		this.layers.on('layers::active::change', () => {
+			this.commitCurrentBatch();
+			this.selectedCell = null;
+			this.drawCursorOverlay();
+		});
 	}
 
 	private canInteract(): boolean {
@@ -268,7 +280,6 @@ export class TextTool extends BaseTool implements ITool {
 
 	private handleArrowKeys(key: string): void {
 		if (!this.selectedCell) return;
-		this.commitCurrentBatch();
 
 		let { x, y } = this.selectedCell;
 		switch (key) {

@@ -1,11 +1,12 @@
-import type { ILayersManager, ITileMap } from '@editor/types';
+import type { ITileMap } from '@editor/types';
 import type { LayersSerializableSchemaType } from './layers.serializer.schema';
 import { TileMap } from '@editor/tileMap';
 import type { CoreApi } from '@editor/core';
+import type { LayersManager } from '@editor/layers/layers-manager';
 
 export class LayersSerializer {
 	constructor(
-		private layersManager: ILayersManager,
+		private layersManager: LayersManager,
 		private coreApi: CoreApi
 	) {}
 
@@ -54,7 +55,10 @@ export class LayersSerializer {
 		});
 
 		if (data.activeLayerKey) {
-			this.layersManager.silentActivateLayer(data.activeLayerKey);
+			this.layersManager['layers'].setActiveLayer(data.activeLayerKey);
+			this.layersManager
+				.getBus()
+				.emit('layer::change_active::response', { id: data.activeLayerKey });
 		}
 
 		const _layers = layers.map((i) => ({

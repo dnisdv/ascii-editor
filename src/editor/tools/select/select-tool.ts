@@ -107,6 +107,7 @@ export class SelectTool extends BaseTool {
 
 	public activate(): void {
 		super.activate();
+		this.selectionRenderer.enable();
 
 		this.addMouseListeners();
 		this.initKeyListener();
@@ -115,6 +116,8 @@ export class SelectTool extends BaseTool {
 	public deactivate(): void {
 		super.deactivate();
 		this.selectionRenderer.clear();
+		this.selectionRenderer.disable();
+
 		this.getEventApi().removeToolEvents();
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
 	}

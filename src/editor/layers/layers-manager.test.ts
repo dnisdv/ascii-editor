@@ -319,58 +319,7 @@ describe('LayersManager', () => {
 		});
 	});
 
-	describe('Operations Bypassing History Recording', () => {
-		it('should add a layer and emit events without recording a history action', () => {
-			const busSpy = vi.spyOn(layersBus, 'emit');
-			const historySpy = vi.spyOn(historyManager, 'applyAction');
-			const [layerId] = layersManager.addLayerSilent();
-
-			expect(layersManager.getLayers().length).toBe(1);
-			expect(layersManager.getActiveLayerKey()).toBe(layerId);
-			expect(busSpy).toHaveBeenNthCalledWith(
-				1,
-				'layer::create::response',
-				expect.objectContaining({ id: layerId })
-			);
-			expect(busSpy).toHaveBeenNthCalledWith(2, 'layer::change_active::response', { id: layerId });
-			expect(historySpy).not.toHaveBeenCalled();
-		});
-
-		it('should remove a layer and emit events without recording a history action', () => {
-			const [id1] = layersManager.addLayer();
-			const [id2] = layersManager.addLayerSilent();
-			const busSpy = vi.spyOn(layersBus, 'emit');
-			const historySpy = vi.spyOn(historyManager, 'applyAction');
-
-			layersManager.removeLayerSilent(id2);
-			expect(layersManager.getLayers().length).toBe(1);
-			expect(layersManager.getActiveLayerKey()).toBe(id1);
-			expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id2 });
-			expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id1 });
-			expect(historySpy).not.toHaveBeenCalled();
-		});
-
-		it('should update a layer and emit events without recording a history action', () => {
-			const [id1] = layersManager.addLayer();
-			const newName = 'Silent Update';
-			const busSpy = vi.spyOn(layersBus, 'emit');
-			const historySpy = vi.spyOn(historyManager, 'applyAction');
-
-			const updateData = { name: newName, opts: { visible: false } };
-			layersManager.updateLayerSilent(id1, updateData);
-			const updatedLayer = layersManager.getLayer(id1)!;
-
-			expect(updatedLayer.name).toBe(newName);
-			expect(updatedLayer.getOpts().visible).toBe(false);
-			expect(busSpy).toHaveBeenCalledWith(
-				'layer::update::response',
-				expect.objectContaining({ id: id1, name: newName })
-			);
-			expect(historySpy).not.toHaveBeenCalled();
-		});
-	});
-
-	describe('Undo/Redo Behavior for Direct Method Calls', () => {
+	describe('Undo/Redo Behavior', () => {
 		it('should correctly undo and redo active layer changes', () => {
 			const [id1] = layersManager.addLayer();
 			const [id2] = layersManager.addLayer();
@@ -410,17 +359,25 @@ describe('LayersManager', () => {
 			});
 
 			it('should correctly undo/redo removal of an active middle layer, restoring active state', () => {
+				expect(layersManager.getActiveLayerKey()).toBe(id3);
+
 				layersManager.setActiveLayer(id2);
 				layersManager.removeLayer(id2);
 				expect(layersManager.getActiveLayerKey()).toBe(id3);
 
 				historyManager.undo();
+
 				expect(layersManager.getLayer(id2)?.id).toBe(id2);
 				expect(layersManager.getLayers().length).toBe(3);
 				expect(layersManager.getActiveLayerKey()).toBe(id2);
 
 				historyManager.redo();
 				expect(layersManager.getLayer(id2)).toBeNull();
+				expect(layersManager.getActiveLayerKey()).toBe(id3);
+
+				historyManager.undo();
+				historyManager.undo();
+
 				expect(layersManager.getActiveLayerKey()).toBe(id3);
 			});
 
@@ -457,38 +414,6 @@ describe('LayersManager', () => {
 
 	describe('Reactions to External Bus Event Requests', () => {
 		describe('Responding to "layer::create::request"', () => {
-			it('should create a layer, activate it, and record history when requested via bus', () => {
-				const busSpy = vi.spyOn(layersBus, 'emit');
-				const historySpy = vi.spyOn(historyManager, 'applyAction');
-				expect(layersManager.getLayers().length).toBe(0);
-
-				layersBus.emit('layer::create::request', undefined);
-
-				expect(layersManager.getLayers().length).toBe(1);
-				const createdLayerId = layersManager.getActiveLayerKey()!;
-				const createdLayer = layersManager.getLayer(createdLayerId)!;
-
-				expect(busSpy).toHaveBeenNthCalledWith(
-					2,
-					'layer::create::response',
-					expect.objectContaining({ id: createdLayerId, name: createdLayer.name, index: 0 })
-				);
-				expect(busSpy).toHaveBeenNthCalledWith(3, 'layer::change_active::response', {
-					id: createdLayerId
-				});
-
-				const serializedLayer = layerSerializer.serialize(createdLayer);
-				expect(historySpy).toHaveBeenCalledWith(
-					{
-						type: 'layers::create_and_activate',
-						targetId: 'layers',
-						before: { layer: null, activeKey: createdLayerId },
-						after: { layer: serializedLayer, activeKey: createdLayerId }
-					},
-					{ applyAction: false }
-				);
-			});
-
 			it('should correctly undo/redo layer creation triggered by a bus request, managing layers and events', () => {
 				const busSpy = vi.spyOn(layersBus, 'emit');
 				layersBus.emit('layer::create::request', undefined);
@@ -497,6 +422,7 @@ describe('LayersManager', () => {
 				historyManager.undo();
 				expect(layersManager.getLayers().length).toBe(0);
 				expect(layersManager.getActiveLayerKey()).toBeNull();
+
 				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: createdLayerId });
 				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null });
 
@@ -564,6 +490,96 @@ describe('LayersManager', () => {
 
 			layersBus.emit('layer::change_active::request', { id: id1 });
 			expect(setActiveLayerSpy).toHaveBeenCalledWith(id1);
+		});
+	});
+
+	describe('History Integration with Random Actions', () => {
+		it('should record corresponding actions in history for a sequence of layer operations', () => {
+			const actionsToPerform = [
+				{ type: 'add', params: {} },
+				{ type: 'add', params: {} },
+				{ type: 'update', params: { name: 'Updated Layer 1' } },
+				{ type: 'setActive', params: { layerIndex: 0 } },
+				{ type: 'remove', params: { layerIndex: 1 } },
+				{ type: 'update', params: { opts: { visible: false } } }
+			];
+
+			const expectedHistoryActionTypes: string[] = [];
+			const createdLayerIds: string[] = [];
+
+			actionsToPerform.forEach((action) => {
+				let targetLayerId: string | null = null;
+
+				switch (action.type) {
+					case 'add':
+						{
+							const [id] = layersManager.addLayer();
+							createdLayerIds.push(id);
+							expectedHistoryActionTypes.push('layers::create_and_activate');
+						}
+						break;
+					case 'update':
+						{
+							targetLayerId = layersManager.getActiveLayerKey() || createdLayerIds[0];
+							if (targetLayerId) {
+								layersManager.updateLayer(targetLayerId, action.params);
+								expectedHistoryActionTypes.push('layer::update');
+							}
+						}
+						break;
+					case 'setActive':
+						{
+							const layerToActivate = layersManager.getLayers()[action.params.layerIndex as number];
+							if (layerToActivate && layersManager.getActiveLayerKey() !== layerToActivate.id) {
+								layersManager.setActiveLayer(layerToActivate.id);
+								expectedHistoryActionTypes.push('layers::change::active');
+							}
+						}
+						break;
+					case 'remove':
+						{
+							const layerToRemove = layersManager.getLayers()[action.params.layerIndex as number];
+							if (layerToRemove) {
+								layersManager.removeLayer(layerToRemove.id);
+								expectedHistoryActionTypes.push('layers::remove_and_activate');
+							}
+						}
+						break;
+				}
+			});
+
+			const historyStack = historyManager.getHistory();
+
+			expect(historyStack.length).toBe(expectedHistoryActionTypes.length);
+			historyStack.forEach((recordedAction, index) => {
+				expect(recordedAction.type).toBe(expectedHistoryActionTypes[index]);
+			});
+		});
+
+		it('should correctly undo and redo a mixed sequence of layer operations', () => {
+			const [id1] = layersManager.addLayer();
+			layersManager.updateLayer(id1, { name: 'Layer One New Name' });
+			const [id2] = layersManager.addLayer();
+			layersManager.setActiveLayer(id1);
+			layersManager.removeLayer(id2);
+
+			const initialLayerStates = layersManager.getLayers().map((l) => layerSerializer.serialize(l));
+			const initialActiveKey = layersManager.getActiveLayerKey();
+			const historyStackSize = historyManager.getHistory().length;
+
+			for (let i = 0; i < historyStackSize; i++) {
+				historyManager.undo();
+			}
+
+			expect(layersManager.getLayers().length).toBe(0);
+			expect(layersManager.getActiveLayerKey()).toBeNull();
+
+			for (let i = 0; i < historyStackSize; i++) {
+				historyManager.redo();
+			}
+			const finalLayerStates = layersManager.getLayers().map((l) => layerSerializer.serialize(l));
+			expect(finalLayerStates).toEqual(initialLayerStates);
+			expect(layersManager.getActiveLayerKey()).toBe(initialActiveKey);
 		});
 	});
 });

@@ -94,6 +94,12 @@ describe('Layers List Manager', () => {
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3']);
 		});
 
+		it('should remove a layer preserving last active and reindex event is the layers was deleted', () => {
+			manager.removeLayer('id1');
+			expect(manager.getActiveLayerKey()).toBe('id1');
+			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3']);
+		});
+
 		it('should remove a non-active layer, reindex, and active layer remains unchanged', () => {
 			manager.setActiveLayer(layer3.id);
 

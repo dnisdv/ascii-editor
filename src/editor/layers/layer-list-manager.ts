@@ -57,9 +57,7 @@ export class LayersListManager {
 	}
 
 	public addMultipleLayers(layersToAdd: ILayer[]): void {
-		if (layersToAdd.length === 0) {
-			return;
-		}
+		if (layersToAdd.length === 0) return;
 
 		layersToAdd.forEach((layer) => {
 			const layerId = layer.id;
@@ -72,6 +70,22 @@ export class LayersListManager {
 			this.sortedLayerIds.push(layerId);
 		});
 
+		this.reindexLayers();
+	}
+
+	public removeLayer(layerId: string) {
+		const index = this.sortedLayerIds.indexOf(layerId);
+		if (index === -1) {
+			if (this.layers.has(layerId)) {
+				this.layers.delete(layerId);
+				if (this.activeLayerKey === layerId) {
+					this.activeLayerKey = this.sortedLayerIds[0] || null;
+				}
+			}
+			return;
+		}
+		this.layers.delete(layerId);
+		this.sortedLayerIds.splice(index, 1);
 		this.reindexLayers();
 	}
 
@@ -169,7 +183,12 @@ export class LayersListManager {
 		return this.activeLayerKey ? this.layers.get(this.activeLayerKey) || null : null;
 	}
 
-	public setActiveLayer(layerId: string): boolean {
+	public setActiveLayer(layerId: string | null): boolean {
+		if (layerId === null || !layerId) {
+			this.activeLayerKey = null;
+			return true;
+		}
+
 		if (!this.layers.has(layerId)) {
 			return false;
 		}

@@ -21,11 +21,22 @@ import { LayerCreateAndActivate, LayerRemove, LayersChangeActive, SetCharHandler
 import { LayerUpdate } from './history/layer-update';
 import { LayerRemoveAndActivate } from './history/layer-remove-and-activate';
 import { SetRegion } from './history/layer-set-region';
+import { CreateAndActivateLayerCommand } from './commands/create-activate-layer.cmd';
+import { updateLayerCommand } from './commands/update-layer.cmd';
+import { activateLayerCommand } from './commands/activate-layer.cmd';
+import { removeAndActivateLayerCommand } from './commands/remove-activate-layer.cmd';
 
 export interface LayersManagerOption {
 	layersBus: BaseBusLayers;
 	config: Config;
 	historyManager: HistoryManager;
+}
+
+export interface ILayersManagerInternalOps
+	extends Pick<EventEmitter<LayersManagerIEvents>, 'emit'> {
+	getLayersFactory(): LayerFactory;
+	getLayersListManager(): LayersListManager;
+	getLayerSerializer(): LayerSerializer;
 }
 
 // TODO: MOVE LOGIC NOT RELATED TO LAYERS TO SOMEWHER ELSE
@@ -75,70 +86,13 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	private registerStoreEventListeners() {
-		this.bus.on('layer::create::request', () => this.handleLayerRequestCreate());
-		this.bus.on('layer::remove::request', ({ id }) => this.handleLayerRemoveRequest(id));
-		this.bus.on('layer::update::request', ({ id, ...rest }) =>
-			this.handleLayerUpdateRequest(id, rest)
-		);
-		this.bus.on('layer::change_active::request', ({ id }) => this.handleActivateLayerRequest(id));
+		this.bus.on('layer::create::request', () => this.addLayer());
+		this.bus.on('layer::remove::request', ({ id }) => this.removeLayer(id));
+		this.bus.on('layer::update::request', ({ id, ...rest }) => this.updateLayer(id, rest));
+		this.bus.on('layer::change_active::request', ({ id }) => this.setActiveLayer(id));
 	}
 
-	private handleLayerRequestCreate(): void {
-		const [id, layer] = this.addLayerSilent();
-
-		this.historyManager.applyAction(
-			{
-				type: 'layers::create_and_activate',
-				targetId: `layers`,
-				before: { layer: null, activeKey: this.getActiveLayerKey() },
-				after: { layer: this.layerSerializer.serialize(layer), activeKey: id }
-			},
-			{ applyAction: false }
-		);
-	}
-
-	private handleLayerRemoveRequest(id: string) {
-		const layer = this.getLayer(id);
-		this.unregisterLayerEvents(layer);
-		this.removeLayer(id);
-	}
-
-	private handleLayerUpdateRequest(id: string, updates: DeepPartial<ILayerModel>) {
-		const beforeLayer = this.getLayer(id);
-		if (!beforeLayer) return;
-
-		const beforeData = this.layerSerializer.serialize(beforeLayer);
-
-		const res = this.layers.updateLayer(id, updates);
-		if (res.success && res.beforeAfter) {
-			this.bus.emit('layer::update::response', res.beforeAfter.after);
-		}
-
-		if (res.reindexed) {
-			this.bus.emit('layers::update::response', res.reindexed);
-		}
-
-		this.historyManager.applyAction(
-			{
-				type: 'layer::update',
-				targetId: `layers`,
-				before: beforeData,
-				after: this.layerSerializer.serialize(this.getLayer(id)!)
-			},
-			{ applyAction: false }
-		);
-
-		this.emit('layer::updated', {
-			before: beforeData,
-			after: this.layerSerializer.serialize(this.getLayer(id)!)
-		});
-	}
-
-	private handleActivateLayerRequest(id: string) {
-		this.setActiveLayer(id);
-	}
-
-	private registerToLayerEvents(layer: ILayer) {
+	private proxyLayerEvents(layer: ILayer) {
 		layer.on('tile_change', (tile) => this.bus.emit('layer::tile::change', tile), this);
 		layer.on('tile_deleted', ({ x, y, layerId }) =>
 			this.bus.emit('layer::tile::removed', { x, y, layerId })
@@ -147,196 +101,56 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		this.historyManager.registerTarget(`layer::${layer.id}`, layer);
 	}
 
-	private unregisterLayerEvents(layer: ILayer | null) {
+	public internalOps(): ILayersManagerInternalOps {
+		return {
+			getLayersFactory: () => this.layerFactory,
+			getLayersListManager: () => this.layers,
+			getLayerSerializer: () => this.layerSerializer,
+			emit: this.emit.bind(this)
+		};
+	}
+
+	private unproxyLayerEvents(layer: ILayer | null) {
 		if (!layer) return;
 		layer.off('tile_change');
 		layer.off('tile_deleted');
 	}
 
-	private setActiveLayerInternal(id: string): boolean {
-		if (String(id) === String(this.getActiveLayerKey())) return false;
-		const success = this.layers.setActiveLayer(id);
-		return success;
-	}
-
-	private addLayerInternal(): [string, ILayer] {
-		const [id, layer] = this.layerFactory.createLayerWithDefaultConfig();
-		this.layers.addLayer(layer);
-		this.registerToLayerEvents(layer);
-		return [id, layer];
-	}
-
-	private removeLayerInternal(id: string): {
-		removed: boolean;
-		newActive: string | null | undefined;
-	} {
-		const layer = this.getLayer(id);
-		if (!layer) return { removed: false, newActive: null };
-		this.emit('layer::pre-remove', { layer });
-
-		const { removed, newActive } = this.layers.removeLayerWithNewActive(id);
-		return { removed, newActive };
-	}
-
-	private updateLayerInternal(
-		id: string,
-		updates: DeepPartial<ILayerModel>
-	): ReturnType<LayersListManager['updateLayer']> {
-		return this.layers.updateLayer(id, updates);
-	}
-
-	public getBus(): BaseBusLayers {
-		return this.bus;
-	}
-
-	public updateLayer(id: string, updates: DeepPartial<ILayerModel>) {
-		const beforeLayer = this.getLayer(id);
-		if (!beforeLayer) return;
-		const beforeData = this.layerSerializer.serialize(beforeLayer);
-
-		const res = this.updateLayerInternal(id, updates);
-
-		if (res.success && res.beforeAfter) {
-			this.bus.emit('layer::update::response', res.beforeAfter.after);
-		}
-
-		if (res.reindexed) {
-			this.bus.emit('layers::update::response', res.reindexed);
-		}
-
-		this.historyManager.applyAction(
-			{
-				type: 'layer::update',
-				targetId: `layers`,
-				before: beforeData,
-				after: this.layerSerializer.serialize(this.getLayer(id)!)
-			},
-			{ applyAction: false }
-		);
-
-		this.emit('layer::updated', {
-			before: beforeData,
-			after: this.layerSerializer.serialize(this.getLayer(id)!)
-		});
-	}
-
-	public updateLayerSilent(id: string, updates: DeepPartial<ILayerModel>) {
-		const beforeLayer = this.getLayer(id);
-		if (!beforeLayer) return;
-
-		const beforeData = this.layerSerializer.serialize(beforeLayer);
-		const res = this.updateLayerInternal(id, updates);
-
-		if (res.success && res.beforeAfter) {
-			this.bus.emit('layer::update::response', res.beforeAfter.after);
-		}
-
-		if (res.reindexed) {
-			this.bus.emit('layers::update::response', res.reindexed);
-		}
-
-		this.emit('layer::updated', {
-			before: beforeData,
-			after: this.layerSerializer.serialize(this.getLayer(id)!)
-		});
+	public updateLayer(id: string, updates: DeepPartial<ILayerModel>): void {
+		const command = new updateLayerCommand(this.internalOps(), this.historyManager, this.bus);
+		command.execute(id, updates);
 	}
 
 	public addLayer(): [string, ILayer] {
-		const [id, layer] = this.addLayerInternal();
-		this.bus.emit('layer::create::response', {
-			id,
-			name: layer.name,
-			index: layer.index,
-			opts: layer.opts
-		});
-
-		this.setActiveLayer(id);
+		const command = new CreateAndActivateLayerCommand(
+			this.internalOps(),
+			this.historyManager,
+			this.bus
+		);
+		const { id, layer } = command.execute();
+		this.proxyLayerEvents(layer);
 		return [id, layer];
-	}
-
-	public addLayerSilent(): [string, ILayer] {
-		const [id, layer] = this.addLayerInternal();
-		this.bus.emit('layer::create::response', {
-			id,
-			name: layer.name,
-			index: layer.index,
-			opts: layer.opts
-		});
-		this.silentActivateLayer(id);
-
-		return [id, layer];
-	}
-
-	public removeLayerSilent(id: string): void {
-		const { newActive } = this.removeLayerInternal(id);
-		this.bus.emit('layer::remove::response', { id });
-		if (newActive) {
-			this.bus.emit('layer::change_active::response', { id: newActive });
-		}
 	}
 
 	public removeLayer(id: string): void {
-		const activeKey = this.getActiveLayerKey();
-		const layer = this.getLayer(id);
-		if (!layer) return;
-
-		const { removed, newActive } = this.removeLayerInternal(id);
-
-		if (removed) {
-			this.bus.emit('layer::remove::response', { id });
-
-			this.bus.emit('layer::change_active::response', { id: newActive || null });
-			this.historyManager.applyAction(
-				{
-					type: 'layers::remove_and_activate',
-					targetId: `layers`,
-					before: { layer: this.layerSerializer.serialize(layer), activeKey },
-					after: { layer: null, activeKey: newActive || null }
-				},
-				{ applyAction: false }
-			);
-			this.emit('layer::removed');
-		}
-	}
-
-	public removeTempLayer(id: string): void {
-		const layer = this.getTempLayer(id);
-		if (!layer) return;
-		this.tempLayers.removeLayer(id);
+		const command = new removeAndActivateLayerCommand(
+			this.internalOps(),
+			this.historyManager,
+			this.bus
+		);
+		const layer = command.execute(id);
+		this.unproxyLayerEvents(layer);
 	}
 
 	public setActiveLayer(id: string): void {
-		const oldId = this.getActiveLayerKey() || null;
-		const success = this.setActiveLayerInternal(id);
-
-		if (success) {
-			this.bus.emit('layer::change_active::response', { id });
-			this.emit('layers::active::change', { oldId, newId: id });
-
-			this.historyManager.applyAction(
-				{
-					type: 'layers::change::active',
-					targetId: `layers`,
-					before: { id: oldId },
-					after: { id: id }
-				},
-				{ applyAction: false }
-			);
-		}
-	}
-
-	public silentActivateLayer(id: string): void {
-		const oldId = this.getActiveLayerKey() || null;
-		const success = this.setActiveLayerInternal(id);
-		if (success) {
-			this.bus.emit('layer::change_active::response', { id });
-			this.emit('layers::active::change', { oldId, newId: id });
-		}
+		if (id === this.getActiveLayer()?.id) return;
+		const command = new activateLayerCommand(this.internalOps(), this.historyManager, this.bus);
+		command.execute(id);
 	}
 
 	public insertLayer(id: string, layer: ILayer) {
 		this.layers.addLayer(layer);
-		this.registerToLayerEvents(layer);
+		this.proxyLayerEvents(layer);
 		this.bus.emit('layer::create::response', {
 			id,
 			name: layer.name,
@@ -357,14 +171,28 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		if (reindexed && reindexed.length > 0) {
 			this.bus.emit('layers::update::response', reindexed);
 		}
-		this.bus.emit('layer::change_active::response', { id: layer.id });
 
 		const tiles = layer.queryAllTiles();
 		for (const tile of tiles) {
 			this.bus.emit('layer::tile::change', { ...tile, layerId: layer.id });
 		}
+		this.proxyLayerEvents(layer);
+	}
 
-		this.registerToLayerEvents(layer);
+	public ensureLayer(): ILayer {
+		let activeLayer = this.getLayer(this.getActiveLayerKey() || '');
+		if (!activeLayer) {
+			const command = new CreateAndActivateLayerCommand(
+				this.internalOps(),
+				this.historyManager,
+				this.bus
+			);
+			const { layer } = command.execute();
+			this.proxyLayerEvents(layer);
+
+			activeLayer = layer;
+		}
+		return activeLayer;
 	}
 
 	public addTempLayer(index?: number): [string, ILayer] {
@@ -377,32 +205,22 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		return [id, layer];
 	}
 
-	public createLayer({
-		id,
-		name,
-		index,
-		opts,
-		tileMap
-	}: {
-		id: string;
-		index: number;
-		name: string;
-		opts: LayerConfig;
-		tileMap: ITileMap;
-	}): ILayer {
-		return this.layerFactory.newLayer({ id, name, index, opts, tileMap });
+	public removeTempLayer(id: string): void {
+		const layer = this.getTempLayer(id);
+		if (!layer) return;
+		this.tempLayers.removeLayer(id);
 	}
 
 	public getLayer(key: string) {
 		return this.layers.getLayerById(key) || null;
 	}
 
-	public getTempLayer(key: string) {
-		return this.tempLayers.getLayerById(key) || null;
-	}
-
 	public getTempOrRealLayer(key: string) {
 		return this.layers.getLayerById(key) || this.tempLayers.getLayerById(key) || null;
+	}
+
+	public getTempLayer(key: string) {
+		return this.tempLayers.getLayerById(key) || null;
 	}
 
 	public getLayers() {
@@ -413,32 +231,12 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		return [...this.tempLayers.getSortedLayers()];
 	}
 
-	public ensureLayer(): ILayer {
-		let activeLayer = this.getLayer(this.getActiveLayerKey() || '');
-		if (!activeLayer) {
-			const [id, layer] = this.addLayerSilent();
-
-			this.historyManager.applyAction(
-				{
-					type: 'layers::create_and_activate',
-					targetId: `layers`,
-					before: { layer: null, activeKey: this.getActiveLayerKey() },
-					after: { layer: this.layerSerializer.serialize(layer), activeKey: id }
-				},
-				{ applyAction: false }
-			);
-			activeLayer = layer;
-		}
-
-		return activeLayer;
-	}
-
 	public getActiveLayer(): ILayer | null {
 		return this.getLayer(this.getActiveLayerKey() || '');
 	}
 
 	public getActiveLayerKey(): string | null {
-		return this.layers.getActiveLayerKey();
+		return this.layers.getActiveLayerKey() || null;
 	}
 
 	public clearLayers(): void {
@@ -523,5 +321,25 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 
 	public deserializeLayer(layer: LayerSerializableSchemaType) {
 		return this.layerSerializer.deserialize(layer);
+	}
+
+	public getBus(): BaseBusLayers {
+		return this.bus;
+	}
+
+	public createLayer({
+		id,
+		name,
+		index,
+		opts,
+		tileMap
+	}: {
+		id: string;
+		index: number;
+		name: string;
+		opts: LayerConfig;
+		tileMap: ITileMap;
+	}): ILayer {
+		return this.layerFactory.newLayer({ id, name, index, opts, tileMap });
 	}
 }

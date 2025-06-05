@@ -106,6 +106,15 @@ describe('Draw Tool', () => {
 		return { x: cellX * charWidth, y: cellY * charHeight };
 	};
 
+	const performDraw = (cellX: number, cellY: number, symbol?: string) => {
+		if (symbol) {
+			document.dispatchEvent(createKeyboardEvent('keydown', symbol));
+		}
+		const coords = cellToWorld(cellX, cellY);
+		selectCanvasElement.dispatchEvent(createMouseEvent('mousedown', coords.x, coords.y));
+		window.dispatchEvent(createMouseEvent('mouseup', coords.x, coords.y));
+	};
+
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -227,7 +236,70 @@ describe('Draw Tool', () => {
 			expect(activeLayer.getChar(1, 0)).toBe(activeSymbol);
 			expect(activeLayer.getChar(2, 0)).toBe(activeSymbol);
 		});
+
+		it('should undo/redo correctly after changing active symbol', () => {
+			performDraw(0, 0, 'A');
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+
+			performDraw(1, 1, 'B');
+			expect(activeLayer.getChar(1, 1)).toBe('B');
+			expect(drawTool.getConfig().activeSymbol).toBe('B');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(1, 1)).toBe(' ');
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+
+			expect(drawTool.getConfig().activeSymbol).toBe('B');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+			expect(drawTool.getConfig().activeSymbol).toBe('B');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(1, 1)).toBe('B');
+			expect(drawTool.getConfig().activeSymbol).toBe('B');
+		});
+
+		it('should undo/redo drawing over an existing character', () => {
+			activeLayer.setChar(1, 1, 'O');
+			expect(activeLayer.getChar(1, 1)).toBe('O');
+
+			performDraw(1, 1, 'X');
+			expect(activeLayer.getChar(1, 1)).toBe('X');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(1, 1)).toBe('O');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(1, 1)).toBe('X');
+		});
+
+		it('should allow new drawing after an undo operation', () => {
+			performDraw(0, 0, 'A');
+			expect(activeLayer.getChar(0, 0)).toBe('A');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+
+			performDraw(0, 0, 'B');
+			expect(activeLayer.getChar(0, 0)).toBe('B');
+
+			historyManager.undo();
+			expect(activeLayer.getChar(0, 0)).toBe(' ');
+
+			historyManager.redo();
+			expect(activeLayer.getChar(0, 0)).toBe('B');
+
+			historyManager.undo();
+			historyManager.redo();
+
+			expect(activeLayer.getChar(0, 0)).toBe('B');
+		});
 	});
+
 	describe('Tool State', () => {
 		it('drawing actions should be on layer after tool deactivation', () => {
 			const drawCoords = cellToWorld(1, 1);

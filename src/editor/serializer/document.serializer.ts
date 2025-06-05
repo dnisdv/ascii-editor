@@ -4,6 +4,7 @@ import { DocumentSchema, type DocumentSchemaType } from './document.serializer.s
 import { ConfigSerializer } from './config.serializer';
 import { ToolsConfigSerializer } from './tools.serializer';
 import type { CoreApi } from '@editor/core';
+import type { LayersManager } from '@editor/layers/layers-manager';
 
 export class AppSerializer {
 	private layersSerializer: LayersSerializer;
@@ -12,7 +13,7 @@ export class AppSerializer {
 	private toolsConfigSerializer: ToolsConfigSerializer;
 
 	constructor(private core: CoreApi) {
-		this.layersSerializer = new LayersSerializer(this.core.getLayersManager(), this.core);
+		this.layersSerializer = new LayersSerializer(this.core.getLayersManager() as LayersManager, this.core);
 		this.cameraSerializer = new CameraSerializer(this.core.getCamera());
 		this.configSerializer = new ConfigSerializer(this.core.getConfig());
 		this.toolsConfigSerializer = new ToolsConfigSerializer(this.core.getToolManager());

@@ -36,15 +36,15 @@ export interface ILayersManager extends IEventEmitter<LayersManagerIEvents> {
 	ensureLayer(): ILayer;
 	getActiveLayer(): ILayer | null;
 
-	addLayerSilent(): [string, ILayer];
+	// addLayerSilent(): [string, ILayer];
 	setActiveLayer(key: string): void;
 
 	updateLayer(id: string, updates: DeepPartial<ILayerModel>): void;
-	updateLayerSilent(id: string, updates: Partial<ILayerModel>): void;
+	// updateLayerSilent(id: string, updates: Partial<ILayerModel>): void;
 
 	insertLayerAtIndex(index: number, layer: ILayer): void;
-	silentActivateLayer(id: string): void;
-	removeLayerSilent(id: string): void;
+	// silentActivateLayer(id: string): void;
+	// removeLayerSilent(id: string): void;
 	getTempLayer(key: string): ILayer | null;
 	getCombinedTileData(tileX: number, tileY: number): string;
 

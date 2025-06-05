@@ -1,11 +1,9 @@
 import type { CoreApi } from '@editor/core';
 import { BaseTool, type ITool } from '../tool';
 import type { HistoryManager } from '@editor/history-manager';
-import type { ICamera } from '@editor/types';
 
 export class HistoryControlTool extends BaseTool implements ITool {
 	readonly visible = false;
-	private camera: ICamera;
 	private historyManager: HistoryManager;
 
 	constructor(protected coreApi: CoreApi) {
@@ -16,8 +14,6 @@ export class HistoryControlTool extends BaseTool implements ITool {
 			config: {},
 			coreApi
 		});
-
-		this.camera = coreApi.getCamera();
 		this.historyManager = coreApi.getHistoryManager();
 
 		this.historyManager.onAfterRedo(() => this.coreApi.render());
