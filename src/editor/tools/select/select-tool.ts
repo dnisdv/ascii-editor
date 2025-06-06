@@ -137,10 +137,9 @@ export class SelectTool extends BaseTool {
 
 	public deactivate(): void {
 		super.deactivate();
-		this.selectionRenderer.clear();
-
+		this.modeContext.cleanup();
+		this.selectionRenderer.triggerDraw();
 		this.getEventApi().removeToolEvents();
-		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
 	}
 
 	public onRequirementFailure(): void {

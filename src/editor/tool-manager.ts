@@ -5,13 +5,18 @@ import type { BaseBusTools } from './bus-tools';
 import type { IToolModel, IToolOptions } from './types/external/tool';
 import { VimKeyMapper } from './utils/hotkey';
 import type { ICanvas } from './types';
+import { EventEmitter } from './event-emitter';
 
 export interface ToolManagerOptions {
 	toolBus: BaseBusTools;
 	canvas: ICanvas;
 }
 
-export class ToolManager {
+type ToolEventMap = {
+	'tool::activate': Pick<IToolModel, 'name'>;
+};
+
+export class ToolManager extends EventEmitter<ToolEventMap> {
 	private tools: Map<string, ITool> = new Map();
 	private hotkeyMap: Map<string, ITool> = new Map();
 	private activeTool: string | null = null;
@@ -19,6 +24,7 @@ export class ToolManager {
 	toolEventManager: ToolEventManager;
 
 	constructor({ toolBus, canvas }: ToolManagerOptions) {
+		super();
 		this.toolEventManager = new ToolEventManager(canvas);
 		this.toolBus = toolBus;
 
@@ -92,6 +98,7 @@ export class ToolManager {
 		tool.activate();
 		this.activeTool = toolName;
 		this.toolBus.emit('tool::activate::response', { name: toolName });
+		this.emit('tool::activate', { name: toolName });
 	}
 
 	public deactivateTool(): void {

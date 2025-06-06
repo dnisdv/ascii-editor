@@ -42,6 +42,7 @@ export interface ISelectionModeBase {
 export interface ISelectionMode<MName extends SelectionModeName> extends ISelectionModeBase {
 	readonly name: MName;
 	onEnter(ctx: SelectionModeContext, payload: ModePayloads[MName] | undefined): void;
+	cleanup?(): void;
 }
 
 export enum SelectionModeName {

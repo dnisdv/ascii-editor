@@ -78,9 +78,9 @@ export class DrawTool extends BaseTool implements ITool {
 
 	deactivate(): void {
 		super.deactivate();
+		this.renderManager.unregister('tool::draw', 'draw::symbol');
 		this.clear();
 		this.getEventApi().removeToolEvents();
-		this.renderManager.unregister('tool::draw', 'draw::symbol');
 	}
 
 	private clear() {

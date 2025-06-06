@@ -105,8 +105,11 @@
 				tabindex="0"
 			>
 				<Button
-					on:click={toggleLayerVisibility}
-					class="m-0 h-auto w-auto p-0 hover:bg-none"
+					on:click={(e) => {
+						e.stopPropagation();
+						toggleLayerVisibility();
+					}}
+					class="z-50 m-0 h-auto w-auto p-0 hover:bg-none"
 					variant="link"
 					size="icon"
 				>

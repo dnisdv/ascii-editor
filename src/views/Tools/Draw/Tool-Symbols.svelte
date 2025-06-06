@@ -6,6 +6,7 @@
 	import { writable } from 'svelte/store';
 
 	export let onSymbolChange: (symbol: string) => void;
+	let open = false;
 
 	const symbols = [
 		'!',
@@ -273,6 +274,7 @@
 
 		selectedSymbol.set(symbol);
 		onSymbolChange(symbol);
+		open = false;
 	}
 
 	const sectionCategory = writable('letters');
@@ -287,7 +289,7 @@
 	});
 </script>
 
-<Popover.Root>
+<Popover.Root bind:open>
 	<Popover.Trigger class="h-full">
 		<slot />
 	</Popover.Trigger>

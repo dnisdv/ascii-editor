@@ -127,11 +127,11 @@ export class TextTool extends BaseTool implements ITool {
 
 	public deactivate(): void {
 		super.deactivate();
+		this.renderManager.unregister('tool::text', 'cursorOverlay');
 		this.stopCursorBlink();
 		this.clearCursorOverlay();
 		this.getEventApi().removeToolEvents();
 		this.commitCurrentBatch();
-		this.renderManager.unregister('tool::text', 'cursorOverlay');
 		this.selectedCell = null;
 	}
 

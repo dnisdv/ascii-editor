@@ -40,7 +40,10 @@
 			name: 'draw',
 			config: { activeSymbol: symbol }
 		});
+
+		toolBus.emit('tool::activate::request', { name });
 	};
+
 	let selectedSymbol = writable('');
 </script>
 

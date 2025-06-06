@@ -41,7 +41,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 	}
 
 	public onEnter(_: SelectionModeContext, payload: RotatingModePayload): void {
-		// this.clear()
+		this.cleanup();
 		this.sessionBeforeRotate = this.selectionSessionManager.serializeActiveSession()!;
 
 		const {
@@ -53,11 +53,11 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 	}
 
 	public onExit(): void {
-		// this.clear()
+		this.cleanup();
 		this.coreApi.getCursor().setCursor('default');
 	}
 
-	private clear() {
+	public cleanup() {
 		this.rotationAngle = 0;
 		this.fixedCenter = null;
 		this.lastAngle = 0;

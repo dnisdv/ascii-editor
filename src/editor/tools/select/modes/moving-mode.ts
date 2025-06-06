@@ -41,6 +41,12 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
 		this.startPoint = this.camera.screenToWorld(pos.x, pos.y);
 	}
 
+	public cleanup(): void {
+		this.startPoint = null;
+		this.lastDeltaChars = { x: 0, y: 0 };
+		this.initializedSession = null;
+	}
+
 	public onExit(): void {}
 	public handleMouseDown(): void {}
 

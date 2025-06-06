@@ -99,6 +99,8 @@ export function createAppInstance(options: AppFactoryOptions): [Core, App] {
 	const cursor = new Cursor({ canvas: ui.getSelectCanvas() });
 	const toolManager = new ToolManager({ toolBus: busManager.tools, canvas: ui.getSelectCanvas() });
 
+	toolManager.on('tool::activate', () => cursor.setCursor('default'));
+
 	const core = new Core({
 		camera,
 		busManager,

@@ -18,18 +18,23 @@ type SelectionModeContextEventType = {
 export class SelectionModeContext extends EventEmitter<SelectionModeContextEventType> {
 	private currentState: AnyConcreteSelectionMode;
 	private modes: Map<SelectionModeName, AnyConcreteSelectionMode>;
-	public coreApi: CoreApi;
 	public isRestricted: boolean = false;
 
-	constructor(coreApi: CoreApi, sessionManager: SelectionSessionManager) {
+	constructor(
+		private coreApi: CoreApi,
+		private sessionManager: SelectionSessionManager
+	) {
 		super();
-		this.coreApi = coreApi;
 		this.modes = new Map();
+		this.currentState = new IdleMode();
+		this.selectAppropiateState();
+	}
 
-		const activeSession = sessionManager.getActiveSession();
+	private selectAppropiateState() {
+		const activeSession = this.sessionManager.getActiveSession();
 
 		if (activeSession && !activeSession?.isEmpty()) {
-			this.currentState = new SelectedMode(coreApi, sessionManager);
+			this.currentState = new SelectedMode(this.coreApi, this.sessionManager);
 			this.currentState.onEnter(this, undefined);
 			return;
 		}
@@ -105,5 +110,14 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 
 	public onKeyPress(event: KeyboardEvent): void {
 		this.currentState.handleKeyDown?.(event, this);
+	}
+
+	public cleanup(): void {
+		this.modes.forEach((mode) => {
+			if (mode.cleanup) {
+				mode.cleanup();
+			}
+		});
+		this.selectAppropiateState();
 	}
 }
