@@ -14,7 +14,6 @@ export class SelectionRenderer {
 
 	private selectCanvas: ICanvas;
 	private renderManager: IRenderManager;
-	private isEnabled: boolean = false;
 
 	constructor(
 		private coreApi: CoreApi,
@@ -46,34 +45,26 @@ export class SelectionRenderer {
 		sessionManager.on('manager::session_created', this.triggerDraw.bind(this));
 		sessionManager.on('manager::session_destroyed', this.triggerDraw.bind(this));
 
-		this.renderManager.register('tool::select', 'draw', () => {
-			if (!this.isEnabled) return;
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			this.drawSelection();
-			this.drawRotationHandles();
-		});
-
 		modeCtx.on('ctx::transitioned', this.triggerDraw.bind(this));
-	}
 
-	public enable() {
-		this.isEnabled = true;
-		this.triggerDraw();
-	}
-	public disable() {
-		this.clear();
-		this.isEnabled = false;
+		this.renderManager.register(
+			'tool::select',
+			'draw',
+			() => {
+				this.drawSelection();
+				this.drawRotationHandles();
+			},
+			this.selectCanvas
+		);
 	}
 
 	public triggerDraw() {
-		this.renderManager.requestRender('tool::select', 'draw');
+		this.renderManager.requestRender();
 	}
 
 	private drawSelection() {
 		const box = this.sessionManager.getActiveSession()?.getSelectedRegion();
 		if (!box) {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			this.selectCanvas.surface.flush();
 			return;
 		}
 
@@ -106,8 +97,6 @@ export class SelectionRenderer {
 		const rotatingCtxMode = this.modeCtx.getMode(SelectionModeName.ROTATING);
 
 		if (!rotatingCtxMode) {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			this.selectCanvas.surface.flush();
 			return;
 		}
 
@@ -117,40 +106,21 @@ export class SelectionRenderer {
 		this.skCanvas.translate(-rectCenterX, -rectCenterY);
 		this.skCanvas.drawRect(rect, this.paint);
 		this.skCanvas.restore();
-
-		this.selectCanvas.surface.flush();
 	}
 
 	public drawRect(x: number, y: number, width: number, height: number): void {
 		this.renderManager.requestRenderFn(() => {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-
 			const screenStart = this.camera.worldToScreen(x, y);
 			const screenEnd = this.camera.worldToScreen(x + width, y + height);
 
 			const rect = this.canvasKit.LTRBRect(screenStart.x, screenStart.y, screenEnd.x, screenEnd.y);
 			this.skCanvas.drawRect(rect, this.paint);
-
-			if (
-				this.selectCanvas &&
-				this.selectCanvas.surface &&
-				!this.selectCanvas.surface.isDeleted()
-			) {
-				this.selectCanvas.surface.flush();
-			}
 		});
 	}
 
 	public clear(): void {
 		this.renderManager.requestRenderFn(() => {
 			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			if (
-				this.selectCanvas &&
-				this.selectCanvas.surface &&
-				!this.selectCanvas.surface.isDeleted()
-			) {
-				this.selectCanvas.surface.flush();
-			}
 		});
 	}
 
@@ -228,7 +198,6 @@ export class SelectionRenderer {
 			}
 
 			skCanvas.restore();
-			this.selectCanvas.surface.flush();
 		}
 	}
 }

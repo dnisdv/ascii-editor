@@ -32,6 +32,8 @@ export class SelectTool extends BaseTool {
 	private selectionRenderer: SelectionRenderer;
 	private historyManager: HistoryManager;
 
+	private _isHandlingLayerContentUpdate = false;
+
 	constructor(coreApi: CoreApi) {
 		super({
 			hotkey: '<A-v>',
@@ -63,6 +65,7 @@ export class SelectTool extends BaseTool {
 		this.historyManager.registerTarget('select::session', this.selectionSessionManager);
 
 		this.registerModes();
+
 		this.selectionSessionManager.on('session::content_updated', () => {
 			if (this.modeContext.getCurrentMode().getName() === SelectionModeName.IDLE) {
 				this.modeContext.transitionTo(SelectionModeName.SELECTED);
@@ -70,7 +73,27 @@ export class SelectTool extends BaseTool {
 		});
 
 		this.layers.on('layers::active::change', this.handleLayerChange.bind(this));
-		this.layers.on('layer::pre-remove', this.handleLayerChange.bind(this));
+		this.layers.on('layer::remove::before', this.handleLayerChange.bind(this));
+
+		this.layers.on('layer::update::content::before', () => {
+			if (this._isHandlingLayerContentUpdate) {
+				return;
+			}
+
+			const activeSession = this.selectionSessionManager.getActiveSession();
+			if (
+				activeSession &&
+				!activeSession.isEmpty() &&
+				this.name !== this.coreApi.getToolManager().getActiveToolName()
+			) {
+				this._isHandlingLayerContentUpdate = true;
+				try {
+					this.handleLayerChange();
+				} finally {
+					this._isHandlingLayerContentUpdate = false;
+				}
+			}
+		});
 	}
 
 	private handleLayerChange(): void {
@@ -107,7 +130,6 @@ export class SelectTool extends BaseTool {
 
 	public activate(): void {
 		super.activate();
-		this.selectionRenderer.enable();
 
 		this.addMouseListeners();
 		this.initKeyListener();
@@ -116,7 +138,6 @@ export class SelectTool extends BaseTool {
 	public deactivate(): void {
 		super.deactivate();
 		this.selectionRenderer.clear();
-		this.selectionRenderer.disable();
 
 		this.getEventApi().removeToolEvents();
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
@@ -160,7 +181,7 @@ export class SelectTool extends BaseTool {
 		if (!activeSession || !activeSession.getSelectedContent()?.data) return;
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
-		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.coreApi.getRenderManager().requestRender();
 		this.selectionRenderer.clear();
 	}
 
@@ -169,7 +190,7 @@ export class SelectTool extends BaseTool {
 		if (!activeSession || !activeSession.getSelectedContent()?.data) return;
 		this.selectionSessionManager.executeCommand(new CancelSessionCommand(this.coreApi));
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
-		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.coreApi.getRenderManager().requestRender();
 		this.selectionRenderer.clear();
 	}
 }

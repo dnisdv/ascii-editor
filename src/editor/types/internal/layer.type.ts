@@ -10,7 +10,8 @@ export type LayerConfig = {
 
 export type LayerEventMap = {
 	updated: { before: ILayerModel; after: ILayerModel };
-	tile_change: ITileModel & { layerId: string };
+	'tile::change::before': undefined;
+	'tile::change::after': ITileModel & { layerId: string };
 	tile_deleted: { x: number; y: number; layerId: string };
 };
 

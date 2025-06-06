@@ -45,9 +45,6 @@ export class updateLayerCommand {
 			{ applyAction: false }
 		);
 
-		this.managerOps.emit('layer::updated', {
-			before: beforeData,
-			after: this.layerSerializer.serialize(this.layersListManager.getLayerById(id)!)
-		});
+		this.managerOps.emit('layer::update::model');
 	}
 }

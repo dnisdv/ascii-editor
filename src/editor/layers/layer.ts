@@ -147,6 +147,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		tile.setRegion(startX, startY, lines, options);
 
 		if (tile.isEmpty()) {
+			this.emit('tile::change::before');
 			this.tileMap.removeTile(tile.x, tile.y);
 			this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
 		} else {
@@ -195,6 +196,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		tile.fillRegion(startX, startY, width, height, char);
 
 		if (tile.isEmpty()) {
+			this.emit('tile::change::before');
 			this.tileMap.removeTile(tile.x, tile.y);
 			this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
 		} else {
@@ -250,6 +252,8 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		const tileSize = tile.tileSize;
 		const localX = x % tileSize;
 		const localY = y % tileSize;
+
+		this.emit('tile::change::before');
 		tile.setChar(localX, localY, char);
 
 		const model: ITileModel = { x: tile.x, y: tile.y, data: tile.data };
@@ -259,7 +263,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 			this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
 			return model;
 		} else {
-			this.emit('tile_change', { ...model, layerId: this.id });
+			this.emit('tile::change::after', { ...model, layerId: this.id });
 			return model;
 		}
 	}
@@ -291,7 +295,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 
 	private _emitTileChange(x: number, y: number, data: string): ITileModel {
 		const model: ITileModel = { x, y, data };
-		this.emit('tile_change', { ...model, layerId: this.id });
+		this.emit('tile::change::after', { ...model, layerId: this.id });
 		return model;
 	}
 

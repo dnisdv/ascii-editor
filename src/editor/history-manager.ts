@@ -52,8 +52,7 @@ export class HistoryManager {
 	private afterUndoSubscribers: HistorySubscriber[] = [];
 	private beforeRedoSubscribers: HistorySubscriber[] = [];
 	private afterRedoSubscribers: HistorySubscriber[] = [];
-
-	constructor() {}
+	private afterApplyActionSubscribers: HistorySubscriber[] = [];
 
 	private generateBatchId(): string {
 		return `batch_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
@@ -108,6 +107,15 @@ export class HistoryManager {
 		};
 	}
 
+	public onAfterApplyActionSubscriber(subscriber: HistorySubscriber) {
+		this.afterApplyActionSubscribers.push(subscriber);
+		return () => {
+			this.afterApplyActionSubscribers = this.afterApplyActionSubscribers.filter(
+				(sub) => sub !== subscriber
+			);
+		};
+	}
+
 	public beginBatch(config: BatchConfig = {}): string {
 		const id = config.id || this.generateBatchId();
 
@@ -151,6 +159,8 @@ export class HistoryManager {
 		this.stack = this.stack.slice(0, this.currentIndex + 1);
 		this.stack.push(action);
 		this.currentIndex++;
+
+		this.afterApplyActionSubscribers.forEach((subscriber) => subscriber());
 	}
 
 	public commitBatch(batchId: string): void {

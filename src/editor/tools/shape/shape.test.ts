@@ -214,8 +214,9 @@ describe('Draw Shape Tool', () => {
 		const layersManager = core.getLayersManager();
 		let activeLayer = layersManager.getActiveLayer();
 		if (!activeLayer) {
-			[, activeLayer] = layersManager.addLayer();
-			layersManager.setActiveLayer(activeLayer.id);
+			const [, newActiveLayer] = layersManager.addLayer();
+			activeLayer = newActiveLayer;
+			layersManager.setActiveLayer(activeLayer!.id);
 		}
 		layersManager.updateLayer(activeLayer!.id, { ...activeLayer!.opts, opts: { visible: false } });
 		expect(layersManager.getActiveLayer()?.opts.visible).toBe(false);

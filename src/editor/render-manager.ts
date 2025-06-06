@@ -1,4 +1,5 @@
-import type { IRenderManager } from './types';
+import type { ICanvas, IRenderManager } from './types';
+import type { Surface } from 'canvaskit-wasm';
 
 export enum SubscriptionType {
 	PRE_RENDER = 'PRE_RENDER',
@@ -14,7 +15,7 @@ let renderManagerId = 0;
 export class RenderManager implements IRenderManager {
 	public id = renderManagerId++;
 	private renderQueue: Set<string> = new Set();
-	private callbacks: Map<string, RenderCallback> = new Map();
+	private callbacks: Map<string, { callback: RenderCallback; canvas?: ICanvas }> = new Map();
 
 	private isRendering: boolean = false;
 	private animationFrameId: number | null = null;
@@ -42,9 +43,9 @@ export class RenderManager implements IRenderManager {
 		}
 	}
 
-	register(namespace: string, id: string, callback: RenderCallback): void {
+	register(namespace: string, id: string, callback: RenderCallback, canvas?: ICanvas): void {
 		const key = this.makeComponentKey(namespace, id);
-		this.callbacks.set(key, callback);
+		this.callbacks.set(key, { callback, canvas });
 	}
 
 	unregister(namespace: string, id: string): void {
@@ -133,13 +134,19 @@ export class RenderManager implements IRenderManager {
 		};
 	}
 
-	requestRender(namespace: string, id: string): void {
+	requestRenderOnly(namespace: string, id: string): void {
 		const key = this.makeComponentKey(namespace, id);
 		if (!this.callbacks.has(key)) {
 			return;
 		}
-		this.renderQueue.add(key);
+		for (const key of this.callbacks.keys()) {
+			this.renderQueue.add(key);
+		}
 		this.scheduleRender();
+	}
+
+	requestRender(): void {
+		this.requestRenderAll();
 	}
 
 	requestRenderAll(): void {
@@ -155,7 +162,14 @@ export class RenderManager implements IRenderManager {
 			this.animationFrameId = null;
 		}
 		this.isRendering = true;
-		this.performRender(fn);
+
+		for (const key of this.callbacks.keys()) {
+			this.renderQueue.add(key);
+		}
+
+		const surfacesToFlush = this.performRender(fn);
+		this.flushSurfaces(surfacesToFlush);
+
 		this.isRendering = false;
 	}
 
@@ -164,30 +178,54 @@ export class RenderManager implements IRenderManager {
 
 		this.isRendering = true;
 		this.animationFrameId = requestAnimationFrame(() => {
-			this.performRender();
+			const surfacesToFlush = this.performRender();
+			this.flushSurfaces(surfacesToFlush);
 			this.isRendering = false;
 			this.animationFrameId = null;
 		});
 	}
 
-	private performRender(midFn?: () => void): void {
+	private performRender(midFn?: () => void): Set<Surface> {
+		const surfacesToFlushThisFrame: Set<Surface> = new Set();
+		const canvasesToClearThisFrame: Set<ICanvas> = new Set();
+
+		const queueToProcess = new Set(this.renderQueue);
+
+		for (const key of queueToProcess) {
+			const registeredEntry = this.callbacks.get(key);
+			if (registeredEntry && registeredEntry.canvas) {
+				canvasesToClearThisFrame.add(registeredEntry.canvas);
+			}
+		}
+
 		for (const [cb] of this.preRenderSubscribers) {
 			cb();
 		}
 
-		for (const key of this.renderQueue) {
-			const callback = this.callbacks.get(key);
-			if (callback) {
+		for (const canvas of canvasesToClearThisFrame) {
+			if (canvas.skCanvas && canvas.canvasKit && canvas.surface && !canvas.surface.isDeleted()) {
+				canvas.skCanvas.clear(canvas.canvasKit.TRANSPARENT);
+			}
+		}
+
+		this.renderQueue.clear();
+
+		for (const key of queueToProcess) {
+			const registeredEntry = this.callbacks.get(key);
+			if (registeredEntry) {
+				const { callback, canvas } = registeredEntry;
+
 				const componentSubs = this.componentSubscribers.get(key);
 				if (componentSubs) {
-					for (const [compCb] of componentSubs) {
-						compCb();
-					}
+					for (const [compCb] of componentSubs) compCb();
 				}
-				for (const [anyCompCb] of this.anyComponentSubscribers) {
-					anyCompCb();
-				}
+				for (const [anyCompCb] of this.anyComponentSubscribers) anyCompCb();
+
 				callback();
+
+				if (canvas && canvas.surface && !canvas.surface.isDeleted()) {
+					surfacesToFlushThisFrame.add(canvas.surface);
+				}
 			}
 		}
 
@@ -199,7 +237,15 @@ export class RenderManager implements IRenderManager {
 			cb();
 		}
 
-		this.renderQueue.clear();
+		return surfacesToFlushThisFrame;
+	}
+
+	private flushSurfaces(surfaces: Set<Surface>): void {
+		for (const surface of surfaces) {
+			if (surface && !surface.isDeleted()) {
+				surface.flush();
+			}
+		}
 	}
 
 	dispose(): void {

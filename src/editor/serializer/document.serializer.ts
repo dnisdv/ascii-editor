@@ -13,7 +13,10 @@ export class AppSerializer {
 	private toolsConfigSerializer: ToolsConfigSerializer;
 
 	constructor(private core: CoreApi) {
-		this.layersSerializer = new LayersSerializer(this.core.getLayersManager() as LayersManager, this.core);
+		this.layersSerializer = new LayersSerializer(
+			this.core.getLayersManager() as LayersManager,
+			this.core
+		);
 		this.cameraSerializer = new CameraSerializer(this.core.getCamera());
 		this.configSerializer = new ConfigSerializer(this.core.getConfig());
 		this.toolsConfigSerializer = new ToolsConfigSerializer(this.core.getToolManager());

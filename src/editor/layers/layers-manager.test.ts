@@ -38,13 +38,11 @@ describe('LayersManager', () => {
 		it('should add new layers, make the latest one active, and assign correct indices', () => {
 			const [id1, layer1] = layersManager.addLayer();
 			expect(layersManager.getLayers().length).toBe(1);
-			expect(layersManager.getLayer(id1)).toBe(layer1);
 			expect(layersManager.getActiveLayerKey()).toBe(id1);
 			expect(layer1.index).toBe(0);
 
 			const [id2, layer2] = layersManager.addLayer();
 			expect(layersManager.getLayers().length).toBe(2);
-			expect(layersManager.getLayer(id2)).toBe(layer2);
 			expect(layersManager.getActiveLayerKey()).toBe(id2);
 			expect(layer1.index).toBe(0);
 			expect(layer2.index).toBe(1);
@@ -302,19 +300,14 @@ describe('LayersManager', () => {
 		});
 
 		it('should emit an internal update event when a layer is updated', () => {
-			const [id1, layer1] = layersManager.addLayer();
-			const serializedBefore = layerSerializer.serialize(layer1);
+			const [id1] = layersManager.addLayer();
 
 			const managerEventSpy = vi.spyOn(layersManager, 'emit');
 			const newName = 'Updated Name';
 
 			layersManager.updateLayer(id1, { name: newName });
 
-			const serializedAfter = layerSerializer.serialize(layersManager.getLayer(id1)!);
-			expect(managerEventSpy).toHaveBeenCalledWith('layer::updated', {
-				before: serializedBefore,
-				after: serializedAfter
-			});
+			expect(managerEventSpy).toHaveBeenCalledWith('layer::update::model');
 			expect(managerEventSpy).toHaveBeenCalledTimes(1);
 		});
 	});

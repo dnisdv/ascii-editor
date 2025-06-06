@@ -62,6 +62,7 @@ export class ToolEventManager {
 				this._registerEvent(tool, this.mouseEventMap, 'leftclick', null, handler as EventHandler),
 			registerRightClick: (handler: SpecificMouseEventHandler) =>
 				this._registerEvent(tool, this.mouseEventMap, 'rightclick', null, handler as EventHandler),
+
 			registerMouseDown: (button: 'left' | 'right', handler: SpecificMouseEventHandler) =>
 				this._registerEvent(
 					tool,
@@ -86,7 +87,7 @@ export class ToolEventManager {
 			unregisterLeftClick: () => this._unregisterEvent(tool, this.mouseEventMap, 'leftclick', null),
 			unregisterRightClick: () =>
 				this._unregisterEvent(tool, this.mouseEventMap, 'rightclick', null),
-			unregisterMouseDown: (button: 'left' | 'right') =>
+			unregisterMouseDown: (button: 'left') =>
 				this._unregisterEvent(tool, this.mouseEventMap, `mousedown:${button}`, null),
 
 			registerWheel: (handler: SpecificWheelEventHandler) =>

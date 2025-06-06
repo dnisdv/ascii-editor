@@ -1,3 +1,5 @@
+import type { ICanvas } from './canvas.type';
+
 export type RenderCallback = () => void;
 
 export enum SubscriptionType {
@@ -8,7 +10,7 @@ export enum SubscriptionType {
 }
 
 export interface IRenderManager {
-	register(namespace: string, id: string, callback: RenderCallback): void;
+	register(namespace: string, id: string, callback: RenderCallback, canvasToFlush?: ICanvas): void;
 	unregister(namespace: string, id: string): void;
 
 	subscribe(
@@ -30,7 +32,8 @@ export interface IRenderManager {
 	subscribeAnyComponent(callback: RenderCallback): () => void;
 	subscribeComponent(namespace: string, id: string, callback: RenderCallback): () => void;
 
-	requestRender(namespace: string, id: string): void;
+	requestRenderOnly(namespace: string, id: string): void;
+	requestRender(): void;
 	requestRenderFn(fn?: () => void): void;
 	requestRenderAll(): void;
 	dispose(): void;

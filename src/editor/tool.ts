@@ -47,7 +47,7 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 	private requirementUnsubscribes: Array<() => void> = [];
 	protected coreApi: CoreApi;
 
-	private eventManager: ToolEventManager;
+	eventManager: ToolEventManager;
 
 	constructor({
 		name,

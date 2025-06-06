@@ -25,6 +25,8 @@ import { CreateAndActivateLayerCommand } from './commands/create-activate-layer.
 import { updateLayerCommand } from './commands/update-layer.cmd';
 import { activateLayerCommand } from './commands/activate-layer.cmd';
 import { removeAndActivateLayerCommand } from './commands/remove-activate-layer.cmd';
+import { LayerApi } from './layer-api';
+import { Layer } from './layer';
 
 export interface LayersManagerOption {
 	layersBus: BaseBusLayers;
@@ -50,6 +52,8 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	private config: Config;
 
 	private bus: BaseBusLayers;
+
+	private tempLayerAssociations: Map<string, string> = new Map();
 
 	constructor({ layersBus, config, historyManager }: LayersManagerOption) {
 		super();
@@ -93,10 +97,27 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	private proxyLayerEvents(layer: ILayer) {
-		layer.on('tile_change', (tile) => this.bus.emit('layer::tile::change', tile), this);
-		layer.on('tile_deleted', ({ x, y, layerId }) =>
-			this.bus.emit('layer::tile::removed', { x, y, layerId })
+		layer.on(
+			'tile::change::after',
+			(tile) => {
+				this.emit('layer::update::content::after');
+				this.bus.emit('layer::tile::change', tile);
+			},
+			this
 		);
+
+		layer.on(
+			'tile::change::before',
+			() => {
+				this.emit('layer::update::content::before');
+			},
+			this
+		);
+
+		layer.on('tile_deleted', ({ x, y, layerId }) => {
+			this.emit('layer::update::content::after');
+			this.bus.emit('layer::tile::removed', { x, y, layerId });
+		});
 
 		this.historyManager.registerTarget(`layer::${layer.id}`, layer);
 	}
@@ -112,7 +133,9 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 
 	private unproxyLayerEvents(layer: ILayer | null) {
 		if (!layer) return;
-		layer.off('tile_change');
+		layer.off('tile::change::before');
+		layer.off('tile::change::after');
+
 		layer.off('tile_deleted');
 	}
 
@@ -121,7 +144,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		command.execute(id, updates);
 	}
 
-	public addLayer(): [string, ILayer] {
+	public addLayer(): [string, LayerApi] {
 		const command = new CreateAndActivateLayerCommand(
 			this.internalOps(),
 			this.historyManager,
@@ -129,7 +152,8 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		);
 		const { id, layer } = command.execute();
 		this.proxyLayerEvents(layer);
-		return [id, layer];
+
+		return [id, new LayerApi(layer as Layer, this)];
 	}
 
 	public removeLayer(id: string): void {
@@ -179,7 +203,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		this.proxyLayerEvents(layer);
 	}
 
-	public ensureLayer(): ILayer {
+	public ensureLayer(): LayerApi {
 		let activeLayer = this.getLayer(this.getActiveLayerKey() || '');
 		if (!activeLayer) {
 			const command = new CreateAndActivateLayerCommand(
@@ -190,29 +214,60 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 			const { layer } = command.execute();
 			this.proxyLayerEvents(layer);
 
-			activeLayer = layer;
+			activeLayer = this._getLayerApi(layer);
 		}
-		return activeLayer;
+		return activeLayer!;
 	}
 
-	public addTempLayer(index?: number): [string, ILayer] {
-		const newIndex = index ?? this.getActiveLayer()?.index ?? 0;
+	public addTempLayer(sourceLayerId?: string): [string, ILayer] {
+		const idToUse = sourceLayerId ?? this.layers.getActiveLayerKey();
+		const [id, tempLayer] = this.layerFactory.createTempLayer();
 
-		const [id, layer] = this.layerFactory.createTempLayer();
-		layer.updateIndex(newIndex);
-		this.tempLayers.insertLayerAtIndex(layer, newIndex);
+		if (idToUse) {
+			const sourceLayer = this.layers.getLayerById(idToUse);
+			if (!sourceLayer) {
+				throw new Error(`addTempLayer failed: Source layer with id ${idToUse} not found.`);
+			}
+			tempLayer.updateIndex(sourceLayer.index);
+			this.tempLayerAssociations.set(id, idToUse);
+		} else {
+			const mainLayers = this.layers.getSortedLayers();
+			const topIndex = mainLayers.length > 0 ? mainLayers[mainLayers.length - 1].index + 1 : 0;
+			tempLayer.updateIndex(topIndex);
+		}
 
-		return [id, layer];
+		this.tempLayers.addLayer(tempLayer);
+		return [id, new LayerApi(tempLayer as Layer, this)];
 	}
 
 	public removeTempLayer(id: string): void {
-		const layer = this.getTempLayer(id);
-		if (!layer) return;
-		this.tempLayers.removeLayer(id);
+		if (this.tempLayers.hasLayer(id)) {
+			this.tempLayers.removeLayer(id);
+			this.tempLayerAssociations.delete(id);
+		}
+	}
+
+	public getLayerComposition(layerId: string): ILayer[] {
+		const baseLayer = this.layers.getLayerById(layerId) || this.tempLayers.getLayerById(layerId);
+		if (!baseLayer) return [];
+
+		const composition: ILayer[] = [baseLayer];
+		for (const [tempId, sourceId] of this.tempLayerAssociations.entries()) {
+			if (sourceId === layerId) {
+				const tempLayer = this.tempLayers.getLayerById(tempId);
+				if (tempLayer) composition.push(tempLayer);
+			}
+		}
+		return composition;
+	}
+
+	public _getLayerApi(layer: ILayer | null) {
+		if (!layer) return null;
+		return new LayerApi(layer as Layer, this);
 	}
 
 	public getLayer(key: string) {
-		return this.layers.getLayerById(key) || null;
+		return this._getLayerApi(this.layers.getLayerById(key) || null);
 	}
 
 	public getTempOrRealLayer(key: string) {
@@ -231,7 +286,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		return [...this.tempLayers.getSortedLayers()];
 	}
 
-	public getActiveLayer(): ILayer | null {
+	public getActiveLayer(): LayerApi | null {
 		return this.getLayer(this.getActiveLayerKey() || '');
 	}
 

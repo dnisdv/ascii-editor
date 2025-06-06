@@ -26,7 +26,7 @@ export class removeAndActivateLayerCommand {
 
 		const beforeActiveKey = this.layersListManager.getActiveLayerKey();
 
-		this.managerOps.emit('layer::pre-remove');
+		this.managerOps.emit('layer::remove::before');
 		const { newActive } = this.layersListManager.removeLayerWithNewActive(layer.id);
 
 		this.bus.emit('layer::remove::response', { id });
@@ -41,7 +41,7 @@ export class removeAndActivateLayerCommand {
 			},
 			{ applyAction: false }
 		);
-		this.managerOps.emit('layer::removed');
+		this.managerOps.emit('layer::remove::after');
 		return layer;
 	}
 }

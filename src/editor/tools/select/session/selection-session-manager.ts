@@ -144,7 +144,6 @@ export class SelectionSessionManager extends EventEmitter<ManagerEventType> {
 		return newSession;
 	}
 
-	// TODO: tricky but now i dont wan't to change this
 	public getLayersManager() {
 		return this.coreApi.getLayersManager();
 	}

@@ -159,7 +159,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 			this.selectionSessionManager.executeCommandOnActiveSession(
 				new RotateSessionCommand(this.coreApi, rotationAngle, this.fixedCenter!)
 			);
-			this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+			this.coreApi.getRenderManager().requestRenderOnly('canvas', 'ascii');
 			this.initialAngle = currentAngle;
 			this.lastAngle = currentAngle;
 		}

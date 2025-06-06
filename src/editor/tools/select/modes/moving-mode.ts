@@ -72,7 +72,7 @@ export class MovingMode implements ISelectionMode<SelectionModeName.MOVING> {
 			);
 		}
 
-		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.coreApi.getRenderManager().requestRenderOnly('canvas', 'ascii');
 	}
 
 	public handleMouseUp(_: MouseEvent, context: SelectionModeContext): void {

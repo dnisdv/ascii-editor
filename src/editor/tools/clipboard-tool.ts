@@ -66,7 +66,7 @@ export class ClipboardTool extends BaseTool {
 		if (data && data.length > 0) {
 			navigator.clipboard.writeText(data);
 		}
-		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.coreApi.getRenderManager().requestRender();
 	}
 
 	private copyToClipboard(): void {
@@ -107,7 +107,7 @@ export class ClipboardTool extends BaseTool {
 				);
 
 				this.coreApi.getToolManager().activateTool('select');
-				this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+				this.coreApi.getRenderManager().requestRender();
 			});
 		} catch (error) {
 			console.error('Failed to read from clipboard:', error);

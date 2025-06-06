@@ -135,7 +135,7 @@ export class DrawShapeTool extends BaseTool implements ITool {
 
 		this.tempLayer?.clear();
 		this.tempLayer?.setToRegion(startX, startY, this.currentShape?.toString() || '');
-		this.renderManager.requestRender('canvas', 'ascii');
+		this.renderManager.requestRenderOnly('canvas', 'ascii');
 	}
 
 	private handleCanvasMouseUp(): void {

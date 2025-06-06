@@ -65,10 +65,15 @@ export class DrawTool extends BaseTool implements ITool {
 	activate(): void {
 		super.activate();
 		this.addMouseListeners();
-		this.renderManager.register('tool::draw', 'draw::symbol', () => {
-			if (!this.lastMousePos) return;
-			this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y);
-		});
+		this.renderManager.register(
+			'tool::draw',
+			'draw::symbol',
+			() => {
+				if (!this.lastMousePos) return;
+				this.drawActiveSymbol(this.lastMousePos!.x, this.lastMousePos!.y);
+			},
+			this.selectCanvas
+		);
 	}
 
 	deactivate(): void {
@@ -79,10 +84,7 @@ export class DrawTool extends BaseTool implements ITool {
 	}
 
 	private clear() {
-		this.renderManager.requestRenderFn(() => {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			this.selectCanvas.surface.flush();
-		});
+		this.renderManager.requestRenderFn();
 	}
 
 	public onRequirementFailure(): void {
@@ -98,7 +100,7 @@ export class DrawTool extends BaseTool implements ITool {
 		this.saveConfig({ activeSymbol: newKey });
 
 		if (this.lastMousePos) {
-			this.renderManager.requestRender('tool::draw', 'draw::symbol');
+			this.renderManager.requestRender();
 		}
 	}
 
@@ -121,10 +123,8 @@ export class DrawTool extends BaseTool implements ITool {
 			dimensions: { width: charWidth }
 		} = this.coreApi.getFontManager().getMetrics();
 
-		this.skCanvas.clear(this.canvasKit.TRANSPARENT);
 		const paragraph = this.getParagraph(String(this.config.activeSymbol), charWidth);
 		this.skCanvas.drawParagraph(paragraph, x + 20, y + 20);
-		this.selectCanvas.surface.flush();
 	}
 
 	private addMouseListeners(): void {
@@ -150,12 +150,8 @@ export class DrawTool extends BaseTool implements ITool {
 	}
 
 	private handleCanvasMouseMove(event: MouseEvent): void {
-		this.renderManager.requestRender('tool::draw', 'draw::symbol');
-
-		if (this.isDrawing && this.isLayerVisible) {
-			this.handleDrawing(event);
-		}
-
+		this.renderManager.requestRender();
+		if (this.isDrawing && this.isLayerVisible) this.handleDrawing(event);
 		this.lastMousePos = { x: event.clientX, y: event.clientY };
 	}
 
@@ -211,6 +207,6 @@ export class DrawTool extends BaseTool implements ITool {
 		}
 
 		activeLayer?.setChar(row, col, this.getConfig().activeSymbol);
-		this.renderManager.requestRender('canvas', 'ascii');
+		this.renderManager.requestRender();
 	}
 }

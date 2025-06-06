@@ -66,14 +66,10 @@ export class TextTool extends BaseTool implements ITool {
 			this.clearCursorOverlay();
 		});
 
-		this.historyManager.onAfterUndo(() =>
-			this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
-		);
-		this.historyManager.onAfterRedo(() =>
-			this.coreApi.getRenderManager().requestRender('canvas', 'ascii')
-		);
+		this.historyManager.onAfterUndo(() => this.coreApi.getRenderManager().requestRender());
+		this.historyManager.onAfterRedo(() => this.coreApi.getRenderManager().requestRender());
 
-		this.layers.on('layer::pre-remove', () => {
+		this.layers.on('layer::remove::before', () => {
 			this.commitCurrentBatch();
 			this.selectedCell = null;
 			this.drawCursorOverlay();
@@ -92,16 +88,7 @@ export class TextTool extends BaseTool implements ITool {
 	}
 
 	private clearCursorOverlay() {
-		this.renderManager.requestRenderFn(() => {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			if (
-				this.selectCanvas &&
-				this.selectCanvas.surface &&
-				!this.selectCanvas.surface.isDeleted()
-			) {
-				this.selectCanvas.surface.flush();
-			}
-		});
+		this.renderManager.requestRenderFn();
 	}
 
 	public onRequirementFailure(): void {
@@ -119,17 +106,20 @@ export class TextTool extends BaseTool implements ITool {
 		super.activate();
 		this.addMouseListeners();
 
-		this.renderManager.register('tool::text', 'cursorOverlay', () => {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-			if (!this.selectedCell || !this.cursorBlinkState) return;
+		this.renderManager.register(
+			'tool::text',
+			'cursorOverlay',
+			() => {
+				if (!this.selectedCell || !this.cursorBlinkState) return;
 
-			const { x, y } = this.selectedCell;
-			const { startX, startY, endX, endY } = this.cellPositionToGlobalScreen(x, y);
+				const { x, y } = this.selectedCell;
+				const { startX, startY, endX, endY } = this.cellPositionToGlobalScreen(x, y);
 
-			const rect = this.canvasKit.LTRBRect(startX, startY, endX, endY);
-			this.skCanvas.drawRect(rect, this.paint);
-			this.selectCanvas.surface.flush();
-		});
+				const rect = this.canvasKit.LTRBRect(startX, startY, endX, endY);
+				this.skCanvas.drawRect(rect, this.paint);
+			},
+			this.selectCanvas
+		);
 
 		if (this.selectedCell) this.drawCursorOverlay();
 		this.startCursorBlink();
@@ -275,7 +265,7 @@ export class TextTool extends BaseTool implements ITool {
 
 		activeLayer.setChar(x, y, char);
 		this.selectedCell = { x: x + 1, y: y };
-		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.coreApi.getRenderManager().requestRender();
 	}
 
 	private handleArrowKeys(key: string): void {
@@ -326,7 +316,7 @@ export class TextTool extends BaseTool implements ITool {
 
 		activeLayer.setChar(deleteAtX, deleteAtY, ' ');
 		this.selectedCell = { x: deleteAtX, y: deleteAtY };
-		this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+		this.coreApi.getRenderManager().requestRender();
 	}
 
 	private async handlePaste(): Promise<void> {
@@ -378,13 +368,13 @@ export class TextTool extends BaseTool implements ITool {
 			console.error('Failed to read clipboard:', err);
 		} finally {
 			this.commitCurrentBatch();
-			this.coreApi.getRenderManager().requestRender('canvas', 'ascii');
+			this.coreApi.getRenderManager().requestRender();
 			this.drawCursorOverlay();
 		}
 	}
 
 	private drawCursorOverlay() {
-		this.renderManager.requestRender('tool::text', 'cursorOverlay');
+		this.renderManager.requestRender();
 	}
 
 	private cellPositionToGlobalScreen(cellX: number, cellY: number) {
