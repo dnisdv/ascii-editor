@@ -79,7 +79,6 @@ export function createAppInstance(options: AppFactoryOptions): [Core, App] {
 	const layersManager = new LayersManager({ layersBus: busManager.layers, config, historyManager });
 	const renderManager = new RenderManager();
 
-	layersManager.on('layer::update::content::after', () => renderManager.requestRenderAll());
 	layersManager.on('layer::update::model', () => renderManager.requestRenderAll());
 	layersManager.on('layer::remove::after', () => renderManager.requestRenderAll());
 

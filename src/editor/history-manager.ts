@@ -29,6 +29,7 @@ export interface ActionHandler<T extends BaseAction> {
 }
 
 type HistorySubscriber = () => void;
+type HistorySubscriberWithAction = (action: Action) => void;
 
 export class HistoryManager {
 	private stack: Action[] = [];
@@ -52,6 +53,7 @@ export class HistoryManager {
 	private afterUndoSubscribers: HistorySubscriber[] = [];
 	private beforeRedoSubscribers: HistorySubscriber[] = [];
 	private afterRedoSubscribers: HistorySubscriber[] = [];
+	private beforeApplyActionSubscribers: HistorySubscriberWithAction[] = [];
 	private afterApplyActionSubscribers: HistorySubscriber[] = [];
 
 	private generateBatchId(): string {
@@ -116,6 +118,15 @@ export class HistoryManager {
 		};
 	}
 
+	public onBeforeApplyActionSubscriber(subscriber: HistorySubscriberWithAction) {
+		this.beforeApplyActionSubscribers.push(subscriber);
+		return () => {
+			this.beforeApplyActionSubscribers = this.beforeApplyActionSubscribers.filter(
+				(sub) => sub !== subscriber
+			);
+		};
+	}
+
 	public beginBatch(config: BatchConfig = {}): string {
 		const id = config.id || this.generateBatchId();
 
@@ -132,6 +143,7 @@ export class HistoryManager {
 	}
 
 	public applyAction(action: Action, config?: { batchId?: string; applyAction?: boolean }): void {
+		this.beforeApplyActionSubscribers.forEach((subscriber) => subscriber(action));
 		if (this.isApplying) return;
 
 		const handler = this.handlers.get(action.type);

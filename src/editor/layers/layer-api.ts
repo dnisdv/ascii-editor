@@ -92,6 +92,12 @@ export class LayerApi implements ILayer {
 		return ' ';
 	};
 
+	isEmpty = (): boolean => {
+		const composition = this.layersManager.getLayerComposition(this.realLayer.id);
+		const isEveryEmpty = composition.every((layer) => layer.isEmpty());
+		return isEveryEmpty;
+	};
+
 	// :TODO: DEFINE TYPES; REFACTOR A LITTLE;
 
 	on = <K extends keyof LayerEventMap>(

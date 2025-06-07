@@ -97,29 +97,33 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	private proxyLayerEvents(layer: ILayer) {
-		layer.on(
-			'tile::change::after',
-			(tile) => {
-				this.emit('layer::update::content::after');
-				this.bus.emit('layer::tile::change', tile);
-			},
-			this
+		layer.on('tile_changed', (tile) => this.bus.emit('layer::tile::change', tile), this);
+		layer.on('tile_deleted', ({ x, y, layerId }) =>
+			this.bus.emit('layer::tile::removed', { x, y, layerId })
 		);
-
-		layer.on(
-			'tile::change::before',
-			() => {
-				this.emit('layer::update::content::before');
-			},
-			this
-		);
-
-		layer.on('tile_deleted', ({ x, y, layerId }) => {
-			this.emit('layer::update::content::after');
-			this.bus.emit('layer::tile::removed', { x, y, layerId });
-		});
-
 		this.historyManager.registerTarget(`layer::${layer.id}`, layer);
+	}
+
+	private unproxyLayerEvents(layer: ILayer | null) {
+		if (!layer) return;
+		layer.off('tile_changed');
+		layer.off('tile_deleted');
+	}
+
+	private proxyTempLayerEvents(layer: ILayer) {
+		layer.on('changed', () => {
+			const mainLayerId = this.tempLayerAssociations.get(layer.id);
+			if (mainLayerId) {
+				const mainLayer = this.layers.getLayerById(mainLayerId);
+				mainLayer?.emit('changed');
+			}
+		});
+	}
+
+	private unproxyTempLayerEvents(layer: ILayer | null) {
+		if (!layer) return;
+		layer.emit('changed');
+		layer.off('changed');
 	}
 
 	public internalOps(): ILayersManagerInternalOps {
@@ -129,14 +133,6 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 			getLayerSerializer: () => this.layerSerializer,
 			emit: this.emit.bind(this)
 		};
-	}
-
-	private unproxyLayerEvents(layer: ILayer | null) {
-		if (!layer) return;
-		layer.off('tile::change::before');
-		layer.off('tile::change::after');
-
-		layer.off('tile_deleted');
 	}
 
 	public updateLayer(id: string, updates: DeepPartial<ILayerModel>): void {
@@ -222,7 +218,7 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	public addTempLayer(sourceLayerId?: string): [string, ILayer] {
 		const idToUse = sourceLayerId ?? this.layers.getActiveLayerKey();
 		const [id, tempLayer] = this.layerFactory.createTempLayer();
-
+		this.proxyTempLayerEvents(tempLayer);
 		if (idToUse) {
 			const sourceLayer = this.layers.getLayerById(idToUse);
 			if (!sourceLayer) {
@@ -241,8 +237,12 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	public removeTempLayer(id: string): void {
-		if (this.tempLayers.hasLayer(id)) {
+		const layer = this.tempLayers.getLayerById(id);
+		if (layer) {
 			this.tempLayers.removeLayer(id);
+			layer.emit('changed');
+			this.unproxyTempLayerEvents(layer);
+
 			this.tempLayerAssociations.delete(id);
 		}
 	}

@@ -1,5 +1,4 @@
-import type { ILayersManager } from '@editor/types';
-import type { HistoryManager } from '@editor/history-manager';
+import type { BaseAction, HistoryManager } from '@editor/history-manager';
 import { BaseTool } from '@editor/tool';
 import { RequireActiveLayerVisible } from '@editor/tool-requirements';
 import { IdleMode } from './modes/idle-mode';
@@ -19,20 +18,17 @@ import { CommitSessionCommand } from './session/commands/commitSession.cmd';
 import { CancelSessionCommand } from './session/commands/cancelSession.cmd';
 import { sessionManagerApi } from './tool-export-api';
 import type { CoreApi } from '@editor/core';
+import type { LayerRemoveAndActivateAction } from '@editor/layers/history/layer-remove-and-activate';
 
 export type SelectToolApi = ReturnType<typeof sessionManagerApi>;
 
 export class SelectTool extends BaseTool {
 	readonly name = 'select';
-	private layers: ILayersManager;
-
 	private modeContext: SelectionModeContext;
 	private selectionSessionManager: SelectionSessionManager;
 
 	private selectionRenderer: SelectionRenderer;
 	private historyManager: HistoryManager;
-
-	private _isHandlingLayerContentUpdate = false;
 
 	constructor(coreApi: CoreApi) {
 		super({
@@ -46,7 +42,6 @@ export class SelectTool extends BaseTool {
 		});
 
 		this.coreApi = coreApi;
-		this.layers = coreApi.getLayersManager();
 		this.historyManager = coreApi.getHistoryManager();
 
 		this.selectionSessionManager = new SelectionSessionManager(this.coreApi);
@@ -72,32 +67,48 @@ export class SelectTool extends BaseTool {
 			}
 		});
 
-		this.layers.on('layers::active::change', this.handleLayerChange.bind(this));
-		this.layers.on('layer::remove::before', this.handleLayerChange.bind(this));
-
-		this.layers.on('layer::update::content::before', () => {
-			if (this._isHandlingLayerContentUpdate) {
-				return;
-			}
-
-			const activeSession = this.selectionSessionManager.getActiveSession();
-			if (
-				activeSession &&
-				!activeSession.isEmpty() &&
-				this.name !== this.coreApi.getToolManager().getActiveToolName()
-			) {
-				this._isHandlingLayerContentUpdate = true;
-				try {
-					this.handleLayerChange();
-				} finally {
-					this._isHandlingLayerContentUpdate = false;
-				}
-			}
-		});
+		this.historyManager.onBeforeApplyActionSubscriber((action) =>
+			this.handleBeforeHistoryChange(action)
+		);
 	}
 
-	private handleLayerChange(): void {
+	private handleBeforeHistoryChange(action: BaseAction): void {
+		const activeSession = this.selectionSessionManager.getActiveSession();
+
+		if (!activeSession || activeSession.isEmpty() || action.type.startsWith('select::')) {
+			return;
+		}
+
+		const activeSessionSourceLayerId = activeSession.getSourceLayerId();
+
+		// TODO: add metadata for history for handling situations like that instead of concrete one actions inspecting
+		switch (action.type) {
+			case 'layers::change::active':
+			case 'layers::create_and_activate':
+				this.handleCommitAndExit();
+				break;
+
+			case 'layers::remove_and_activate': {
+				const removeAction = action as LayerRemoveAndActivateAction;
+				if (removeAction.before.layer.id === activeSessionSourceLayerId) {
+					this.handleCommitAndExit();
+				}
+				break;
+			}
+
+			case 'layer::set_chars':
+			case 'layer::set_region': {
+				if (action.targetId === `layer::${activeSessionSourceLayerId}`) {
+					this.handleCommitAndExit();
+				}
+				break;
+			}
+		}
+	}
+
+	private handleCommitAndExit(): void {
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+		this.modeContext.cleanup();
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
 		this.selectionRenderer.clear();
 	}
@@ -179,6 +190,7 @@ export class SelectTool extends BaseTool {
 		const activeSession = this.selectionSessionManager.getActiveSession();
 		if (!activeSession || !activeSession.getSelectedContent()?.data) return;
 		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
+		this.modeContext.cleanup();
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
 		this.coreApi.getRenderManager().requestRender();
 		this.selectionRenderer.clear();
@@ -188,6 +200,7 @@ export class SelectTool extends BaseTool {
 		const activeSession = this.selectionSessionManager.getActiveSession();
 		if (!activeSession || !activeSession.getSelectedContent()?.data) return;
 		this.selectionSessionManager.executeCommand(new CancelSessionCommand(this.coreApi));
+		this.modeContext.cleanup();
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
 		this.coreApi.getRenderManager().requestRender();
 		this.selectionRenderer.clear();

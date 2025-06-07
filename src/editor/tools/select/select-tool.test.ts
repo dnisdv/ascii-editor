@@ -522,19 +522,10 @@ AAA`;
 			expect(selectedContent.trim().length).toBe(0);
 		});
 
-		it('should commit selected to source layer on select tool deactivate', () => {
+		it('should not commit selected to source layer on select tool deactivate', () => {
 			selectTool.deactivate();
 			const activeSession = selectionSessionManager.getActiveSession();
-			expect(activeSession).toBe(null);
-
-			const activeLayer = core.getLayersManager().getActiveLayer()!;
-			const selectedContent = activeLayer.readRegion(
-				initialCellStartX,
-				initialCellStartY,
-				DRAWING_WIDTH_CELLS,
-				DRAWING_HEIGHT_CELLS
-			);
-			expect(selectedContent).toBe(RABBIT_DRAWING);
+			expect(activeSession).not.toBe(null);
 		});
 
 		it('should commit selected to source layer on active layer change', () => {

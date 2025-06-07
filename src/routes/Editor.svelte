@@ -22,6 +22,13 @@
 	import { useDispatch } from '@store/useDispatch';
 	import { getDocument } from '@store/slices/document';
 	import wasmUrl from 'canvaskit-wasm/bin/canvaskit.wasm?url';
+	import ConfigProvider from '@/config/ConfigProvider.svelte';
+	import Notifier from '@views/Notifier/Notifier.svelte';
+	import Tools from '@views/Tools/Tools.svelte';
+	import SideMenu from '@views/SideMenu/SideMenu.svelte';
+	import Actions from '@views/Actions/Actions.svelte';
+	import type { CoreApi } from '@editor/core';
+	import CoreProvider from '@/config/CoreProvider.svelte';
 
 	const layer_bus = useLayerBus();
 	const tools_bus = useToolBus();
@@ -45,6 +52,8 @@
 			primary: [0.231, 0.51, 0.965, 1]
 		}
 	};
+
+	let core: CoreApi;
 
 	onMount(async () => {
 		const loadPromise = (async () => {
@@ -137,6 +146,8 @@
 					font
 				});
 
+				core = coreApi;
+
 				app = appInstance;
 				theme.subscribe((theme) => {
 					app.getConfig().setTheme({
@@ -184,6 +195,17 @@
 		<canvas id="selection-canvas" width="1920" height="1080"></canvas>
 	</div>
 </main>
+
+{#if core}
+	<CoreProvider coreApi={core}>
+		<ConfigProvider config={core.getConfig()}>
+			<Notifier />
+			<Tools />
+			<SideMenu />
+			<Actions />
+		</ConfigProvider>
+	</CoreProvider>
+{/if}
 
 <style>
 	#canvas-container {

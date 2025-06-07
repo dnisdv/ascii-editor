@@ -1,3 +1,4 @@
+import { AsciiRenderMode } from './canvas/strategies/ascii-rendering.type';
 import { EventEmitter } from './event-emitter';
 
 type Events = {
@@ -15,10 +16,7 @@ export interface ConfigTheme {
 
 export class Config extends EventEmitter<Events> {
 	tileSize = 25;
-
-	constructor() {
-		super();
-	}
+	private renderingMode: AsciiRenderMode = AsciiRenderMode.DEFAULT;
 
 	private theme: ConfigTheme = {
 		background: [0.3, 0.3, 0.3, 0.3],
@@ -38,6 +36,17 @@ export class Config extends EventEmitter<Events> {
 
 	getTheme(): ConfigTheme {
 		return this.theme;
+	}
+
+	getRenderingMode() {
+		return this.renderingMode;
+	}
+
+	setRenderingMode(mode: AsciiRenderMode): void {
+		if (this.renderingMode !== mode) {
+			this.renderingMode = mode;
+			this._changed();
+		}
 	}
 
 	setTheme(theme: ConfigTheme) {

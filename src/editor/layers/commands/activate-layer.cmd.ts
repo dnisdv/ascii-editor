@@ -22,19 +22,15 @@ export class activateLayerCommand {
 
 	execute(id: string): void {
 		const beforeId: string | null = this.layersListManager.getActiveLayer()?.id || null;
-		this.layersListManager.setActiveLayer(id);
 
 		this.managerOps.emit('layers::active::change', { oldId: beforeId, newId: id });
 		this.bus.emit('layer::change_active::response', { id });
 
-		this.historyManager.applyAction(
-			{
-				type: 'layers::change::active',
-				targetId: `layers`,
-				before: { id: beforeId },
-				after: { id: id }
-			},
-			{ applyAction: false }
-		);
+		this.historyManager.applyAction({
+			type: 'layers::change::active',
+			targetId: `layers`,
+			before: { id: beforeId },
+			after: { id: id }
+		});
 	}
 }

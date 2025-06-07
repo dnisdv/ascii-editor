@@ -32,15 +32,12 @@ export class removeAndActivateLayerCommand {
 		this.bus.emit('layer::remove::response', { id });
 
 		this.bus.emit('layer::change_active::response', { id: newActive || null });
-		this.historyManager.applyAction(
-			{
-				type: 'layers::remove_and_activate',
-				targetId: `layers`,
-				before: { layer: this.layerSerializer.serialize(layer), activeKey: beforeActiveKey },
-				after: { layer: null, activeKey: newActive || null }
-			},
-			{ applyAction: false }
-		);
+		this.historyManager.applyAction({
+			type: 'layers::remove_and_activate',
+			targetId: `layers`,
+			before: { layer: this.layerSerializer.serialize(layer), activeKey: beforeActiveKey },
+			after: { layer: null, activeKey: newActive || null }
+		});
 		this.managerOps.emit('layer::remove::after');
 		return layer;
 	}

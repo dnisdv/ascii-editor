@@ -5,15 +5,15 @@
 	import ToolText from './Tool-Text.svelte';
 </script>
 
-<div class="tools" role="toolbar" aria-label="Toolools">
+<div
+	class="
+	outline-solid fixed left-1/2 top-2.5 z-50 flex h-auto -translate-x-1/2 cursor-default
+	gap-2 rounded-xl bg-background p-1 outline outline-1 outline-border"
+	role="toolbar"
+	aria-label="Toolools"
+>
 	<ToolSelect />
 	<ToolDraw />
 	<ToolShapes />
 	<ToolText />
 </div>
-
-<style lang="postcss">
-	.tools {
-		@apply fixed left-1/2 top-2.5 z-50 flex h-auto -translate-x-1/2 cursor-default gap-2 rounded-xl border border-solid border-border bg-background p-1;
-	}
-</style>

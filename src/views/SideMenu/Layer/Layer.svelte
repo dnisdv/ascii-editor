@@ -8,12 +8,17 @@
 	import { useLayerBus } from '@/bus';
 	import { writable } from 'svelte/store';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
+	import { useCore } from '@/config/useCore';
+	import { onMount } from 'svelte';
+
+	const core = useCore();
+	const { activeMenu, open, close } = getContextMenu();
 
 	export let dragging = false;
 	export let active = false;
 	export let isSomethingDragging = false;
 
-	const { activeMenu, open, close } = getContextMenu();
+	let isEmpty = false;
 
 	export let layer;
 	export let id;
@@ -65,9 +70,19 @@
 		isEditing.set(e.isEditing);
 	};
 
+	onMount(() => {
+		const _layer = core.getLayersManager()?.getLayer(layer.id);
+		if (!_layer) return;
+
+		_layer.on('changed', () => {
+			isEmpty = _layer.isEmpty();
+		});
+	});
+
 	$: isOpen = $activeMenu === id;
 	$: isVisible = $currentLayer?.opts?.visible ?? true;
 	$: visibleIcon = isVisible ? 'eye' : 'eye-closed';
+	$: isEmpty = core.getLayersManager()?.getLayer(layer.id)?.isEmpty() || false;
 </script>
 
 <LayerContextMenu
@@ -87,7 +102,7 @@
 		class:isSomethingDragging
 	>
 		<div class="icon">
-			<ThemeIcon name="file" size={16} />
+			<ThemeIcon name={isEmpty ? 'file' : 'file-type'} size={16} />
 		</div>
 		<EditableText
 			onBlur={nameChange}

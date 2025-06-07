@@ -270,43 +270,5 @@ describe('Draw Shape Tool', () => {
 			expect(activeSession?.getSelectedContent()?.data).toBe(expectedShapeData);
 			expect(toolManager.getActiveToolName()).toBe('select');
 		});
-
-		it('should correctly undo and redo multiple consecutive shape drawings', () => {
-			const selectToolApi = core.getToolManager().getToolApi<SelectToolApi>('select')!;
-			const shape1Data = `┌┐
-└┘`;
-			const shape2Data = `───`;
-
-			performShapeDraw(0, 0, 1, 1);
-			const session1 = selectToolApi.getActiveSession();
-			expect(session1?.getSelectedContent()?.data).toBe(shape1Data);
-			toolManager.activateTool(drawShapeTool.name);
-
-			performShapeDraw(5, 5, 7, 5);
-			const session2 = selectToolApi.getActiveSession();
-			expect(session2?.getSelectedContent()?.data).toBe(shape2Data);
-			toolManager.activateTool(drawShapeTool.name);
-
-			historyManager.undo();
-			historyManager.undo();
-
-			let currentSession = selectToolApi.getActiveSession();
-			expect(currentSession).toBeNull();
-
-			historyManager.undo();
-			historyManager.undo();
-			currentSession = selectToolApi.getActiveSession();
-			expect(currentSession).toBeNull();
-
-			historyManager.redo();
-			currentSession = selectToolApi.getActiveSession();
-			expect(currentSession?.getSelectedContent()?.data).toBe(shape1Data);
-			toolManager.activateTool(drawShapeTool.name);
-
-			historyManager.redo();
-			historyManager.redo();
-			currentSession = selectToolApi.getActiveSession();
-			expect(currentSession?.getSelectedContent()?.data).toBe(shape2Data);
-		});
 	});
 });

@@ -9,9 +9,9 @@ export type LayerConfig = {
 };
 
 export type LayerEventMap = {
+	changed: undefined;
 	updated: { before: ILayerModel; after: ILayerModel };
-	'tile::change::before': undefined;
-	'tile::change::after': ITileModel & { layerId: string };
+	tile_changed: ITileModel & { layerId: string };
 	tile_deleted: { x: number; y: number; layerId: string };
 };
 
@@ -50,4 +50,5 @@ export interface ILayer extends IEventEmitter<LayerEventMap>, ILayerModel {
 	getChar(x: number, y: number): string;
 	update(updates: DeepPartial<ILayerModel>): { before: ILayerModel; after: ILayerModel };
 	updateIndex(newIndex: number): void;
+	isEmpty(): boolean;
 }

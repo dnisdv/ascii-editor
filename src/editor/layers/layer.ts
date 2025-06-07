@@ -42,12 +42,24 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		super();
 		this.id = id;
 		this.name = name;
-
-		// TODO: implement deep merge
 		this.opts = { ...defaultLayerConfig, ...opts };
 		this.tileMap = tileMap;
 		this.index = index;
 		this.bus = layersBus;
+	}
+
+	private _notifyChanged(): void {
+		this.emit('changed');
+	}
+
+	private withChangeNotification<T>(modificationFn: () => T): T {
+		const result = modificationFn();
+		this._notifyChanged();
+		return result;
+	}
+
+	public isEmpty(): boolean {
+		return this.tileMap.isEmpty();
 	}
 
 	public getOpts(): LayerConfig {
@@ -55,7 +67,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 	}
 
 	public addTile(x: number, y: number): ITile {
-		return this.tileMap.addTile(x, y);
+		return this.withChangeNotification(() => this.tileMap.addTile(x, y));
 	}
 
 	public queryTiles(x: number, y: number, width: number, height: number): ITile[] {
@@ -90,7 +102,9 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 	}
 
 	public clear(): void {
-		this.tileMap.clear();
+		this.withChangeNotification(() => {
+			this.tileMap.clear();
+		});
 	}
 
 	public getChar(x: number, y: number): string {
@@ -106,17 +120,19 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 	}
 
 	public setChar(x: number, y: number, char: string): ITileModel | null {
-		const tileSize = this.tileMap.tileSize;
-		const tileX = Math.floor(x / tileSize);
-		const tileY = Math.floor(y / tileSize);
+		return this.withChangeNotification(() => {
+			const tileSize = this.tileMap.tileSize;
+			const tileX = Math.floor(x / tileSize);
+			const tileY = Math.floor(y / tileSize);
 
-		if (!char.trim()) {
-			const existingTile = this.tileMap.getTile(tileX, tileY);
-			return this._updateTileChar(existingTile, x, y, ' ');
-		}
+			if (!char.trim()) {
+				const existingTile = this.tileMap.getTile(tileX, tileY);
+				return this._updateTileChar(existingTile, x, y, ' ');
+			}
 
-		const tile = this.tileMap.getTile(tileX, tileY) || this.tileMap.addTile(tileX, tileY);
-		return this._updateTileChar(tile, x, y, char);
+			const tile = this.tileMap.getTile(tileX, tileY) || this.tileMap.addTile(tileX, tileY);
+			return this._updateTileChar(tile, x, y, char);
+		});
 	}
 
 	public setCharToTile(
@@ -125,11 +141,13 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		char: string,
 		tileCoords: { x: number; y: number }
 	): void {
-		const tile = this.tileMap.getTile(tileCoords.x, tileCoords.y);
-		if (!char.trim() && !tile) return;
+		this.withChangeNotification(() => {
+			const tile = this.tileMap.getTile(tileCoords.x, tileCoords.y);
+			if (!char.trim() && !tile) return;
 
-		const actualTile = tile || this.tileMap.addTile(tileCoords.x, tileCoords.y);
-		this._updateTileCharLocal(actualTile, localX, localY, char);
+			const actualTile = tile || this.tileMap.addTile(tileCoords.x, tileCoords.y);
+			this._updateTileCharLocal(actualTile, localX, localY, char);
+		});
 	}
 
 	public setRegionToTile(
@@ -139,20 +157,21 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		tileCoords: { x: number; y: number },
 		options?: RegionOptions
 	): void {
-		const tile =
-			this.tileMap.getTile(tileCoords.x, tileCoords.y) ||
-			this.tileMap.addTile(tileCoords.x, tileCoords.y);
+		this.withChangeNotification(() => {
+			const tile =
+				this.tileMap.getTile(tileCoords.x, tileCoords.y) ||
+				this.tileMap.addTile(tileCoords.x, tileCoords.y);
 
-		const lines = inputString.split('\n');
-		tile.setRegion(startX, startY, lines, options);
+			const lines = inputString.split('\n');
+			tile.setRegion(startX, startY, lines, options);
 
-		if (tile.isEmpty()) {
-			this.emit('tile::change::before');
-			this.tileMap.removeTile(tile.x, tile.y);
-			this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
-		} else {
-			this._emitTileChange(tile.x, tile.y, tile.data);
-		}
+			if (tile.isEmpty()) {
+				this.tileMap.removeTile(tile.x, tile.y);
+				this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
+			} else {
+				this._emitTileChange(tile.x, tile.y, tile.data);
+			}
+		});
 	}
 
 	public setToRegion(
@@ -161,24 +180,26 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		inputString: string,
 		options: RegionOptions = {}
 	): void {
-		if (!inputString) return;
-		const lines = inputString.split('\n');
-		if (!lines.length) return;
+		this.withChangeNotification(() => {
+			if (!inputString) return;
+			const lines = inputString.split('\n');
+			if (!lines.length) return;
 
-		const tileSize = this.tileMap.tileSize;
-		const width = lines.reduce((max, line) => Math.max(max, line.length), 0);
-		const height = lines.length;
+			const tileSize = this.tileMap.tileSize;
+			const width = lines.reduce((max, line) => Math.max(max, line.length), 0);
+			const height = lines.length;
 
-		const minTileX = Math.floor(startX / tileSize);
-		const minTileY = Math.floor(startY / tileSize);
-		const maxTileX = Math.floor((startX + width - 1) / tileSize);
-		const maxTileY = Math.floor((startY + height - 1) / tileSize);
+			const minTileX = Math.floor(startX / tileSize);
+			const minTileY = Math.floor(startY / tileSize);
+			const maxTileX = Math.floor((startX + width - 1) / tileSize);
+			const maxTileY = Math.floor((startY + height - 1) / tileSize);
 
-		for (let tileY = minTileY; tileY <= maxTileY; tileY++) {
-			for (let tileX = minTileX; tileX <= maxTileX; tileX++) {
-				this._batchWriteToTile(tileX, tileY, startX, startY, lines, options);
+			for (let tileY = minTileY; tileY <= maxTileY; tileY++) {
+				for (let tileX = minTileX; tileX <= maxTileX; tileX++) {
+					this._batchWriteToTile(tileX, tileY, startX, startY, lines, options);
+				}
 			}
-		}
+		});
 	}
 
 	public fillRegionToTile(
@@ -189,19 +210,20 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		char: string,
 		tileCoords: { x: number; y: number }
 	): void {
-		const tile =
-			this.tileMap.getTile(tileCoords.x, tileCoords.y) ||
-			this.tileMap.addTile(tileCoords.x, tileCoords.y);
+		this.withChangeNotification(() => {
+			const tile =
+				this.tileMap.getTile(tileCoords.x, tileCoords.y) ||
+				this.tileMap.addTile(tileCoords.x, tileCoords.y);
 
-		tile.fillRegion(startX, startY, width, height, char);
+			tile.fillRegion(startX, startY, width, height, char);
 
-		if (tile.isEmpty()) {
-			this.emit('tile::change::before');
-			this.tileMap.removeTile(tile.x, tile.y);
-			this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
-		} else {
-			this._emitTileChange(tile.x, tile.y, tile.data);
-		}
+			if (tile.isEmpty()) {
+				this.tileMap.removeTile(tile.x, tile.y);
+				this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
+			} else {
+				this._emitTileChange(tile.x, tile.y, tile.data);
+			}
+		});
 	}
 
 	public readRegion(startX: number, startY: number, width: number, height: number): string {
@@ -218,16 +240,20 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 	}
 
 	public clearRegion(startX: number, startY: number, width: number, height: number): void {
-		const lines: string[] = [];
-		for (let h = 0; h < height; h++) {
-			lines.push(' '.repeat(width));
-		}
-		const fillString = lines.join('\n');
-		this.setToRegion(startX, startY, fillString, { skipSpaces: false });
+		this.withChangeNotification(() => {
+			const lines: string[] = [];
+			for (let h = 0; h < height; h++) {
+				lines.push(' '.repeat(width));
+			}
+			const fillString = lines.join('\n');
+			this.setToRegion(startX, startY, fillString, { skipSpaces: false });
+		});
 	}
 
 	public updateIndex(newIndex: number): void {
-		this.index = newIndex;
+		this.withChangeNotification(() => {
+			this.index = newIndex;
+		});
 	}
 
 	public fillRegion(
@@ -237,9 +263,11 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		height: number,
 		char: string
 	): void {
-		const line = char.repeat(width);
-		const lines = Array.from({ length: height }, () => line);
-		this.setToRegion(startX, startY, lines.join('\n'));
+		this.withChangeNotification(() => {
+			const line = char.repeat(width);
+			const lines = Array.from({ length: height }, () => line);
+			this.setToRegion(startX, startY, lines.join('\n'));
+		});
 	}
 
 	private _updateTileChar(
@@ -253,7 +281,6 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 		const localX = x % tileSize;
 		const localY = y % tileSize;
 
-		this.emit('tile::change::before');
 		tile.setChar(localX, localY, char);
 
 		const model: ITileModel = { x: tile.x, y: tile.y, data: tile.data };
@@ -263,7 +290,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 			this.emit('tile_deleted', { x: tile.x, y: tile.y, layerId: this.id });
 			return model;
 		} else {
-			this.emit('tile::change::after', { ...model, layerId: this.id });
+			this.emit('tile_changed', { ...model, layerId: this.id });
 			return model;
 		}
 	}
@@ -294,37 +321,40 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayer {
 	}
 
 	private _emitTileChange(x: number, y: number, data: string): ITileModel {
+		this.emit('tile_changed', { x, y, data, layerId: this.id });
 		const model: ITileModel = { x, y, data };
-		this.emit('tile::change::after', { ...model, layerId: this.id });
 		return model;
 	}
 
 	public update(updates: DeepPartial<ILayerModel>): { before: ILayerModel; after: ILayerModel } {
-		const beforeState: ILayerModel = {
-			id: this.id,
-			name: this.name,
-			index: this.index,
-			opts: { ...this.opts }
-		};
+		return this.withChangeNotification(() => {
+			const beforeState: ILayerModel = {
+				id: this.id,
+				name: this.name,
+				index: this.index,
+				opts: { ...this.opts }
+			};
 
-		if (updates.name !== undefined) {
-			this.name = updates.name;
-		}
-		if (updates.index !== undefined) {
-			this.index = updates.index;
-		}
-		if (updates.opts) {
-			this.opts = { ...defaultLayerConfig, ...this.opts, ...updates.opts };
-		}
+			if (updates.name !== undefined) {
+				this.name = updates.name;
+			}
+			if (updates.index !== undefined) {
+				this.index = updates.index;
+			}
+			if (updates.opts) {
+				this.opts = { ...defaultLayerConfig, ...this.opts, ...updates.opts };
+			}
 
-		const afterState: ILayerModel = {
-			id: this.id,
-			name: this.name,
-			index: this.index,
-			opts: { ...this.opts }
-		};
+			const afterState: ILayerModel = {
+				id: this.id,
+				name: this.name,
+				index: this.index,
+				opts: { ...this.opts }
+			};
 
-		return { before: beforeState, after: afterState };
+			this.emit('updated', { before: beforeState, after: afterState });
+			return { before: beforeState, after: afterState };
+		});
 	}
 
 	private _batchWriteToTile(

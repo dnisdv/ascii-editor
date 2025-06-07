@@ -508,7 +508,7 @@ describe('Layer', () => {
 				charY = 5;
 			layer.setChar(charX, charY, 'N');
 			const tile = tileMap.getTile(0, 0);
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 0,
 				y: 0,
 				data: tile?.data,
@@ -517,7 +517,7 @@ describe('Layer', () => {
 
 			layerEmitSpy.mockClear();
 			layer.setChar(charX + 1, charY, 'M');
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 0,
 				y: 0,
 				data: tile?.data,
@@ -542,7 +542,7 @@ describe('Layer', () => {
 			const tile = layer.addTile(1, 1);
 			layerEmitSpy.mockClear();
 			layer.setCharToTile(2, 2, 'X', { x: 1, y: 1 });
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 1,
 				y: 1,
 				data: tile.data,
@@ -566,7 +566,7 @@ describe('Layer', () => {
 			const tile = layer.addTile(0, 0);
 			layerEmitSpy.mockClear();
 			layer.setRegionToTile(0, 0, 'Test', { x: 0, y: 0 });
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 0,
 				y: 0,
 				data: tile.data,
@@ -596,13 +596,13 @@ describe('Layer', () => {
 			const tile00 = tileMap.getTile(0, 0);
 			const tile10 = tileMap.getTile(1, 0);
 
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 0,
 				y: 0,
 				data: tile00?.data,
 				layerId: layer.id
 			});
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 1,
 				y: 0,
 				data: tile10?.data,
@@ -625,7 +625,7 @@ describe('Layer', () => {
 			const tile = layer.addTile(0, 0);
 			layerEmitSpy.mockClear();
 			layer.fillRegionToTile(0, 0, 1, 1, 'F', { x: 0, y: 0 });
-			expect(layerEmitSpy).toHaveBeenCalledWith('tile::change::after', {
+			expect(layerEmitSpy).toHaveBeenCalledWith('tile_changed', {
 				x: 0,
 				y: 0,
 				data: tile.data,

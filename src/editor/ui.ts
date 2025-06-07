@@ -6,6 +6,7 @@ import type { Config } from './config';
 import type { ICamera, ILayersManager } from './types';
 import type { FontManager } from './font-manager';
 import type { RenderManager } from './render-manager';
+import { AsciiStrategyFactory } from './canvas/strategies/strategy-factory';
 
 type IUI = {
 	gridCanvasElement: HTMLCanvasElement;
@@ -89,6 +90,10 @@ export class UI {
 	}
 
 	private onConfigChanged() {
+		const renderingModeName = this.config.getRenderingMode();
+		const renderStrategy = AsciiStrategyFactory.create(renderingModeName);
+		this.ascii.setRenderingStrategy(renderStrategy);
+
 		this.grid.prepareForConfigChange();
 		this.ascii.prepareForConfigChange();
 		this.renderManager.requestRenderAll();
@@ -123,6 +128,9 @@ export class UI {
 		const surface = this.canvasKit.MakeWebGLCanvasSurface(canvas)!;
 		if (!surface) throw new Error('Could not create canvas surface');
 
+		const renderingModeName = this.config.getRenderingMode();
+		const renderStrategy = AsciiStrategyFactory.create(renderingModeName);
+
 		return new Ascii({
 			canvas,
 			canvasKit: this.canvasKit,
@@ -130,7 +138,8 @@ export class UI {
 			camera: this.camera,
 			config: this.config,
 			fontManager: this.fontManager,
-			layersManager: this.layersManager
+			layersManager: this.layersManager,
+			renderStrategy
 		});
 	}
 }

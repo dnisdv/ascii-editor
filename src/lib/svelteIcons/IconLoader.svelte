@@ -34,7 +34,9 @@
 		logo: () => import('./Logo.svelte'),
 		file: () => import('./File.svelte'),
 		symbolBrush: () => import('./SymbolBrush.svelte'),
-		x: () => import('./X.svelte')
+		x: () => import('./X.svelte'),
+		'file-type': () => import('./FileType.svelte'),
+		'focus-mode': () => import('./FocusMode.svelte')
 	} as const;
 
 	type IconName = keyof typeof iconMap;

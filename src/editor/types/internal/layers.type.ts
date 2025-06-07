@@ -9,9 +9,6 @@ export type LayersManagerIEvents = {
 	'layers::active::change': { oldId: string | null; newId: string | null };
 	'layer::content::updated': undefined;
 
-	'layer::update::content::before': { layerId: string };
-	'layer::update::content::after': { layerId: string };
-
 	'layer::remove::before': { layer: ILayer };
 	'layer::remove::after': { layerId: string };
 
@@ -49,4 +46,5 @@ export interface ILayersManager extends IEventEmitter<LayersManagerIEvents> {
 	getTempLayer(key: string): ILayer | null;
 	getCombinedTileData(tileX: number, tileY: number): string;
 	deserializeLayer(layer: LayerSerializableSchemaType): ILayer;
+	getLayerComposition(layerId: string): ILayer[];
 }
