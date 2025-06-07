@@ -1,6 +1,6 @@
 # (WIP) ASCII Editor
 
-![ASCII Editor Cover](https://i.ibb.co/GvRLjDVb/Cover.png)
+![ASCII Editor Cover](https://i.ibb.co/qY9zHPYH/Gitrhub-Thumbnail-1.png)
 
 **ASCII Editor** is a browser-based ASCII art editor built with **SvelteKit** and **CanvasKit - Skia + WebAssembly**. It provides a structured and efficient environment for creating, editing, and managing ASCII-based designs.
 
