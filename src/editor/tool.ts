@@ -1,6 +1,6 @@
 import type { BusManager } from './bus-manager';
 import type { NotificationAction, NotificationType } from './bus-notification';
-import { ToolNotificationManager } from './tools-notification-manager';
+import { NotificationManager } from './notification-manager';
 import type { ToolEventManager } from './tools-event-manager';
 import type { IToolConfig, IToolModel, IToolOptions } from './types/external/tool';
 import type { CoreApi } from './core';
@@ -27,7 +27,7 @@ export interface ITool extends IToolModel {
 	cleanup(): void;
 	update(): void;
 	saveConfig(config: Record<string, unknown>): void;
-
+	onConfigRestored(): void;
 	getApi(): unknown;
 }
 
@@ -41,7 +41,7 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 
 	config: IToolOptions;
 	bus: BusManager;
-	notificationManager: ToolNotificationManager;
+	notificationManager: NotificationManager;
 	private lastRequirementStatus: boolean = false;
 
 	private requirementUnsubscribes: Array<() => void> = [];
@@ -67,7 +67,7 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 		this.config = config;
 		this.requirements = requirements || [];
 
-		this.notificationManager = new ToolNotificationManager(name, coreApi);
+		this.notificationManager = new NotificationManager(coreApi);
 		this.eventManager.registerTool(this);
 	}
 
@@ -87,6 +87,16 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 		});
 	}
 
+	emitToolNotification(
+		code: string,
+		message: string,
+		type: NotificationType = 'warning',
+		context?: Record<string, unknown>,
+		actions?: NotificationAction[]
+	): void {
+		this.notificationManager.emit(this.name, code, message, type, context, actions);
+	}
+
 	deactivate(): void {
 		this.requirementUnsubscribes.forEach((unsub) => unsub());
 		this.requirementUnsubscribes = [];
@@ -95,6 +105,7 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 	checkRequirements(): boolean {
 		const allRequirementsPassed = this.requirements.every((req) => {
 			return this.notificationManager.checkRequirement(
+				this.name,
 				req.condition(),
 				req.code,
 				req.message,
@@ -119,6 +130,7 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 	onRequirementSuccess(): void {}
 	cleanup() {}
 	update() {}
+	onConfigRestored() {}
 
 	saveConfig(config: Record<string, unknown>) {
 		this.bus.tools.emit('tool::update_config::request', {

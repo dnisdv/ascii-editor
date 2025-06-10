@@ -24,12 +24,10 @@ export class Camera extends EventEmitter<CameraEvents> implements ICamera {
 
 		this.minScale = BASE_MIN_ZOOM * dpr;
 		this.maxScale = BASE_MAX_ZOOM * dpr;
-
 		this.scale = 1 * dpr;
 
 		this.offsetX = 0;
 		this.offsetY = 0;
-
 		this.width = width;
 		this.height = height;
 		this._changed();
@@ -37,6 +35,15 @@ export class Camera extends EventEmitter<CameraEvents> implements ICamera {
 
 	private _changed() {
 		this.emit('change', this);
+	}
+
+	public worldToCssPixels(worldX: number, worldY: number): { y: number; x: number } {
+		const physicalPos = this.worldToScreen(worldX, worldY);
+		const dpr = this.getPixelRatio();
+		return {
+			x: physicalPos.x / dpr,
+			y: physicalPos.y / dpr
+		};
 	}
 
 	getPixelRatio() {

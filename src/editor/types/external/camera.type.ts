@@ -25,6 +25,7 @@ export interface ICamera extends IEventEmitter<CameraEvents> {
 	percentageToScale(percentage: number): number;
 	getZoomPercentage(): number;
 
+	worldToCssPixels(x: number, y: number): { x: number; y: number };
 	getMousePosition(pos: { x: number; y: number }): { x: number; y: number };
 	getPixelRatio(): number;
 

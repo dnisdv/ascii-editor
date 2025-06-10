@@ -1,5 +1,12 @@
 import { EventEmitter } from './event-emitter';
-export type NotificationType = 'error' | 'warning' | 'info' | 'message' | 'requirement' | string;
+export type NotificationType =
+	| 'error'
+	| 'success'
+	| 'warning'
+	| 'info'
+	| 'message'
+	| 'requirement'
+	| string;
 
 export interface NotificationAction {
 	label: string;

@@ -29,6 +29,8 @@
 	import Actions from '@views/Actions/Actions.svelte';
 	import type { CoreApi } from '@editor/core';
 	import CoreProvider from '@/config/CoreProvider.svelte';
+	import { ExportTool } from '@editor/tools/export/export-tool';
+	import type { Theme } from '@/theme';
 
 	const layer_bus = useLayerBus();
 	const tools_bus = useToolBus();
@@ -36,8 +38,7 @@
 
 	const dispatch = useDispatch();
 
-	const { theme } = useTheme();
-
+	const { theme, currentThemeRGBA } = useTheme();
 	const editorThemes: { [x in 'light' | 'dark']: ConfigTheme } = {
 		light: {
 			background: [1, 1, 1, 1.0],
@@ -149,12 +150,20 @@
 				core = coreApi;
 
 				app = appInstance;
-				theme.subscribe((theme) => {
+
+				const toolExport = new ExportTool(coreApi);
+
+				const updateTheme = (theme: Theme) => {
 					app.getConfig().setTheme({
 						...app.getConfig().getTheme(),
 						...editorThemes[theme]
 					});
-				});
+
+					toolExport.setTheme({
+						primary: $currentThemeRGBA['--primary-export']
+					});
+				};
+				updateTheme($theme);
 
 				const drawTool = new DrawTool(coreApi);
 				const selectTool = new SelectTool(coreApi);
@@ -171,9 +180,14 @@
 				app.registerTool(clipboardTool);
 				app.registerTool(historyControlTool);
 				app.registerTool(cameraControlTool);
+				app.registerTool(toolExport);
 
 				const toolManager = app.getToolManager();
 				toolManager.setDefaultTool(selectTool);
+
+				theme.subscribe((theme) => {
+					updateTheme(theme);
+				});
 
 				window.addEventListener('resize', () => app.render());
 

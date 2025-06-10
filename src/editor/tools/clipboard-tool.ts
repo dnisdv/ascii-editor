@@ -3,6 +3,14 @@ import type { ICamera } from '@editor/types';
 import type { SelectToolApi } from './select/select-tool';
 import type { CoreApi } from '@editor/core';
 
+export const CLIPBOARD_COPY_SUCCESS_CODE = 'CLIPBOARD_COPY_SUCCESS_CODE';
+export const CLIPBOARD_COPY_ERROR_CODE = 'CLIPBOARD_COPY_ERROR_CODE';
+export const CLIPBOARD_COPY_EMPTY_CODE = 'CLIPBOARD_COPY_EMPTY_CODE';
+
+export type ClipboardToolApi = {
+	copyText: (text: string) => void;
+};
+
 export class ClipboardTool extends BaseTool {
 	private camera: ICamera;
 	private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
@@ -36,6 +44,32 @@ export class ClipboardTool extends BaseTool {
 
 	cleanup(): void {
 		this.getEventApi().removeToolEvents();
+	}
+
+	public getApi(): ClipboardToolApi {
+		return {
+			copyText: this.copyText.bind(this)
+		};
+	}
+
+	public copyText(text: string): void {
+		if (!text || text.trim() === '') {
+			this.emitToolNotification(CLIPBOARD_COPY_EMPTY_CODE, 'Nothing to copy.', 'info');
+			return;
+		}
+
+		navigator.clipboard
+			.writeText(text)
+			.then(() => {
+				this.emitToolNotification(
+					CLIPBOARD_COPY_SUCCESS_CODE,
+					'Content copied to clipboard.',
+					'success'
+				);
+			})
+			.catch(() => {
+				this.emitToolNotification(CLIPBOARD_COPY_ERROR_CODE, 'Failed to copy content.', 'error');
+			});
 	}
 
 	private getCellPos(_x: number, _y: number) {
@@ -80,7 +114,7 @@ export class ClipboardTool extends BaseTool {
 		const { data } = selectedContent;
 
 		if (data && data.length > 0) {
-			navigator.clipboard.writeText(data);
+			this.copyText(data);
 		}
 	}
 

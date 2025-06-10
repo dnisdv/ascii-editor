@@ -65,6 +65,7 @@ button {
 
 		/* custom */
 		--canvas-background: 0 0% 98%;
+		--primary-export: 258 90% 66%;
 	}
 
 	.dark {
@@ -100,6 +101,7 @@ button {
 
 		/* custom */
 		--canvas-background: 0 0% 98%;
+		--primary-export: 263 70% 50%;
 	}
 }
 

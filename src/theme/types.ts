@@ -36,20 +36,20 @@ export type ThemeVariables = {
 	'--canvas-background': string;
 };
 
-export interface Themes {
-	light: ThemeVariables;
-	dark: ThemeVariables;
-}
+export type CurrentThemeVariables = ThemeVariables;
 
 export type Theme = 'light' | 'dark';
-export type CurrentThemeVariables = ThemeVariables;
+export type CssThemeVariables = { [key: string]: string };
+export type RgbaThemeVariables = { [key: string]: [number, number, number, number] };
+export type HexThemeVariables = { [key: string]: string };
+export type Themes = { light: CssThemeVariables; dark: CssThemeVariables };
 
 export interface ThemeContext {
 	theme: Writable<Theme>;
 	themes: Writable<Themes>;
-	currentTheme: Readable<CurrentThemeVariables>;
-	currentThemeHEX: Readable<CurrentThemeVariables>;
-	currentThemeRGBA: Readable<CurrentThemeVariables>;
-	setTheme: (theme: Theme) => void;
+	currentTheme: Readable<CssThemeVariables>;
+	currentThemeRGBA: Readable<RgbaThemeVariables>;
+	currentThemeHEX: Readable<HexThemeVariables>;
+	setTheme: (value: Theme) => void;
 	toggleTheme: () => void;
 }

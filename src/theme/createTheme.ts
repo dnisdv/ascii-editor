@@ -1,171 +1,165 @@
-import { writable, derived } from 'svelte/store';
-import type { Theme, Themes, ThemeVariables, ThemeContext } from './types';
+import { writable, derived, type Readable } from 'svelte/store';
+import type {
+	CssThemeVariables,
+	HexThemeVariables,
+	RgbaThemeVariables,
+	Theme,
+	ThemeContext,
+	Themes
+} from './types';
 
-function hslToNormalizedRgbaArray(value: string): string {
+function parseHslString(value: string): [number, number, number, number] | null {
+	if (typeof value !== 'string') return null;
 	const hslRegex = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%(?:\s*\/\s*([\d.]+))?$/;
 	const match = value.match(hslRegex);
-	if (!match) return value;
+	if (!match) return null;
 
-	let h = parseFloat(match[1]);
+	const h = parseFloat(match[1]);
 	const s = parseFloat(match[2]) / 100;
 	const l = parseFloat(match[3]) / 100;
-	const a = match[4] ? parseFloat(match[4]) : 1;
+	const a = match[4] ? parseFloat(match[4]) : 1.0;
 
-	h = h % 360;
-	if (h < 0) h += 360;
-
-	const c = (1 - Math.abs(2 * l - 1)) * s;
-	const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-	const m = l - c / 2;
-
-	let r = 0,
-		g = 0,
-		b = 0;
-
-	if (0 <= h && h < 60) [r, g, b] = [c, x, 0];
-	else if (60 <= h && h < 120) [r, g, b] = [x, c, 0];
-	else if (120 <= h && h < 180) [r, g, b] = [0, c, x];
-	else if (180 <= h && h < 240) [r, g, b] = [0, x, c];
-	else if (240 <= h && h < 300) [r, g, b] = [x, 0, c];
-	else if (300 <= h && h < 360) [r, g, b] = [c, 0, x];
-
-	const rInt = Math.round((r + m) * 255);
-	const gInt = Math.round((g + m) * 255);
-	const bInt = Math.round((b + m) * 255);
-
-	return `rgba(${rInt}, ${gInt}, ${bInt}, ${a})`;
+	return [h, s, l, a];
 }
 
-function hslToHex(value: string): string {
-	const hslRegex = /^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%(?:\s*\/\s*([\d.]+))?$/;
-	const match = value.match(hslRegex);
-	if (!match) return value;
-
-	let h = parseFloat(match[1]);
-	const s = parseFloat(match[2]) / 100;
-	const l = parseFloat(match[3]) / 100;
-	const a = match[4] ? parseFloat(match[4]) : 1;
-
-	h = h % 360;
-	if (h < 0) h += 360;
+function hslToNormalizedRgbaArray(
+	h: number,
+	s: number,
+	l: number,
+	a = 1.0
+): [number, number, number, number] {
+	s = Math.max(0, Math.min(1, s));
+	l = Math.max(0, Math.min(1, l));
 
 	const c = (1 - Math.abs(2 * l - 1)) * s;
 	const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
 	const m = l - c / 2;
-
 	let r = 0,
 		g = 0,
 		b = 0;
-	if (0 <= h && h < 60) {
+
+	if (h >= 0 && h < 60) {
 		r = c;
 		g = x;
 		b = 0;
-	} else if (60 <= h && h < 120) {
+	} else if (h >= 60 && h < 120) {
 		r = x;
 		g = c;
 		b = 0;
-	} else if (120 <= h && h < 180) {
+	} else if (h >= 120 && h < 180) {
 		r = 0;
 		g = c;
 		b = x;
-	} else if (180 <= h && h < 240) {
+	} else if (h >= 180 && h < 240) {
 		r = 0;
 		g = x;
 		b = c;
-	} else if (240 <= h && h < 300) {
+	} else if (h >= 240 && h < 300) {
 		r = x;
 		g = 0;
 		b = c;
-	} else if (300 <= h && h < 360) {
+	} else if (h >= 300 && h < 360) {
 		r = c;
 		g = 0;
 		b = x;
 	}
 
-	const red = Math.round((r + m) * 255);
-	const green = Math.round((g + m) * 255);
-	const blue = Math.round((b + m) * 255);
+	return [r + m, g + m, b + m, a];
+}
 
-	const hexR = red.toString(16).padStart(2, '0');
-	const hexG = green.toString(16).padStart(2, '0');
-	const hexB = blue.toString(16).padStart(2, '0');
+function hslToHex(value: string): string {
+	const hsl = parseHslString(value);
+	if (!hsl) return value;
+
+	const [h, s, l, a] = hsl;
+	const [rNorm, gNorm, bNorm] = hslToNormalizedRgbaArray(h, s, l);
+
+	const toHex = (c: number) =>
+		Math.round(c * 255)
+			.toString(16)
+			.padStart(2, '0');
+
+	const hexR = toHex(rNorm);
+	const hexG = toHex(gNorm);
+	const hexB = toHex(bNorm);
 
 	if (a === 1) {
 		return `#${hexR}${hexG}${hexB}`;
 	} else {
-		const alphaInt = Math.round(a * 255);
-		const hexA = alphaInt.toString(16).padStart(2, '0');
+		const hexA = toHex(a);
 		return `#${hexR}${hexG}${hexB}${hexA}`;
 	}
 }
 
 function parseThemes(): Themes {
-	const themes: Themes = { light: {} as ThemeVariables, dark: {} as ThemeVariables };
+	const themes: Themes = { light: {}, dark: {} };
 	if (typeof window === 'undefined') return themes;
 
-	const isStyleRule = (rule: CSSRule): rule is CSSStyleRule => rule instanceof CSSStyleRule;
-
-	Array.from(document.styleSheets).forEach((sheet) => {
+	for (const sheet of Array.from(document.styleSheets)) {
 		try {
-			Array.from(sheet.cssRules).forEach((rule) => {
-				if (!isStyleRule(rule)) return;
+			for (const rule of Array.from(sheet.cssRules)) {
+				if (!(rule instanceof CSSStyleRule)) continue;
 
 				if (rule.selectorText === ':root') {
 					parseRule(rule, themes.light);
 				} else if (rule.selectorText === '.dark') {
 					parseRule(rule, themes.dark);
 				}
-			});
+			}
 		} catch (e) {
-			console.warn('Error reading stylesheet:', e);
+			console.warn(`Could not read CSS rules from stylesheet: ${sheet.href || 'inline sheet'}.`, e);
 		}
-	});
-
+	}
 	return themes;
 }
 
-function parseRule(rule: CSSStyleRule, themeObj: ThemeVariables): void {
-	Array.from(rule.style).forEach((prop) => {
+function parseRule(rule: CSSStyleRule, themeObj: CssThemeVariables): void {
+	for (const prop of Array.from(rule.style)) {
 		if (prop.startsWith('--')) {
 			themeObj[prop] = rule.style.getPropertyValue(prop).trim();
 		}
-	});
+	}
 }
 
 export function createTheme(): ThemeContext {
 	const theme = writable<Theme>('light');
-	const themes = writable<Themes>({ light: {} as ThemeVariables, dark: {} as ThemeVariables });
-	const currentTheme = derived(
+	const themes = writable<Themes>({ light: {}, dark: {} });
+
+	const currentTheme: Readable<CssThemeVariables> = derived(
 		[theme, themes],
-		([$theme, $themes]) => $themes[$theme] || ({} as ThemeVariables)
+		([$theme, $themes]) => $themes[$theme] || {}
 	);
 
-	const currentThemeRGBA = derived(currentTheme, ($theme) => {
-		const converted: ThemeVariables = {} as ThemeVariables;
+	const currentThemeRGBA: Readable<RgbaThemeVariables> = derived(currentTheme, ($theme) => {
+		const converted: RgbaThemeVariables = {};
 		for (const [key, value] of Object.entries($theme)) {
-			const convertedValue = hslToNormalizedRgbaArray(value);
-			converted[key] = convertedValue;
+			const hslParts = parseHslString(value);
+			if (hslParts) {
+				converted[key] = hslToNormalizedRgbaArray(...hslParts);
+			}
 		}
 		return converted;
 	});
 
-	const currentThemeHEX = derived(currentTheme, ($theme) => {
-		const converted: ThemeVariables = {} as ThemeVariables;
+	const currentThemeHEX: Readable<HexThemeVariables> = derived(currentTheme, ($theme) => {
+		const converted: HexThemeVariables = {};
 		for (const [key, value] of Object.entries($theme)) {
 			converted[key] = hslToHex(value);
 		}
 		return converted;
 	});
 
-	themes.set(parseThemes());
-	const initialTheme = (localStorage.getItem('theme') as Theme) || 'dark';
-	document.body.classList.toggle('dark', initialTheme === 'dark');
-	theme.set(initialTheme);
+	if (typeof window !== 'undefined') {
+		themes.set(parseThemes());
+		const initialTheme = (localStorage.getItem('theme') as Theme) || 'dark';
+		document.body.classList.toggle('dark', initialTheme === 'dark');
+		theme.set(initialTheme);
 
-	theme.subscribe((newTheme) => {
-		document.body.classList.toggle('dark', newTheme === 'dark');
-		localStorage.setItem('theme', newTheme);
-	});
+		theme.subscribe((newTheme) => {
+			document.body.classList.toggle('dark', newTheme === 'dark');
+			localStorage.setItem('theme', newTheme);
+		});
+	}
 
 	return {
 		theme,

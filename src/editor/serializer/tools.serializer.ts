@@ -35,7 +35,7 @@ export class ToolsConfigSerializer {
 				tool.saveConfig(config);
 
 				if (tool) {
-					tool.update();
+					tool.onConfigRestored();
 				}
 			}
 		}

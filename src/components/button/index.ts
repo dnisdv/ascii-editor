@@ -22,7 +22,7 @@ const buttonVariants = tv({
 			icon: 'h-10 w-10',
 			'icon-lg': 'h-11 w-11',
 			'icon-sm': 'w-9 h-9',
-			'icon-xxs': 'w-6 h-6'
+			'icon-xxs': 'w-6 h-6 max-w-6 max-h-6'
 		}
 	},
 	defaultVariants: {

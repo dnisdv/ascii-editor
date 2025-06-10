@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ToolDraw from './Draw/Tool-Draw.svelte';
+	import ToolExport from './Export/Tool-Export.svelte';
 	import ToolSelect from './Tool-Select.svelte';
 	import ToolShapes from './Tool-Shapes.svelte';
 	import ToolText from './Tool-Text.svelte';
@@ -16,4 +17,5 @@
 	<ToolDraw />
 	<ToolShapes />
 	<ToolText />
+	<ToolExport />
 </div>

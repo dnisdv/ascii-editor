@@ -1,8 +1,9 @@
 import type { CoreApi } from './core';
-import { CORE_NOTIFICATION_CODES } from './tools-notification-manager';
+
+const HIDDEN_LAYER_CODE = 'LAYER_HIDDEN';
 
 export const RequireActiveLayerVisible = (coreApi: CoreApi, tool: string) => ({
-	code: CORE_NOTIFICATION_CODES.LAYER.HIDDEN,
+	code: HIDDEN_LAYER_CODE,
 	condition: (): boolean => {
 		const layer = coreApi.getLayersManager().getActiveLayer();
 		if (!layer) return true;
@@ -37,7 +38,7 @@ export const RequireActiveLayerVisible = (coreApi: CoreApi, tool: string) => ({
 });
 
 export const RequireActiveLayerExist = (coreApi: CoreApi) => ({
-	code: CORE_NOTIFICATION_CODES.LAYER.HIDDEN,
+	code: HIDDEN_LAYER_CODE,
 	condition: (): boolean => {
 		const layer = coreApi.getLayersManager().getActiveLayer();
 		return !!layer?.id || false;

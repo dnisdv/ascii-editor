@@ -178,8 +178,9 @@ export class ToolEventManager {
 	}
 
 	private _dispatchKeyboardEvent(eventType: string, event: KeyboardEvent) {
+		event.preventDefault();
+
 		if (event.altKey) {
-			event.preventDefault();
 			return;
 		}
 

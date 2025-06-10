@@ -36,7 +36,11 @@
 		symbolBrush: () => import('./SymbolBrush.svelte'),
 		x: () => import('./X.svelte'),
 		'file-type': () => import('./FileType.svelte'),
-		'focus-mode': () => import('./FocusMode.svelte')
+		'focus-mode': () => import('./FocusMode.svelte'),
+		'copy-area': () => import('./CopyArea.svelte'),
+		'alert-triangle': () => import('./AlertTriangle.svelte'),
+		info: () => import('./Info.svelte'),
+		check: () => import('./Check.svelte')
 	} as const;
 
 	type IconName = keyof typeof iconMap;

@@ -119,9 +119,7 @@ export class SelectionRenderer {
 	}
 
 	public clear(): void {
-		this.renderManager.requestRenderFn(() => {
-			this.skCanvas.clear(this.canvasKit.TRANSPARENT);
-		});
+		this.renderManager.requestRenderFn(() => {});
 	}
 
 	public drawRotationHandles(): void {

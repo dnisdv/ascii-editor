@@ -9,8 +9,7 @@
 <div
 	class="flex h-10 items-center rounded-xl border border-solid border-border bg-background shadow-lg"
 >
-	<ThemeIcon class="pl-2" name="info" />
-
+	<ThemeIcon class="pl-2" name="check" />
 	<Separator class="mx-2" orientation="vertical" />
 	<p class="text-sm font-medium">{description}</p>
 	<Separator class="mx-2" orientation="vertical" />
