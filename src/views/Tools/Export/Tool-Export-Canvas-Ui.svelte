@@ -130,7 +130,7 @@
 				>
 					Copy Area
 					{#if !$cq.hideShortcut}
-						<span>Ctrl+Shift+C</span>
+						<span class="opacity-50">Ctrl+Shift+C</span>
 					{/if}
 				</Button>
 
@@ -141,7 +141,7 @@
 						>Close
 
 						{#if !$cq.hideShortcut && $isExportToolActive}
-							<span>Esc</span>
+							<span class="opacity-50">Esc</span>
 						{/if}
 					</Button>
 				{/if}

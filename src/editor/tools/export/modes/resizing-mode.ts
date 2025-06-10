@@ -192,8 +192,8 @@ export class ResizingMode implements ISelectionMode<SelectionModeName.RESIZING> 
 		const onLeft = worldX > startX - handleHitboxRadius && worldX < startX + handleHitboxRadius;
 		const onRight = worldX > endX - handleHitboxRadius && worldX < endX + handleHitboxRadius;
 
-		const inVertical = worldY > startY && worldY < endY;
-		const inHorizontal = worldX > startX && worldX < endX;
+		const inVertical = worldY > startY + handleHitboxRadius && worldY < endY - handleHitboxRadius;
+		const inHorizontal = worldX > startX + handleHitboxRadius && worldX < endX - handleHitboxRadius;
 
 		if (onTop && onLeft) return HandlePosition.TopLeft;
 		if (onTop && onRight) return HandlePosition.TopRight;
@@ -203,7 +203,7 @@ export class ResizingMode implements ISelectionMode<SelectionModeName.RESIZING> 
 		if (onTop && inHorizontal) return HandlePosition.Top;
 		if (onBottom && inHorizontal) return HandlePosition.Bottom;
 		if (onLeft && inVertical) return HandlePosition.Left;
-		if (onRight && inHorizontal) return HandlePosition.Right;
+		if (onRight && inVertical) return HandlePosition.Right;
 
 		return null;
 	}
