@@ -186,6 +186,10 @@ export class DrawTool extends BaseTool implements ITool {
 		return this.config as { activeSymbol: string };
 	}
 
+	public update() {
+		this.renderManager.requestRender();
+	}
+
 	private drawPlaceholder(col: number, row: number): void {
 		if (!this.isLayerVisible) return;
 

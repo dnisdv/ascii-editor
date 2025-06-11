@@ -32,6 +32,13 @@ export class ToolManager extends EventEmitter<ToolEventMap> {
 		window.addEventListener('keydown', (e) => this.handleHotkey(e));
 	}
 
+	private initializeEventListeners(): void {
+		this.toolBus.on('tool::activate::request', this.handleActivateRequest.bind(this));
+		this.toolBus.on('tool::deactivate::request', this.handleDeactivateRequest.bind(this));
+		this.toolBus.on('tool::deactivate_all::request', this.handleDeactivateAllRequest.bind(this));
+		this.toolBus.on('tool::update_config::request', this.handleUpdateConfig.bind(this));
+	}
+
 	public getActiveTool(): ITool | null {
 		if (!this.activeTool) return null;
 		return this.tools.get(this.activeTool) || null;
@@ -139,13 +146,6 @@ export class ToolManager extends EventEmitter<ToolEventMap> {
 			return;
 		}
 		this.activateTool(tool.name);
-	}
-
-	private initializeEventListeners(): void {
-		this.toolBus.on('tool::activate::request', this.handleActivateRequest.bind(this));
-		this.toolBus.on('tool::deactivate::request', this.handleDeactivateRequest.bind(this));
-		this.toolBus.on('tool::deactivate_all::request', this.handleDeactivateAllRequest.bind(this));
-		this.toolBus.on('tool::update_config::request', this.handleUpdateConfig.bind(this));
 	}
 
 	private handleActivateRequest({ name }: Pick<IToolModel, 'name'>): void {
