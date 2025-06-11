@@ -19,8 +19,10 @@
 	export let onEditing: (detail: EventDetailMap['editing']) => void = () => {};
 	export let onBlur: (detail: EventDetailMap['blur']) => void = () => {};
 
-	let isEditing = false;
+	export let isEditing = false;
 	let className: string | undefined = undefined;
+	let inputClassName: string | undefined = undefined;
+	let blockClassName: string | undefined = undefined;
 
 	let clickTimeout: ReturnType<typeof setTimeout> | null = null;
 	let inputValue = value;
@@ -90,16 +92,23 @@
 		};
 	});
 
-	export { className as class, startEditing };
+	export {
+		className as class,
+		inputClassName as inputClass,
+		blockClassName as blockClass,
+		startEditing
+	};
 </script>
 
 {#if isEditing}
 	<input
+		on:mousedown={(e) => e.stopPropagation()}
 		bind:this={input}
 		bind:value={inputValue}
 		class={cn(
-			' m-0 -ml-0.5 h-auto w-full rounded-sm bg-transparent p-0 pl-0.5 text-inherit shadow-primary outline outline-1 outline-primary focus:outline focus:outline-primary active:outline-primary',
-			className
+			'h-auto w-full rounded-sm bg-transparent p-0 text-inherit',
+			className,
+			inputClassName
 		)}
 		type="text"
 		on:focus={() => input.select()}
@@ -122,7 +131,8 @@
 		tabindex="0"
 		class={cn(
 			'block h-auto w-auto overflow-hidden text-ellipsis text-start text-inherit',
-			className
+			className,
+			blockClassName
 		)}
 		on:click={handleClick}
 	>

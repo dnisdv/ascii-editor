@@ -108,13 +108,13 @@
 			onBlur={nameChange}
 			onToggled={editableTextChange}
 			bind:this={editableText}
-			class="text-xs"
+			class="pl-1 text-xs"
 			value={layer.name}
 		/>
 		{#if !$isEditing}
 			<div
 				on:mousedown|stopPropagation
-				class="actions flex gap-2"
+				class="actions ml-1 flex gap-2"
 				class:always-visible={!isVisible}
 				role="button"
 				tabindex="0"
@@ -137,7 +137,7 @@
 
 <style lang="postcss">
 	.layer {
-		@apply relative z-10 grid h-full w-full cursor-default items-center gap-1 overflow-hidden rounded-md border-none bg-none px-1 py-1;
+		@apply relative z-10 grid h-full w-full cursor-default items-center overflow-hidden rounded-md border-none bg-none px-1 py-1;
 		grid-template-columns: 1rem 1fr auto;
 
 		&:not(.active):not(.isSomethingDragging):hover {
@@ -145,10 +145,6 @@
 
 			& .icon {
 				@apply opacity-100;
-			}
-
-			& .actions {
-				@apply flex;
 			}
 		}
 
@@ -162,10 +158,6 @@
 			& .icon {
 				@apply opacity-100;
 			}
-
-			& .actions {
-				@apply flex;
-			}
 		}
 
 		&.dragging {
@@ -174,6 +166,10 @@
 
 		& .actions {
 			@apply z-50 hidden;
+		}
+
+		&:not(.isSomethingDragging):hover .actions {
+			@apply flex;
 		}
 
 		& .actions.always-visible {

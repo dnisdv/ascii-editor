@@ -15,12 +15,19 @@
 	$: projectTitle = $document?.name || 'Untitled Project';
 </script>
 
-<div class="px-3 pt-3">
+<div class="px-3 pr-1.5 pt-3">
 	<div class="project mb-2.5 flex flex-row items-center justify-between pr-2">
 		<ThemeIcon name="logo" />
 	</div>
 
-	<div class="flex items-center justify-start gap-1 text-sm font-medium">
-		<EditableText onChange={onTitleChange} value={projectTitle} />
+	<div class="-ml-1.5 items-center justify-start gap-1 rounded-sm text-sm font-medium">
+		<EditableText
+			trigger="click"
+			class="px-1.5 py-0.5"
+			inputClass="bg-secondary"
+			blockClass="hover:bg-secondary inline-block rounded-sm"
+			onChange={onTitleChange}
+			value={projectTitle}
+		/>
 	</div>
 </div>
