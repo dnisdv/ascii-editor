@@ -4,6 +4,7 @@
 	import { Separator } from '@components/separator';
 
 	export let description: string;
+	export let close = () => {};
 </script>
 
 <div

@@ -40,7 +40,8 @@
 		'copy-area': () => import('./CopyArea.svelte'),
 		'alert-triangle': () => import('./AlertTriangle.svelte'),
 		info: () => import('./Info.svelte'),
-		check: () => import('./Check.svelte')
+		check: () => import('./Check.svelte'),
+		github: () => import('./Github.svelte')
 	} as const;
 
 	type IconName = keyof typeof iconMap;

@@ -4,6 +4,7 @@
 	import { useSelector } from '@store/useSelector';
 	import { selectDocument, updateDocument } from '@store/slices/document';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
+	import PromoMyself from './PromoMyself.svelte';
 
 	const dispatch = useDispatch();
 	const document = useSelector(selectDocument);
@@ -18,6 +19,7 @@
 <div class="px-3 pr-1.5 pt-3">
 	<div class="project mb-2.5 flex flex-row items-center justify-between pr-2">
 		<ThemeIcon name="logo" />
+		<PromoMyself class="absolute right-1.5 top-1.5" />
 	</div>
 
 	<div class="-ml-1.5 items-center justify-start gap-1 rounded-sm text-sm font-medium">

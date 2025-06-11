@@ -4,7 +4,7 @@
 	import { Separator } from '@components/separator';
 
 	export let action: { label: string; onClick: () => void };
-	export let close: () => void;
+	export let close = () => {};
 </script>
 
 <div
