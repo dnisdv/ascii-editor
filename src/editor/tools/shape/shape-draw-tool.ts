@@ -86,9 +86,16 @@ export class DrawShapeTool extends BaseTool implements ITool {
 	}
 
 	private addMouseListeners(): void {
-		this.getEventApi().registerMouseDown('left', this.handleCanvasMouseDown.bind(this));
-		this.getEventApi().registerMouseMove(this.handleCanvasMouseMove.bind(this));
-		this.getEventApi().registerMouseUp(this.handleCanvasMouseUp.bind(this));
+		this.getEventApi().registerMouseDown('left', (e: MouseEvent) => {
+			this.handleCanvasMouseDown(e);
+
+			this.getEventApi().registerMouseMove((e: MouseEvent) => this.handleCanvasMouseMove(e));
+			this.getEventApi().registerMouseUp(() => {
+				this.handleCanvasMouseUp();
+				this.getEventApi().unregisterMouseMove();
+				this.getEventApi().unregisterMouseUp();
+			});
+		});
 	}
 
 	private handleCanvasMouseDown(event: MouseEvent): void {
@@ -139,7 +146,7 @@ export class DrawShapeTool extends BaseTool implements ITool {
 	}
 
 	private handleCanvasMouseUp(): void {
-		if (this.isDrawing && this.isLayerVisible) {
+		if (this.isDrawing && this.checkRequirements()) {
 			this.isDrawing = false;
 			this.currentShape?.endDraw();
 

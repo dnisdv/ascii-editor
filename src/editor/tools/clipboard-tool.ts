@@ -114,7 +114,7 @@ export class ClipboardTool extends BaseTool {
 		const { data } = selectedContent;
 
 		if (data && data.length > 0) {
-			this.copyText(data);
+			navigator.clipboard.writeText(data);
 		}
 	}
 

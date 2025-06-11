@@ -60,11 +60,21 @@ export class CameraControlTool extends BaseTool implements ITool {
 			this.fitToContent();
 		});
 
-		this.activate();
+		this.getEventApi().registerMouseDown('right', (e) => {
+			this.handleMouseDown(e);
+			this.getEventApi().registerMouseMove((e) => this.handleMouseMove(e));
+			this.getEventApi().registerMouseUp(() => {
+				this.handleMouseUp();
+				this.getEventApi().unregisterMouseMove();
+				this.getEventApi().unregisterMouseUp();
+			});
+		});
+		this.getEventApi().registerWheel(this.handleWheelEvent.bind(this));
 	}
 
-	deactivate(): void {}
-	cleanup(): void {}
+	public activate(): void {}
+	public deactivate(): void {}
+	public cleanup(): void {}
 
 	public fitToContent(paddingPercentage: number = 0.05) {
 		const visibleLayers = this.coreApi.getLayersManager().getAllVisibleLayers();
@@ -125,14 +135,6 @@ export class CameraControlTool extends BaseTool implements ITool {
 		this.coreApi.render();
 	}
 
-	activate(): void {
-		this.getEventApi().registerMouseDown('right', this.handleMouseDown.bind(this));
-		this.getEventApi().registerMouseMove(this.handleMouseMove.bind(this));
-		this.getEventApi().registerMouseUp(this.handleMouseUp.bind(this));
-		this.getEventApi().registerMouseLeave(this.handleMouseLeave.bind(this));
-		this.getEventApi().registerWheel(this.handleWheelEvent.bind(this));
-	}
-
 	private handleMouseDown(event: MouseEvent): void {
 		if (event.button === 1 || event.button === 2) {
 			const { x: mouseX, y: mouseY } = this.camera.getMousePosition({
@@ -183,6 +185,7 @@ export class CameraControlTool extends BaseTool implements ITool {
 	}
 
 	private handleWheelEvent(event: WheelEvent): void {
+		event.preventDefault();
 		const { x: mouseX, y: mouseY } = this.camera.getMousePosition({
 			x: event.clientX,
 			y: event.clientY

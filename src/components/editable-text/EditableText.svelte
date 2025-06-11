@@ -104,6 +104,8 @@
 		type="text"
 		on:focus={() => input.select()}
 		on:keydown={(event) => {
+			event.stopPropagation();
+
 			if (event.key === 'Enter') {
 				event.preventDefault();
 				input.blur();

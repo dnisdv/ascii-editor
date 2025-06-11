@@ -62,7 +62,7 @@ export class DrawTool extends BaseTool implements ITool {
 		this.historyManager = this.coreApi.getHistoryManager();
 	}
 
-	activate(): void {
+	public activate(): void {
 		super.activate();
 		this.addMouseListeners();
 		this.renderManager.register(
@@ -76,7 +76,7 @@ export class DrawTool extends BaseTool implements ITool {
 		);
 	}
 
-	deactivate(): void {
+	public deactivate(): void {
 		super.deactivate();
 		this.renderManager.unregister('tool::draw', 'draw::symbol');
 		this.clear();
@@ -128,10 +128,9 @@ export class DrawTool extends BaseTool implements ITool {
 	}
 
 	private addMouseListeners(): void {
+		this.getEventApi().registerMouseMove((e) => this.handleCanvasMouseMove(e));
 		this.getEventApi().registerMouseDown('left', this.handleCanvasMouseDown.bind(this));
-		this.getEventApi().registerMouseMove(this.handleCanvasMouseMove.bind(this));
 		this.getEventApi().registerMouseUp(this.handleCanvasMouseUp.bind(this));
-
 		this.getEventApi().registerKeyPress(/^(?!Alt).*$/, this.handleKeyDown.bind(this));
 	}
 

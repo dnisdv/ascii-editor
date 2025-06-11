@@ -171,7 +171,9 @@ export class SelectTool extends BaseTool {
 			this.modeContext.onMouseDown(e);
 		});
 		this.getEventApi().registerMouseMove((e: MouseEvent) => this.modeContext.onMouseMove(e));
-		this.getEventApi().registerMouseUp((e: MouseEvent) => this.modeContext.onMouseUp(e));
+		this.getEventApi().registerMouseUp((e: MouseEvent) => {
+			this.modeContext.onMouseUp(e);
+		});
 	}
 
 	private initKeyListener(): void {

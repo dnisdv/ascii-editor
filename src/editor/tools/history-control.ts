@@ -19,9 +19,9 @@ export class HistoryControlTool extends BaseTool implements ITool {
 		this.historyManager.onAfterRedo(() => this.coreApi.render());
 		this.historyManager.onAfterUndo(() => this.coreApi.render());
 
-		this.getEventApi().registerKeyPress('<C-z>', this.handleUndo.bind(this));
-		this.getEventApi().registerKeyPress('<C-S-Z>', this.handleRedo.bind(this));
-		this.getEventApi().registerKeyPress('<C-y>', this.handleRedo.bind(this));
+		this.getEventApi().registerKeyPress('<C-z>', this.handleUndo.bind(this), true);
+		this.getEventApi().registerKeyPress('<C-S-Z>', this.handleRedo.bind(this), true);
+		this.getEventApi().registerKeyPress('<C-y>', this.handleRedo.bind(this), true);
 	}
 
 	activate(): void {}

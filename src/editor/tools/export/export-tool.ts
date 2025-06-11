@@ -54,7 +54,7 @@ export class ExportTool extends BaseTool {
 			this.saveConfig({ session: this.selectionSessionManager.serializeActiveSession() });
 		});
 
-		this.getEventApi().registerKeyPress('<C-S-C>', this.handleExportCopy.bind(this));
+		this.getEventApi().registerKeyPress('<C-S-C>', this.handleExportCopy.bind(this), true);
 	}
 
 	private registerModes(): void {
@@ -148,7 +148,8 @@ export class ExportTool extends BaseTool {
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
 	}
 
-	public handleExportCopy(): void {
+	public handleExportCopy(event?: KeyboardEvent | undefined): void {
+		event?.preventDefault();
 		const activeSession = this.selectionSessionManager.getActiveSession();
 		const selectedRegion = activeSession?.getSelectedRegion();
 
