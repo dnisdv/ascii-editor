@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { useToolBus } from '@/bus';
 	import { Button } from '@components/button';
 	import IconLoader from '@lib/svelteIcons/IconLoader.svelte';
 	import * as Tooltip from '@components/tooltip';
+	import { useCore } from '@/config/useCore';
+	import type { CameraControlTool } from '@editor/tools/camera-control';
 
-	const toolBus = useToolBus();
+	const core = useCore();
 
 	const fitWidth = () => {
-		toolBus.withTool('camera-control').emit('fit-width::request', {});
+		const cameraTool = core.getToolManager().getTool('camera-control') as CameraControlTool;
+		cameraTool.fitToContent();
 	};
 </script>
 

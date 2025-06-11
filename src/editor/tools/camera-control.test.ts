@@ -65,15 +65,15 @@ describe('Camera Control Tool', () => {
 	});
 
 	describe('Zooming Behaviors', () => {
-		it('should zoom in the camera and request render on "zoom-increment::request"', () => {
+		it('should zoom in the camera and request render', () => {
 			const initialScale = camera.scale;
-			busManager.tools.withTool('camera-control').emit('zoom-increment::request');
+			cameraControlTool.zoomIn();
 			expect(camera.scale).toBeGreaterThan(initialScale);
 		});
 
 		it('should zoom out the camera and request render on "zoom-decrement::request"', () => {
 			const initialScale = camera.scale;
-			busManager.tools.withTool('camera-control').emit('zoom-decrement::request');
+			cameraControlTool.zoomOut();
 			expect(camera.scale).toBeLessThan(initialScale);
 		});
 
@@ -81,9 +81,7 @@ describe('Camera Control Tool', () => {
 			const targetPercentage = 180;
 			const initialScale = camera.scale;
 
-			busManager.tools
-				.withTool('camera-control')
-				.emit('zoom-change::request', { percentage: targetPercentage });
+			cameraControlTool.zoomToPercentage(targetPercentage);
 
 			expect(camera.scale).not.toBe(initialScale);
 			expect(camera.getZoomPercentage()).toBeCloseTo(targetPercentage, 0);
@@ -127,13 +125,13 @@ describe('Camera Control Tool', () => {
 	});
 
 	describe('Fit to Content Behavior', () => {
-		it('should adjust camera to fit visible content and request render on "fit-width::request"', () => {
+		it('should adjust camera to fit visible content and request render on fit width', () => {
 			const layer = core.getLayersManager().ensureLayer();
 			layer.setChar(0, 0, 'X');
 			layer.setChar(15, 8, 'Y');
 
 			const initialCameraState = { ...camera.getState() };
-			busManager.tools.withTool('camera-control').emit('fit-width::request');
+			cameraControlTool.fitToContent();
 			const finalCameraState = { ...camera.getState() };
 
 			expect(finalCameraState.offsetX).not.toBe(initialCameraState.offsetX);

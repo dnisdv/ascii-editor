@@ -1,4 +1,3 @@
-import type { BaseBusTools } from '@editor/bus-tools';
 import { BaseTool, type ITool } from '../tool';
 import type { ICamera } from '@editor/types';
 import type { CoreApi } from '@editor/core';
@@ -12,8 +11,6 @@ export class CameraControlTool extends BaseTool implements ITool {
 	private startY: number = 0;
 	private isRendering: boolean = false;
 
-	private toolsBus: BaseBusTools;
-
 	constructor(coreApi: CoreApi) {
 		super({
 			bus: coreApi.getBusManager(),
@@ -23,42 +20,15 @@ export class CameraControlTool extends BaseTool implements ITool {
 			coreApi
 		});
 
-		this.toolsBus = coreApi.getBusManager().tools;
-
-		this.toolsBus
-			.withTool(this.name)
-			.on('zoom-change::request', (data?: { percentage: number }) => {
-				if (!data?.percentage) return;
-				this.zoomToPercentage(data.percentage);
-			});
-
-		this.toolsBus.withTool(this.name).on('zoom-increment::request', () => {
-			this.camera.zoomIn();
-			this.coreApi.render();
-		});
-
-		this.toolsBus.withTool(this.name).on('zoom-decrement::request', () => {
-			this.camera.zoomOut();
-			this.coreApi.render();
-		});
-
 		this.camera = coreApi.getCamera();
 		this.camera.on(
 			'change',
 			() => {
-				this.toolsBus.withTool(this.name).emit('zoom-change::response', {
-					zoom: this.camera.getZoomPercentage()
-				});
-
 				const cameraState = this.camera.getState();
 				this.saveConfig({ ...cameraState });
 			},
 			this
 		);
-
-		this.toolsBus.withTool(this.name).on('fit-width::request', () => {
-			this.fitToContent();
-		});
 
 		this.getEventApi().registerMouseDown('right', (e) => {
 			this.handleMouseDown(e);
@@ -76,50 +46,99 @@ export class CameraControlTool extends BaseTool implements ITool {
 	public deactivate(): void {}
 	public cleanup(): void {}
 
-	public fitToContent(paddingPercentage: number = 0.05) {
+	public zoomIn() {
+		this.camera.zoomIn();
+		this.coreApi.render();
+	}
+
+	public zoomOut() {
+		this.camera.zoomOut();
+		this.coreApi.render();
+	}
+
+	private findContentBoundsInTile(
+		tileData: string
+	): { minX: number; minY: number; maxX: number; maxY: number } | null {
+		const lines = tileData.split('\n');
+		let minX = Infinity,
+			minY = Infinity,
+			maxX = -Infinity,
+			maxY = -Infinity;
+		let contentFound = false;
+
+		for (let y = 0; y < lines.length; y++) {
+			const firstCharIndex = lines[y].search(/\S/);
+			if (firstCharIndex !== -1) {
+				contentFound = true;
+				const lastCharIndex = lines[y].search(/\s*$/) - 1;
+				minX = Math.min(minX, firstCharIndex);
+				maxX = Math.max(maxX, lastCharIndex);
+				minY = Math.min(minY, y);
+				maxY = Math.max(maxY, y);
+			}
+		}
+
+		if (!contentFound) return null;
+		return { minX, minY, maxX, maxY };
+	}
+
+	public fitToContent(paddingPercentage: number = 0.1) {
 		const visibleLayers = this.coreApi.getLayersManager().getAllVisibleLayers();
+		if (visibleLayers.length === 0) return;
 
-		let minX = Infinity;
-		let minY = Infinity;
-		let maxX = -Infinity;
-		let maxY = -Infinity;
+		let globalMinX = Infinity;
+		let globalMinY = Infinity;
+		let globalMaxX = -Infinity;
+		let globalMaxY = -Infinity;
+		let hasContent = false;
 
-		const config = this.coreApi.getConfig();
-		const { tileSize } = config;
+		const { tileSize } = this.coreApi.getConfig();
+
+		for (const layer of visibleLayers) {
+			for (const tile of layer.queryAllTiles()) {
+				if (tile.isEmpty()) continue;
+
+				const tileContentString = tile.toString();
+				const bounds = this.findContentBoundsInTile(tileContentString);
+
+				if (bounds) {
+					hasContent = true;
+					globalMinX = Math.min(globalMinX, tile.x * tileSize + bounds.minX);
+					globalMinY = Math.min(globalMinY, tile.y * tileSize + bounds.minY);
+					globalMaxX = Math.max(globalMaxX, tile.x * tileSize + bounds.maxX);
+					globalMaxY = Math.max(globalMaxY, tile.y * tileSize + bounds.maxY);
+				}
+			}
+		}
+
+		if (!hasContent) return;
 
 		const {
 			dimensions: { width: charWidth, height: charHeight }
 		} = this.coreApi.getFontManager().getMetrics();
 
-		for (const layer of visibleLayers) {
-			const tiles = layer.queryAllTiles();
-			for (const tile of tiles) {
-				const tileLeft = tile.x * tileSize * charWidth;
-				const tileTop = tile.y * tileSize * charHeight;
-				const tileRight = (tile.x + 1) * tileSize * charWidth;
-				const tileBottom = (tile.y + 1) * tileSize * charHeight;
+		const worldMinX = globalMinX * charWidth;
+		const worldMinY = globalMinY * charHeight;
+		const worldMaxX = (globalMaxX + 1) * charWidth;
+		const worldMaxY = (globalMaxY + 1) * charHeight;
 
-				minX = Math.min(minX, tileLeft);
-				minY = Math.min(minY, tileTop);
-				maxX = Math.max(maxX, tileRight);
-				maxY = Math.max(maxY, tileBottom);
-			}
-		}
+		const contentWidth = worldMaxX - worldMinX;
+		const contentHeight = worldMaxY - worldMinY;
 
-		if (minX === Infinity) return;
+		const paddingX = contentWidth * paddingPercentage;
+		const paddingY = contentHeight * paddingPercentage;
 
-		const paddingX = (maxX - minX) * paddingPercentage;
-		const paddingY = (maxY - minY) * paddingPercentage;
-		minX -= paddingX;
-		maxX += paddingX;
-		minY -= paddingY;
-		maxY += paddingY;
+		this.camera.fitToRect(
+			worldMinX - paddingX,
+			worldMinY - paddingY,
+			worldMaxX + paddingX,
+			worldMaxY + paddingY
+		);
 
-		this.camera.fitToRect(minX, minY, maxX, maxY);
 		this.coreApi.render();
 	}
 
-	private zoomToPercentage(percentage: number) {
+	public zoomToPercentage(percentage: number) {
 		const centerX = this.camera.width / 2;
 		const centerY = this.camera.height / 2;
 
@@ -173,12 +192,6 @@ export class CameraControlTool extends BaseTool implements ITool {
 	}
 
 	private handleMouseUp(): void {
-		if (this.isDragging) {
-			this.isDragging = false;
-		}
-	}
-
-	private handleMouseLeave(): void {
 		if (this.isDragging) {
 			this.isDragging = false;
 		}

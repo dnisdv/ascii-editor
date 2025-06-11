@@ -1,30 +1,38 @@
 <script lang="ts">
-	import { useToolBus } from '@/bus';
 	import { Button } from '@components/button';
 	import IconLoader from '@lib/svelteIcons/IconLoader.svelte';
 	import { writable } from 'svelte/store';
 	import * as Tooltip from '@components/tooltip';
+	import { useCore } from '@/config/useCore';
+	import type { CameraControlTool } from '@editor/tools/camera-control';
+	import { onMount } from 'svelte';
 
-	const toolBus = useToolBus();
+	const core = useCore();
+
 	const zoomPercentage = writable(100);
 
 	const increaseZoom = () => {
-		toolBus.withTool('camera-control').emit('zoom-increment::request');
+		const cameraTool = core.getToolManager().getTool('camera-control') as CameraControlTool;
+		cameraTool.zoomIn();
 	};
 
 	const decreaseZoom = () => {
-		toolBus.withTool('camera-control').emit('zoom-decrement::request');
+		const cameraTool = core.getToolManager().getTool('camera-control') as CameraControlTool;
+		cameraTool.zoomOut();
 	};
 
 	const resetZoom = () => {
-		toolBus.withTool('camera-control').emit('zoom-change::request', {
-			percentage: 100
-		});
+		const cameraTool = core.getToolManager().getTool('camera-control') as CameraControlTool;
+		cameraTool.zoomToPercentage(100);
 	};
 
-	toolBus.withTool('camera-control').on('zoom-change::response', (data) => {
-		const zoom = (data as { zoom: number }).zoom;
-		zoomPercentage.set(Math.round(zoom));
+	onMount(() => {
+		const camera = core.getCamera();
+
+		zoomPercentage.set(Math.round(camera.getZoomPercentage()));
+		camera.on('change', () => {
+			zoomPercentage.set(Math.round(camera.getZoomPercentage()));
+		});
 	});
 </script>
 
