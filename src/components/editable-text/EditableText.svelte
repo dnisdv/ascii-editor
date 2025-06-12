@@ -36,8 +36,7 @@
 		onToggled({ isEditing });
 
 		if (!isEditing && inputValue !== value) {
-			value = inputValue;
-			onChange({ value });
+			onChange({ value: inputValue });
 		}
 	}
 
@@ -112,6 +111,7 @@
 		)}
 		type="text"
 		on:focus={() => input.select()}
+		on:keyup|stopPropagation
 		on:keydown={(event) => {
 			event.stopPropagation();
 
@@ -130,7 +130,7 @@
 	<button
 		tabindex="0"
 		class={cn(
-			'block h-auto w-auto overflow-hidden text-ellipsis text-start text-inherit',
+			'block h-auto w-auto max-w-full overflow-hidden text-ellipsis whitespace-pre text-start text-inherit',
 			className,
 			blockClassName
 		)}

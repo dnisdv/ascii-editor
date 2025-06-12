@@ -44,6 +44,7 @@
 	};
 
 	const nameChange = (e: { value: string }) => {
+		if (e.value.trim() === '') return;
 		const newName = e.value;
 		layerBus.emit('layer::update::request', { id, name: newName });
 	};
@@ -94,8 +95,11 @@
 	on:toggleVisibility={toggleLayerVisibility}
 	on:delete={remove}
 >
-	<button
+	<div
+		tabindex="0"
+		role="button"
 		on:click={setActiveLayer}
+		on:keyup|preventDefault
 		class="layer h-full"
 		class:dragging
 		class:active
@@ -132,7 +136,7 @@
 				</Button>
 			</div>
 		{/if}
-	</button>
+	</div>
 </LayerContextMenu>
 
 <style lang="postcss">

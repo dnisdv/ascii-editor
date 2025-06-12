@@ -282,24 +282,22 @@ export class ToolEventManager {
 			handlersToExecute.push(...exactLocalHandlers);
 		}
 
-		for (const [key, handlers] of this.keyEventMap.entries()) {
-			const isGlobal = key.startsWith('global:');
-			const prefix = isGlobal ? `global:${eventType}:` : `${eventType}:`;
+		if (handlersToExecute.length === 0) {
+			for (const [key, handlers] of this.keyEventMap.entries()) {
+				const isGlobal = key.startsWith('global:');
+				const prefix = isGlobal ? `global:${eventType}:` : `${eventType}:`;
 
-			if (key.startsWith(prefix)) {
-				const pattern = key.substring(prefix.length);
-				if (pattern === vimKey) continue;
+				if (key.startsWith(prefix)) {
+					const pattern = key.substring(prefix.length);
+					if (pattern === vimKey) continue;
 
-				try {
-					if (new RegExp(pattern).test(vimKey)) {
-						if (isGlobal) {
-							handlersToExecute.push(...handlers);
-						} else if (this.isMouseInsideCanvas) {
+					try {
+						if (new RegExp(pattern).test(vimKey)) {
 							handlersToExecute.push(...handlers);
 						}
+					} catch (err) {
+						console.warn(`Invalid regex: ${pattern}`, err);
 					}
-				} catch (err) {
-					console.warn(`Invalid regex: ${pattern}`, err);
 				}
 			}
 		}

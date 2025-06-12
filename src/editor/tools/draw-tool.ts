@@ -131,7 +131,7 @@ export class DrawTool extends BaseTool implements ITool {
 		this.getEventApi().registerMouseMove((e) => this.handleCanvasMouseMove(e));
 		this.getEventApi().registerMouseDown('left', this.handleCanvasMouseDown.bind(this));
 		this.getEventApi().registerMouseUp(this.handleCanvasMouseUp.bind(this));
-		this.getEventApi().registerKeyPress(/^(?!Alt).*$/, this.handleKeyDown.bind(this));
+		this.getEventApi().registerKeyPress(/^.*$/, this.handleKeyDown.bind(this));
 	}
 
 	private handleKeyDown(event: KeyboardEvent): void {
