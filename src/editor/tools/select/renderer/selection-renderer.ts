@@ -108,18 +108,8 @@ export class SelectionRenderer {
 		this.skCanvas.restore();
 	}
 
-	public drawRect(x: number, y: number, width: number, height: number): void {
-		this.renderManager.requestRenderFn(() => {
-			const screenStart = this.camera.worldToScreen(x, y);
-			const screenEnd = this.camera.worldToScreen(x + width, y + height);
-
-			const rect = this.canvasKit.LTRBRect(screenStart.x, screenStart.y, screenEnd.x, screenEnd.y);
-			this.skCanvas.drawRect(rect, this.paint);
-		});
-	}
-
 	public clear(): void {
-		this.renderManager.requestRenderFn(() => {});
+		this.renderManager.requestRenderFn(() => { });
 	}
 
 	public drawRotationHandles(): void {

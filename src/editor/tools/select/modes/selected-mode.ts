@@ -19,7 +19,7 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 		return this.name;
 	}
 
-	onEnter(): void {}
+	onEnter(): void { }
 	onExit(): void {
 		this.coreApi.getCursor().setCursor('default');
 	}
@@ -49,7 +49,7 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 		rotatingMode.isMouseNearCorner({ x: pos.x, y: pos.y });
 	}
 
-	handleMouseUp(): void {}
+	handleMouseUp(): void { }
 
 	isMouseInsideSelected(mouseX: number, mouseY: number): boolean {
 		const activeSession = this.selectionSessionManager.getActiveSession();

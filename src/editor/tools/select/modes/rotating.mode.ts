@@ -66,7 +66,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 		this.hoveredCorner = null;
 	}
 
-	public handleMouseDown(): void {}
+	public handleMouseDown(): void { }
 
 	public handleMouseMove(event: MouseEvent) {
 		const { clientX, clientY } = event;
@@ -100,8 +100,8 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 		if (selectedContent && selectedContent.data.trim().length === 1) return;
 
 		const worldPos = this.camera.screenToWorld(pos.x, pos.y);
-
 		this.initialAngle = this.calculateAngle(worldPos);
+		this.coreApi.getCursor().setCursor('rotate', { angle: this.initialAngle });
 		this.lastAngle = this.initialAngle;
 		this.cumulativeRotation = 0;
 
@@ -136,17 +136,17 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 			if (this.hoveredCorner !== null) {
 				const cornerMap: { [x in number]: number } = isClockwise
 					? {
-							0: 3,
-							3: 1,
-							1: 2,
-							2: 0
-						}
+						0: 3,
+						3: 1,
+						1: 2,
+						2: 0
+					}
 					: {
-							0: 2,
-							2: 1,
-							1: 3,
-							3: 0
-						};
+						0: 2,
+						2: 1,
+						1: 3,
+						3: 0
+					};
 
 				this.hoveredCorner = cornerMap[this.hoveredCorner];
 			}
@@ -292,6 +292,7 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 
 		if (previousHovered !== this.hoveredCorner) {
 			this.selectionRender.triggerDraw();
+			if (this.hoveredCorner === null) this.coreApi.getCursor().setCursor('default');
 		}
 
 		if (this.hoveredCorner !== null) {
@@ -300,7 +301,6 @@ export class RotatingMode implements ISelectionMode<SelectionModeName.ROTATING> 
 			return true;
 		}
 
-		this.coreApi.getCursor().setCursor('default');
 		return false;
 	}
 

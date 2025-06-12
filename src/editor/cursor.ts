@@ -47,6 +47,7 @@ export type CursorConfig = {
 export class Cursor {
 	private registry: Record<string, CursorConfig> = {};
 	private canvas: HTMLElement;
+	private latestSetCallId = 0;
 
 	constructor({ canvas }: { canvas: ICanvas }) {
 		this.canvas = canvas.canvas;
@@ -80,14 +81,17 @@ export class Cursor {
 		params?: unknown,
 		customHotspot?: [number, number]
 	): Promise<void> {
+		const callId = ++this.latestSetCallId;
+
 		const config = this.registry[name];
 		if (!config) {
 			console.warn(`Cursor "${name}" is not registered.`);
 			return;
 		}
 		const hotspot: [number, number] = customHotspot ?? config.hotspot ?? [0, 0];
-
 		const dataUrl = config.generator ? await config.generator(params) : config.dataUrl;
+		if (callId !== this.latestSetCallId) return;
+
 		if (!dataUrl) {
 			console.warn(`Cursor configuration for "${name}" has neither a dataUrl nor a generator.`);
 			return;

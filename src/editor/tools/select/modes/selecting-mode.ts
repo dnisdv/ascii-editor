@@ -34,10 +34,20 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
 		} = payload;
 		const pos = this.camera.getMousePosition({ x: clientX, y: clientY });
 		this.startPoint = this.camera.screenToWorld(pos.x, pos.y);
-	}
 
-	onExit(): void {}
-	handleMouseDown(): void {}
+		this.selectionSessionManager.executeCommand(new CreateAndReplaceSessionCommand());
+		const activeSession = this.selectionSessionManager.getActiveSession();
+		if (activeSession) {
+			activeSession.updateSelectedRegion({
+				startX: this.startPoint.x,
+				startY: this.startPoint.y,
+				width: 0,
+				height: 0
+			});
+		}
+	}
+	onExit(): void { }
+	handleMouseDown(): void { }
 
 	handleMouseMove(event: MouseEvent) {
 		if (this.startPoint === null) return;
@@ -46,13 +56,17 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
 		const pos = this.camera.getMousePosition({ x: clientX, y: clientY });
 		const endPoint = this.camera.screenToWorld(pos.x, pos.y);
 
-		this.selectionRender.drawRect(
-			this.startPoint.x,
-			this.startPoint.y,
-			endPoint.x - this.startPoint.x,
-			endPoint.y - this.startPoint.y
-		);
+		const activeSession = this.selectionSessionManager.getActiveSession();
+		if (!activeSession) return;
+
+		activeSession.updateSelectedRegion({
+			startX: this.startPoint.x,
+			startY: this.startPoint.y,
+			width: endPoint.x - this.startPoint.x,
+			height: endPoint.y - this.startPoint.y
+		});
 	}
+
 
 	handleMouseUp(event: MouseEvent, context: SelectionModeContext): void {
 		this.selectionRender.clear();
