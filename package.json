@@ -49,6 +49,7 @@
 	"dependencies": {
 		"@reduxjs/toolkit": "^2.2.7",
 		"canvaskit-wasm": "^0.39.1",
+		"dequal": "^2.0.3",
 		"fflate": "^0.8.2",
 		"nanoid": "^5.1.5",
 		"redux": "^5.0.1",
