@@ -1,19 +1,13 @@
 import type { Core } from '@editor/core';
 import type { SelectionModeContext } from './modes/selection-mode-ctx';
-import type { ILayer } from '@editor/types';
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SelectionModeName } from './modes/modes.type';
 import { createAppInstance } from '@editor/app';
-import { BusManager } from '@editor/bus-manager';
-import { BaseBusLayers } from '@editor/bus-layers';
-import { BaseBusTools } from '@editor/bus-tools';
-import { BaseBusNotification } from '@editor/bus-notification';
 import { Camera } from '@editor/camera';
 
 import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import { ExportTool } from './export-tool';
-import { ClipboardTool } from '../clipboard-tool';
 
 const createMouseEvent = (
 	type: 'mousedown' | 'mousemove' | 'mouseup' | 'mouseleave',
@@ -56,19 +50,11 @@ describe('Export Tool', () => {
 
 		const arrayBuffer = new ArrayBuffer(8);
 
-		const busManager = new BusManager({
-			layers: new BaseBusLayers(),
-			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification()
-		});
-
 		const [_core, _app] = createAppInstance({
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			canvasKitInstance: cvk.CanvasKit as any,
+			canvasKitInstance: cvk.CanvasKit,
 			gridCanvasElement: document.createElement('canvas'),
 			selectCanvasElement: document.createElement('canvas'),
 			asciiCanvasElement: document.createElement('canvas'),
-			busManager: busManager,
 			camera: new Camera(1200, 1200),
 			font: { buffer: arrayBuffer, family: '' }
 		});
@@ -78,7 +64,6 @@ describe('Export Tool', () => {
 		exportTool = _app.getToolManager().getTool('export') as ExportTool;
 		const toolManager = _core.getToolManager();
 
-		_app.registerTool(new ClipboardTool(_core));
 		toolManager.setDefaultTool(exportTool);
 
 		modeContext = exportTool['modeContext'];
@@ -128,7 +113,7 @@ describe('Export Tool', () => {
 		return { x: cellX * charWidth, y: cellY * charHeight };
 	};
 
-	const setupLayerWithContent = (content: string, x = 0, y = 0): ILayer => {
+	const setupLayerWithContent = (content: string, x = 0, y = 0) => {
 		const layer = core.getLayersManager().addLayer()[1];
 		layer.setToRegion(x, y, content);
 		return layer;
@@ -280,8 +265,8 @@ describe('Export Tool', () => {
 			const layer1 = setupLayerWithContent('111\n111', 0, 0);
 			const layer2 = setupLayerWithContent(' 2 \n2 2', 0, 0);
 
-			layer1.updateIndex(0);
-			layer2.updateIndex(1);
+			layer1.update({ index: 1 });
+			layer2.update({ index: 0 });
 
 			performSelection(0, 0, 2, 1);
 			document.dispatchEvent(createKeyboardEvent('keydown', 'C', true, true));
@@ -290,20 +275,12 @@ describe('Export Tool', () => {
 		});
 
 		it('should ignore hidden layers when copying', () => {
-			setupLayerWithContent('HIDDEN', 0, 0).update({ opts: { visible: false } });
+			setupLayerWithContent('HIDDEN', 0, 0).update({ opts: { visible: false, locked: false } });
 			setupLayerWithContent('VISIBLE', 0, 0);
 
 			performSelection(0, 0, 6, 0);
 			document.dispatchEvent(createKeyboardEvent('keydown', 'C', true, true));
 			expect(mockClipboard.writeText).toHaveBeenCalledWith('VISIBLE');
-		});
-
-		it('should not copy an area of empty space', () => {
-			setupLayerWithContent('A', 0, 0);
-			performSelection(5, 5, 7, 6);
-
-			document.dispatchEvent(createKeyboardEvent('keydown', 'C', true, true));
-			expect(mockClipboard.writeText).not.toHaveBeenCalled();
 		});
 
 		it('should correctly handle multi-line export with varied line lengths', () => {

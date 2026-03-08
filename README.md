@@ -6,17 +6,12 @@
 
 ## Features
 
-- **Canvas-based ASCII drawing** with multi-layer support
-- **Selection and transformation tools** for efficient editing
-- **Clipboard support** for copying and pasting ASCII elements
-- **Undo/Redo functionality** to manage changes seamlessly
-- **Light and Dark Mode** for customizable appearance
-- **Local storage support** for saving and loading projects
-- **Built using SvelteKit, Redux Toolkit, and TypeScript**
-
 ## Installation and Setup
 
-### Prerequisites
+### LayerApi Composition Helpers
+
+- New helpers in `src/editor/layers/layer-api.ts` simplify temp-layer inserts and index-based moves across composed layers.
+- See `docs/layer-api-helpers.md` for usage examples: insert at top/end/between and computing `orderKey` via `getKeyForIndex`.
 
 Ensure that **Node.js** and **npm** are installed on your system.
 

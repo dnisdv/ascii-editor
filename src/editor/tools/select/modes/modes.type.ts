@@ -1,12 +1,28 @@
+import type { AnchoringMode } from './anchoring-mode';
 import type { IdleMode } from './idle-mode';
 import type { MovingMode } from './moving-mode';
+import type { ResizingMode } from './resizing-mode';
 import type { RotatingMode } from './rotating.mode';
 import type { SelectedMode } from './selected-mode';
 import type { SelectingMode } from './selecting-mode';
 import type { SelectionModeContext } from './selection-mode-ctx';
 
+export enum HandlePosition {
+	TopLeft,
+	Top,
+	TopRight,
+	Right,
+	BottomRight,
+	Bottom,
+	BottomLeft,
+	Left
+}
+
 export type IdleModePayload = undefined;
-export type SelectedModePayload = undefined;
+
+export type SelectedModePayload = {
+	mouseEvent?: MouseEvent;
+};
 
 export type SelectingModePayload = {
 	mouseDownEvent: MouseEvent;
@@ -19,12 +35,19 @@ export interface RotatingModePayload {
 	mouseDownEvent: MouseEvent;
 }
 
+export interface ResizingModePayload {
+	mouseDownEvent: MouseEvent;
+	handle: HandlePosition;
+}
+
 export type ModePayloads = {
 	[SelectionModeName.IDLE]: IdleModePayload;
 	[SelectionModeName.SELECTING]: SelectingModePayload;
 	[SelectionModeName.SELECTED]: SelectedModePayload;
 	[SelectionModeName.MOVING]: MovingModePayload;
 	[SelectionModeName.ROTATING]: RotatingModePayload;
+	[SelectionModeName.RESIZING]: ResizingModePayload;
+	[SelectionModeName.ANCHORING]: AnchoringModePayload;
 };
 
 export interface ISelectionModeBase {
@@ -50,7 +73,9 @@ export enum SelectionModeName {
 	SELECTING = 'SELECTING_MODE',
 	SELECTED = 'SELECTED_MODE',
 	ROTATING = 'ROTATING_MODE',
-	MOVING = 'MOVING_MODE'
+	MOVING = 'MOVING_MODE',
+	RESIZING = 'RESIZING',
+	ANCHORING = 'ANCHORING_MODE'
 }
 
 export type AnyConcreteSelectionMode =
@@ -58,7 +83,9 @@ export type AnyConcreteSelectionMode =
 	| ISelectionMode<SelectionModeName.SELECTING>
 	| ISelectionMode<SelectionModeName.SELECTED>
 	| ISelectionMode<SelectionModeName.ROTATING>
-	| ISelectionMode<SelectionModeName.MOVING>;
+	| ISelectionMode<SelectionModeName.MOVING>
+	| ISelectionMode<SelectionModeName.RESIZING>
+	| ISelectionMode<SelectionModeName.ANCHORING>;
 
 export interface ConcreteModeTypeMap {
 	[SelectionModeName.IDLE]: IdleMode;
@@ -66,4 +93,12 @@ export interface ConcreteModeTypeMap {
 	[SelectionModeName.SELECTED]: SelectedMode;
 	[SelectionModeName.ROTATING]: RotatingMode;
 	[SelectionModeName.MOVING]: MovingMode;
+	[SelectionModeName.RESIZING]: ResizingMode;
+	[SelectionModeName.ANCHORING]: AnchoringMode;
 }
+
+export type AnchoringModePayload = {
+	mouseDownEvent: MouseEvent;
+	objectId: string;
+	anchorId: string;
+};

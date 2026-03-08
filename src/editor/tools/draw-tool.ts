@@ -1,14 +1,16 @@
 import { BaseTool } from '../tool';
 import type { ITool } from '../tool';
-import type { ILayersManager, ICamera, IRenderManager, ICanvas } from '@editor/types';
+import type { ICamera, IRenderManager, ICanvas } from '@editor/types';
 import type { CanvasKit, Paragraph, ParagraphStyle, Canvas as WasmCanvas } from 'canvaskit-wasm';
 import type { HistoryManager } from '@editor/history-manager';
 import { RequireActiveLayerVisible } from '@editor/tool-requirements';
 import type { CoreApi } from '@editor/core';
+import type { LayersManager } from '@editor/layers/layers-manager';
+import { createColor } from '@editor/utils/rendering';
 
 export class DrawTool extends BaseTool implements ITool {
 	private isDrawing: boolean = false;
-	private layers: ILayersManager;
+	private layers: LayersManager;
 	private camera: ICamera;
 
 	private paragraphs: Map<string, Paragraph>;
@@ -29,7 +31,6 @@ export class DrawTool extends BaseTool implements ITool {
 	constructor(coreApi: CoreApi) {
 		super({
 			hotkey: '<A-d>',
-			bus: coreApi.getBusManager(),
 			name: 'draw',
 			isVisible: true,
 			coreApi,
@@ -53,7 +54,7 @@ export class DrawTool extends BaseTool implements ITool {
 
 		this.paraStyle = new canvasKit.ParagraphStyle({
 			textStyle: {
-				color: canvasKit.Color4f(foreground[0], foreground[1], foreground[2], foreground[3]),
+				color: createColor(canvasKit, foreground),
 				fontSize: 16
 			}
 		});
@@ -195,7 +196,7 @@ export class DrawTool extends BaseTool implements ITool {
 
 		const activeLayer = this.layers.ensureLayer();
 		if (!activeLayer) return;
-		const beforeChar = activeLayer.getChar(row, col);
+		const beforeChar = activeLayer.grid.getChar(row, col);
 
 		if (beforeChar != this.config.activeSymbol) {
 			this.historyManager.applyAction(
@@ -209,7 +210,7 @@ export class DrawTool extends BaseTool implements ITool {
 			);
 		}
 
-		activeLayer?.setChar(row, col, this.getConfig().activeSymbol);
+		activeLayer.grid.setChar(row, col, this.getConfig().activeSymbol);
 		this.renderManager.requestRender();
 	}
 }

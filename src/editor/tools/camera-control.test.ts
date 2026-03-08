@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Core } from '@editor/core';
 import { createAppInstance } from '@editor/app';
-import { BusManager } from '@editor/bus-manager';
-import { BaseBusLayers } from '@editor/bus-layers';
-import { BaseBusTools } from '@editor/bus-tools';
-import { BaseBusNotification } from '@editor/bus-notification';
 import { Camera } from '@editor/camera';
 import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import { CameraControlTool } from './camera-control';
@@ -27,25 +23,16 @@ describe('Camera Control Tool', () => {
 	let core: Core;
 	let cameraControlTool: CameraControlTool;
 	let camera: Camera;
-	let busManager: BusManager;
 	let selectCanvasElement: HTMLCanvasElement;
 
 	beforeEach(() => {
-		busManager = new BusManager({
-			layers: new BaseBusLayers(),
-			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification()
-		});
-
 		camera = new Camera(1200, 1200);
 
 		const [_core, _app] = createAppInstance({
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			canvasKitInstance: cvk.CanvasKit as any,
+			canvasKitInstance: cvk.CanvasKit,
 			gridCanvasElement: document.createElement('canvas'),
 			selectCanvasElement: document.createElement('canvas'),
 			asciiCanvasElement: document.createElement('canvas'),
-			busManager: busManager,
 			camera: camera,
 			font: { buffer: new ArrayBuffer(8), family: '' }
 		});

@@ -1,77 +1,43 @@
-import type { ITileMap } from '@editor/types';
+import type { LayerSerializer } from '@editor/types';
 import type { LayersSerializableSchemaType } from './layers.serializer.schema';
-import { TileMap } from '@editor/tileMap';
-import type { CoreApi } from '@editor/core';
 import type { LayersManager } from '@editor/layers/layers-manager';
 
 export class LayersSerializer {
 	constructor(
-		private layersManager: LayersManager,
-		private coreApi: CoreApi
+		private layerSerializer: LayerSerializer,
+		private layersManager: LayersManager
 	) {}
 
 	serialize(): LayersSerializableSchemaType {
+		const layersManager = this.layersManager;
 		const serialized: LayersSerializableSchemaType = {
 			activeLayerKey: this.layersManager.getActiveLayerKey(),
 			data: {}
 		};
 
-		this.layersManager.getLayers().forEach((layer) => {
-			serialized.data[layer.id] = {
-				id: layer.id,
-				name: layer.name,
-				tileMap: layer.tileMap.serialize(),
-				index: layer.index,
-				opts: layer.opts
-			};
+		layersManager.getLayers().forEach((layer) => {
+			serialized.data[layer.id] = this.layerSerializer.serialize(layer);
 		});
-
 		return serialized;
 	}
 
 	deserialize(data: LayersSerializableSchemaType): void {
-		this.layersManager.clearLayers();
+		const layersManager = this.layersManager;
 
-		const layers = Object.entries(data.data).map(([id, layerData]) => {
-			let tileMap: ITileMap;
+		layersManager.withSuspended(() => {
+			layersManager.clearLayers();
+			const layers = Object.values(data.data).map((layerData) =>
+				this.layerSerializer.deserialize(layerData)
+			);
 
-			if (layerData.tileMap) {
-				tileMap = TileMap.deserialize(layerData.tileMap);
-			} else {
-				tileMap = new TileMap({ tileSize: 25 });
-			}
-
-			const layer = this.layersManager.createLayer({
-				id,
-				name: layerData.name,
-				index: layerData.index,
-				opts: layerData.opts,
-				tileMap
+			layers.forEach((layer) => {
+				layersManager['layers'].insertLayerAtIndex(layer, layer.index);
+				layersManager['proxyLayerEvents'](layer);
 			});
 
-			this.layersManager.insertLayerAtIndex(layer.index, layer);
-
-			return layer;
+			if (data.activeLayerKey) {
+				layersManager['layers'].setActiveLayer(data.activeLayerKey);
+			}
 		});
-
-		if (data.activeLayerKey) {
-			this.layersManager['layers'].setActiveLayer(data.activeLayerKey);
-			this.layersManager
-				.getBus()
-				.emit('layer::change_active::response', { id: data.activeLayerKey });
-		}
-
-		const _layers = layers.map((i) => ({
-			opts: i.opts,
-			name: i.name,
-			index: i.index,
-			id: i.id
-		}));
-
-		this.coreApi.getBusManager().layers.emit('layer::tile::change');
-
-		this.coreApi
-			.getBusManager()
-			.layers.emit('layers::create::response', _layers, { reason: 'hydratation' });
 	}
 }

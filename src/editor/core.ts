@@ -1,33 +1,44 @@
-import { BusManager } from './bus-manager';
 import type { ToolManager } from './tool-manager';
 import type { HistoryManager } from './history-manager';
-import type { ICamera, ICanvas, ILayersManager } from './types';
+import type { AppSerializer, ICamera, ICanvas } from './types';
 import type { Config } from './config';
 import type { FontManager } from './font-manager';
 import type { Cursor } from './cursor';
 import type { UI } from './ui';
 import type { RenderManager } from './render-manager';
+import type { SelectionManager } from './select/selection-manager';
+import type { SmartObjectsManager } from './smart-objects-manager';
+import type { FeedbackManager } from './feedback-manager';
+import type { ClipboardManager } from './clipboard/clipboard-manager';
+import type { LayersManager } from './layers/layers-manager';
+import { CommandRegistry, EditorCommands } from './commands/command-registry';
 
 export type CoreApi = {
 	getCamera(): ICamera;
-	getBusManager(): BusManager;
 
 	getCanvases(): { grid: ICanvas; select: ICanvas; ascii: ICanvas };
-	getLayersManager(): ILayersManager;
+	getLayersManager(): LayersManager;
 	getToolManager(): ToolManager;
 	getHistoryManager(): HistoryManager;
 	getFontManager(): FontManager;
 	getRenderManager(): RenderManager;
+	getCommandRegistry(): CommandRegistry;
+	getCommands(): EditorCommands;
+	getSelectionManager(): SelectionManager;
+	getSmartObjectsManager(): SmartObjectsManager;
+	getFeedbackManager(): FeedbackManager;
+	getClipboardManager(): ClipboardManager;
+	getSerializer(): AppSerializer;
 
 	getConfig(): Config;
 	getCursor(): Cursor;
+
+	getUI(): UI;
 
 	render(): void;
 };
 
 export interface CoreDependencies {
-	// specific
-	busManager: BusManager;
 	config: Config;
 	fontManager: FontManager;
 	historyManager: HistoryManager;
@@ -35,27 +46,35 @@ export interface CoreDependencies {
 	toolManager: ToolManager;
 	ui: UI;
 	renderManager: RenderManager;
+	selectionManager: SelectionManager;
+	smartObjectsManager: SmartObjectsManager;
+	feedbackManager: FeedbackManager;
+	clipboardManager: ClipboardManager;
+	serializer: AppSerializer;
 
-	// abstract
 	camera: ICamera;
-	layersManager: ILayersManager;
+	layersManager: LayersManager;
 }
 
 export class Core implements CoreApi {
 	private toolManager: ToolManager;
 	private camera: ICamera;
-	private layers: ILayersManager;
-	private busManager: BusManager;
+	private layers: LayersManager;
 	private cursor: Cursor;
 	private history: HistoryManager;
 	private config: Config;
 	private fontManager: FontManager;
 	private renderManager: RenderManager;
 	private ui: UI;
+	private selectionManager: SelectionManager;
+	private smartObjectsManager: SmartObjectsManager;
+	private feedbackManager: FeedbackManager;
+	private clipboardManager: ClipboardManager;
+	private serializer: AppSerializer;
+	private commandRegistry: CommandRegistry;
 
 	constructor({
 		camera,
-		busManager,
 		fontManager,
 		historyManager,
 		config,
@@ -63,10 +82,14 @@ export class Core implements CoreApi {
 		cursor,
 		toolManager,
 		ui,
-		renderManager
+		renderManager,
+		selectionManager,
+		smartObjectsManager,
+		feedbackManager,
+		clipboardManager,
+		serializer
 	}: CoreDependencies) {
 		this.camera = camera;
-		this.busManager = busManager;
 		this.fontManager = fontManager;
 		this.history = historyManager;
 		this.config = config;
@@ -75,15 +98,39 @@ export class Core implements CoreApi {
 		this.toolManager = toolManager;
 		this.ui = ui;
 		this.renderManager = renderManager;
+		this.selectionManager = selectionManager;
+		this.smartObjectsManager = smartObjectsManager;
+		this.feedbackManager = feedbackManager;
+		this.clipboardManager = clipboardManager;
+		this.serializer = serializer;
+		this.commandRegistry = new CommandRegistry();
 	}
 
+	getSerializer(): AppSerializer {
+		return this.serializer;
+	}
+	getCommandRegistry(): CommandRegistry {
+		return this.commandRegistry;
+	}
+	getCommands(): EditorCommands {
+		return this.commandRegistry;
+	}
+	getFeedbackManager(): FeedbackManager {
+		return this.feedbackManager;
+	}
+	getClipboardManager(): ClipboardManager {
+		return this.clipboardManager;
+	}
 	getCamera(): ICamera {
 		return this.camera;
 	}
-	getBusManager(): BusManager {
-		return this.busManager;
+	getSmartObjectsManager(): SmartObjectsManager {
+		return this.smartObjectsManager;
 	}
-	getLayersManager(): ILayersManager {
+	getSelectionManager(): SelectionManager {
+		return this.selectionManager;
+	}
+	getLayersManager(): LayersManager {
 		return this.layers;
 	}
 	getToolManager(): ToolManager {
@@ -107,7 +154,6 @@ export class Core implements CoreApi {
 	getRenderManager(): RenderManager {
 		return this.renderManager;
 	}
-
 	getCanvases(): { grid: ICanvas; select: ICanvas; ascii: ICanvas } {
 		return {
 			ascii: this.ui.getAsciiCanvas(),

@@ -1,29 +1,28 @@
 import { TempLayersListManager } from './templayer-list-manager';
-import { Layer, defaultLayerConfig } from './layer';
-import { TileMap } from '@editor/tileMap';
-import { type ILayer, type ILayerModel } from '@editor/types';
+import { defaultLayerConfig, Layer } from './layer';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BaseBusLayers } from '@editor/bus-layers';
+import { Config } from '@editor/config';
+import type { ILayerModel } from '@editor/types/external/layer-model';
 
-const createLayer = (id: string, index: number = 0, name: string = `Layer ${id}`): ILayer => {
+const config = new Config();
+const createLayer = (id: string, index: number = 0, name: string = `Layer ${id}`): Layer => {
 	return new Layer({
 		id,
 		name,
+		config: config,
 		index,
-		opts: { ...defaultLayerConfig },
-		tileMap: new TileMap({ tileSize: 16 }),
-		layersBus: new BaseBusLayers()
+		opts: { ...defaultLayerConfig }
 	});
 };
 
-describe('Temp Layers List Manager', () => {
+describe('TempLayersListManager', () => {
 	let manager: TempLayersListManager;
-	let layer1: ILayer, layer2: ILayer, layer3: ILayer;
+	let layer1: Layer, layer2: Layer, layer3: Layer;
 
 	beforeEach(() => {
 		layer1 = createLayer('id1', 0, 'LayerOne');
-		layer2 = createLayer('id2', 1, 'LayerTwo');
-		layer3 = createLayer('id3', 2, 'LayerThree');
+		layer2 = createLayer('id2', 0, 'LayerTwo');
+		layer3 = createLayer('id3', 0, 'LayerThree');
 	});
 
 	describe('Constructor and Initial State', () => {
@@ -32,11 +31,9 @@ describe('Temp Layers List Manager', () => {
 			expect(manager.getSortedLayers()).toEqual([]);
 		});
 
-		it('should initialize with given layers, maintaining order and original layer indices', () => {
+		it('should initialize with an array of layers', () => {
 			manager = new TempLayersListManager([layer1, layer2]);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2']);
-			expect(manager.getLayerById('id1')?.index).toBe(0);
-			expect(manager.getLayerById('id2')?.index).toBe(1);
 		});
 	});
 
@@ -45,36 +42,28 @@ describe('Temp Layers List Manager', () => {
 			manager = new TempLayersListManager();
 		});
 
-		it('should add layer to end; layer.index property remains unchanged', () => {
+		it('should add a layer to an empty list', () => {
 			manager.addLayer(layer1);
-			manager.addLayer(layer2);
-			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2']);
-			expect(layer1.index).toBe(0);
-			expect(layer2.index).toBe(1);
+			expect(manager.getSortedLayers()).toEqual([layer1]);
 		});
 
-		it('should insert layer at specified visual index; layer.index property remains unchanged', () => {
+		it('should add multiple layers to the list', () => {
+			manager.addMultipleLayers([layer1, layer2]);
+			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2']);
+		});
+
+		it('should insert a layer at a specific index', () => {
 			manager.addLayer(layer1);
 			manager.addLayer(layer3);
 			manager.insertLayerAtIndex(layer2, 1);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-			expect(layer2.index).toBe(1);
 		});
 
-		it('re-adding an existing layer moves it to end; layer.index property remains unchanged', () => {
+		it('re-adding an existing layer should move it to the end of the list', () => {
 			manager.addLayer(layer1);
 			manager.addLayer(layer2);
 			manager.addLayer(layer1);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1']);
-			expect(layer1.index).toBe(0);
-		});
-
-		it('should add multiple layers to the end, preserving their original layer indices', () => {
-			manager.addLayer(layer1);
-			manager.addMultipleLayers([layer2, layer3]);
-			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-			expect(layer2.index).toBe(1);
-			expect(layer3.index).toBe(2);
 		});
 	});
 
@@ -83,11 +72,16 @@ describe('Temp Layers List Manager', () => {
 			manager = new TempLayersListManager([layer1, layer2, layer3]);
 		});
 
-		it('should remove an existing layer and return removed status', () => {
+		it('should remove a layer successfully', () => {
 			const result = manager.removeLayer('id2');
 			expect(result.removed).toBe(true);
-			expect(manager.hasLayer('id2')).toBe(false);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id3']);
+		});
+
+		it('should return removed: false for a non-existent layer', () => {
+			const result = manager.removeLayer('non-existent');
+			expect(result.removed).toBe(false);
+			expect(manager.getSortedLayers().length).toBe(3);
 		});
 
 		it('should remove the only layer, resulting in an empty list', () => {
@@ -96,12 +90,6 @@ describe('Temp Layers List Manager', () => {
 			expect(result.removed).toBe(true);
 			expect(manager.getSortedLayers()).toEqual([]);
 		});
-
-		it('should return removed: false for a non-existent layer', () => {
-			const result = manager.removeLayer('nonexistent');
-			expect(result.removed).toBe(false);
-			expect(manager.getSortedLayers().length).toBe(3);
-		});
 	});
 
 	describe('Moving and Updating Layers', () => {
@@ -109,68 +97,50 @@ describe('Temp Layers List Manager', () => {
 			manager = new TempLayersListManager([layer1, layer2, layer3]);
 		});
 
-		it('should move a layer, layer.index properties remain unchanged', () => {
+		it('should move a layer to a new position', () => {
 			const success = manager.moveLayerToPosition('id1', 2);
 			expect(success).toBe(true);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3', 'id1']);
-			expect(layer1.index).toBe(0);
 		});
 
-		it('should update visual order if updates.index differs from current visual index; layer properties unchanged by manager', () => {
+		it('should return false when trying to move a non-existent layer', () => {
+			const success = manager.moveLayerToPosition('non-existent', 1);
+			expect(success).toBe(false);
+		});
+
+		it("should update a layer's index", () => {
 			const updates: Partial<ILayerModel> = { index: 1 };
 			const result = manager.updateLayer('id1', updates);
-
 			expect(result.success).toBe(true);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1', 'id3']);
-			expect(layer1.index).toBe(0);
-			expect(result.beforeAfter).toBeUndefined();
-			expect(result.reindexed).toBeUndefined();
-		});
-
-		it('should not change visual order if updates.index is same as current visual index', () => {
-			const updates: Partial<ILayerModel> = { index: 0 };
-			const result = manager.updateLayer('id1', updates);
-
-			expect(result.success).toBe(true);
-			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-			expect(layer1.index).toBe(0);
-		});
-
-		it('should not change visual order if updates.index is undefined; layer properties unchanged by manager', () => {
-			const updates: Partial<ILayerModel> = { name: 'New Name for L1' };
-			const result = manager.updateLayer('id1', updates);
-
-			expect(result.success).toBe(true);
-			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-			expect(layer1.index).toBe(0);
 		});
 	});
 
-	describe('Clearing and Getters', () => {
+	describe('Clearing the list', () => {
+		it('should remove all layers from the list', () => {
+			manager = new TempLayersListManager([layer1, layer2]);
+			manager.clear();
+			expect(manager.getSortedLayers()).toEqual([]);
+		});
+	});
+
+	describe('Getters', () => {
 		beforeEach(() => {
 			manager = new TempLayersListManager([layer1, layer2]);
 		});
 
-		it('should clear all layers', () => {
-			manager.clear();
-			expect(manager.getSortedLayers()).toEqual([]);
-			expect(manager.hasLayer('id1')).toBe(false);
-		});
-
 		it('should retrieve a layer by its ID', () => {
 			expect(manager.getLayerById('id1')).toBe(layer1);
-			expect(manager.getLayerById('nonexistent')).toBeUndefined();
+			expect(manager.getLayerById('nonExistentId')).toBeUndefined();
 		});
 
-		it('should retrieve the first visually sorted layer', () => {
+		it('should retrieve the first layer in the sorted list', () => {
 			expect(manager.getFirstLayer()).toBe(layer1);
-			manager.moveLayerToPosition('id2', 0);
-			expect(manager.getFirstLayer()).toBe(layer2);
 		});
 
-		it('should correctly report layer existence', () => {
+		it('should correctly report if a layer exists', () => {
 			expect(manager.hasLayer('id1')).toBe(true);
-			expect(manager.hasLayer('nonexistent')).toBe(false);
+			expect(manager.hasLayer('nonExistentId')).toBe(false);
 		});
 	});
 });

@@ -1,21 +1,26 @@
 <script lang="ts">
-	import { useToolBus } from '@/bus/useToolsBus';
 	import { useTheme } from '@/theme';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
 	import { Button } from '@components/button';
-	import { isToolActive } from '@store/slices/tools/tool.selectors';
-	import { useSelector } from '@store/useSelector';
 
 	import * as Tooltip from '@components/tooltip';
 	import ToolTooltip from './Tool-Tooltip.svelte';
+	import { writable } from 'svelte/store';
+	import { useCore } from '@/config/useCore';
 	const { currentThemeHEX } = useTheme();
 	let name = 'text';
 
-	const toolBus = useToolBus();
-	const isActive = useSelector(isToolActive(name));
+	const core = useCore();
+	const tools = core.getToolManager();
+
+	const isActive = writable(tools.getActiveToolName() === name);
+
+	tools.on('tool::activated', (tool) => {
+		isActive.set(tool.name === name);
+	});
 
 	function activate(toolName: string) {
-		toolBus.emit('tool::activate::request', { name: toolName });
+		tools.activateTool(toolName);
 	}
 </script>
 

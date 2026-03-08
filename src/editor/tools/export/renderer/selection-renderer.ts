@@ -5,6 +5,7 @@ import type { SelectionModeContext } from '../modes/selection-mode-ctx';
 import type { CoreApi } from '@editor/core';
 import { HandlePosition, SelectionModeName } from '../modes/modes.type';
 import { SelectedMode } from '../modes/selected-mode';
+import { createFillPaint, createStrokePaint, drawAnchor } from '@editor/utils/rendering';
 
 type NormalizedRGBA = [number, number, number, number];
 
@@ -28,7 +29,6 @@ export class SelectionRenderer {
 	private selectCanvas: ICanvas;
 	private renderManager: IRenderManager;
 	private theme: ExportToolTheme;
-	private readonly handleSize = 7;
 
 	constructor(
 		private coreApi: CoreApi,
@@ -47,32 +47,13 @@ export class SelectionRenderer {
 		this.theme = this.initialTheme || defaultTheme;
 		const { primary } = this.theme;
 
-		this.paint = new this.canvasKit.Paint();
-		this.paint.setColor(this.canvasKit.Color4f(primary[0], primary[1], primary[2], primary[3]));
-		this.paint.setStyle(this.canvasKit.PaintStyle.Stroke);
-		this.paint.setStrokeWidth(1);
-		this.paint.setAntiAlias(true);
+		this.paint = createStrokePaint(this.canvasKit, primary, 1);
 
-		this.hoveredPaint = new this.canvasKit.Paint();
-		this.hoveredPaint.setColor(
-			this.canvasKit.Color4f(primary[0], primary[1], primary[2], primary[3])
-		);
-		this.hoveredPaint.setStyle(this.canvasKit.PaintStyle.Stroke);
-		this.hoveredPaint.setStrokeWidth(1.5);
-		this.hoveredPaint.setAntiAlias(true);
+		this.hoveredPaint = createStrokePaint(this.canvasKit, primary, 1.5);
 
-		this.handleStrokePaint = new this.canvasKit.Paint();
-		this.handleStrokePaint.setColor(
-			this.canvasKit.Color4f(primary[0], primary[1], primary[2], primary[3])
-		);
-		this.handleStrokePaint.setStyle(this.canvasKit.PaintStyle.Stroke);
-		this.handleStrokePaint.setStrokeWidth(1);
-		this.handleStrokePaint.setAntiAlias(true);
+		this.handleStrokePaint = createStrokePaint(this.canvasKit, primary, 1);
 
-		this.handleWhiteFillPaint = new this.canvasKit.Paint();
-		this.handleWhiteFillPaint.setColor(this.canvasKit.Color4f(1, 1, 1, 1));
-		this.handleWhiteFillPaint.setStyle(this.canvasKit.PaintStyle.Fill);
-		this.handleWhiteFillPaint.setAntiAlias(true);
+		this.handleWhiteFillPaint = createFillPaint(this.canvasKit, [1, 1, 1, 1]);
 
 		sessionManager.on('session::region_updated', this.triggerDraw.bind(this));
 		sessionManager.on('manager::session_created', this.triggerDraw.bind(this));
@@ -134,14 +115,17 @@ export class SelectionRenderer {
 		];
 
 		handles.forEach((handle) => {
-			const handleRect = this.canvasKit.XYWHRect(
-				handle.x - this.handleSize / 2,
-				handle.y - this.handleSize / 2,
-				this.handleSize,
-				this.handleSize
+			drawAnchor(
+				this.canvasKit,
+				this.skCanvas,
+				handle.x,
+				handle.y,
+				{
+					fillPaint: this.handleWhiteFillPaint,
+					strokePaint: this.handleStrokePaint
+				},
+				this.camera.getPixelRatio()
 			);
-			this.skCanvas.drawRect(handleRect, this.handleWhiteFillPaint);
-			this.skCanvas.drawRect(handleRect, this.handleStrokePaint);
 		});
 	}
 

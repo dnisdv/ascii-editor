@@ -1,48 +1,57 @@
 import type { HistoryManager } from '@editor/history-manager';
-import type {
-	ITileMap,
-	ILayer,
-	LayerConfig,
-	ILayersManager,
-	LayersManagerIEvents,
-	ILayerModel,
-	LayerSerializableSchemaType,
-	DeepPartial
-} from '@editor/types';
-import type { BaseBusLayers } from '@editor/bus-layers';
 import type { Config } from '@editor/config';
-
+import { type DeepPartial, LayerSerializer } from '@editor/types';
 import { LayerFactory } from './layer-factory';
-import { LayerSerializer } from '@editor/serializer/layer.serializer';
+import type { ObjectHistoryBinder } from './object-history-binder';
 import { EventEmitter } from '@editor/event-emitter';
 import { LayersListManager } from './layer-list-manager';
 import { TempLayersListManager } from './templayer-list-manager';
-import { LayerCreateAndActivate, LayerRemove, LayersChangeActive, SetCharHandler } from './history';
-import { LayerUpdate } from './history/layer-update';
-import { LayerRemoveAndActivate } from './history/layer-remove-and-activate';
-import { SetRegion } from './history/layer-set-region';
-import { CreateAndActivateLayerCommand } from './commands/create-activate-layer.cmd';
-import { updateLayerCommand } from './commands/update-layer.cmd';
-import { activateLayerCommand } from './commands/activate-layer.cmd';
-import { removeAndActivateLayerCommand } from './commands/remove-activate-layer.cmd';
-import { LayerApi } from './layer-api';
+import {
+	changeActiveLayer,
+	createAndActivateLayer,
+	LayerCreateAndActivate,
+	LayersChangeActive,
+	LayerRemoveObject,
+	removeLayerObject,
+	renameLayerObject,
+	SetCharHandler,
+	setLayerChar
+} from './history';
+import { objectSetProperty, SetPropertyHandler } from '@editor/objects/history/setProperty';
+import {
+	objectPropertiesPatch,
+	ObjectPropertiesPatchHandler
+} from '@editor/objects/history/object-properties-patch';
+import {
+	objectAnchorsPatch,
+	ObjectAnchorsPatchHandler
+} from '@editor/objects/history/object-anchors-patch';
+import { LayerUpdate, updateLayer } from './history/layer-update';
+import {
+	LayerRemoveAndActivate,
+	removeAndActivateLayer
+} from './history/layer-remove-and-activate';
+import { LayerMoveObject, moveLayerObject } from './history/layer-move-object';
+import { LayerController } from './layer-api';
 import { Layer } from './layer';
+import type { ILayerModel } from '@editor/types/external/layer-model';
+import type { LayersManagerEvents } from '@editor/types/external/layers-events';
+import type { LayersExecutionContext } from './history/history-context';
+import { LayerRenameObject } from './history/layer-rename-object';
 
-export interface LayersManagerOption {
-	layersBus: BaseBusLayers;
+export interface LayersManagerDeps {
 	config: Config;
 	historyManager: HistoryManager;
+	layerSerializer: LayerSerializer;
 }
 
-export interface ILayersManagerInternalOps
-	extends Pick<EventEmitter<LayersManagerIEvents>, 'emit'> {
+export interface ILayersManagerInternalOps extends Pick<EventEmitter<LayersManagerEvents>, 'emit'> {
 	getLayersFactory(): LayerFactory;
 	getLayersListManager(): LayersListManager;
 	getLayerSerializer(): LayerSerializer;
 }
 
-// TODO: MOVE LOGIC NOT RELATED TO LAYERS TO SOMEWHER ELSE
-export class LayersManager extends EventEmitter<LayersManagerIEvents> implements ILayersManager {
+export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	private layers: LayersListManager;
 	private tempLayers: TempLayersListManager;
 
@@ -51,79 +60,112 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	private layerSerializer: LayerSerializer;
 	private config: Config;
 
-	private bus: BaseBusLayers;
-
 	private tempLayerAssociations: Map<string, string> = new Map();
 
-	constructor({ layersBus, config, historyManager }: LayersManagerOption) {
+	constructor({ config, historyManager, layerSerializer }: LayersManagerDeps) {
 		super();
-		this.bus = layersBus;
 		this.config = config;
+		this.layerSerializer = layerSerializer;
 
 		this.layers = new LayersListManager();
-		this.tempLayers = new TempLayersListManager();
+		this.proxy(this.layers, {
+			events: ['layer::added', 'layer::removed', 'layer::active::changed']
+		});
 
-		this.layerFactory = new LayerFactory({ layersBus: this.bus, config: this.config });
-		this.layerSerializer = new LayerSerializer({ layersBus: this.bus });
+		this.tempLayers = new TempLayersListManager();
+		const binder: ObjectHistoryBinder = {
+			bind: (obj: { id: string }) => {
+				try {
+					this.historyManager.registerTarget(obj.id, obj);
+					this.historyManager.registerContext(obj.id, {});
+				} catch {
+					void 0;
+				}
+			}
+		};
+		this.layerFactory = new LayerFactory({ config: this.config, objectHistoryBinder: binder });
 
 		this.historyManager = historyManager;
 		this.historyManager.registerTarget('layers', this);
-
 		this.registerHistoryHandlers();
-		this.registerStoreEventListeners();
+		this.registerHistoryContext();
+
+		(window as unknown as { lmanager?: LayersManager }).lmanager = this;
+	}
+
+	private registerHistoryContext() {
+		const executionContext: LayersExecutionContext = {
+			layerSerializer: this.layerSerializer,
+			layerFactory: this.layerFactory,
+			layersListManager: this.layers,
+			layersManager: this
+		};
+		this.historyManager.registerContext('layers', executionContext);
 	}
 
 	private registerHistoryHandlers() {
-		this.historyManager.registerHandler('layer::set_chars', new SetCharHandler());
-		this.historyManager.registerHandler('layer::update', new LayerUpdate());
-		this.historyManager.registerHandler('layers::change::active', new LayersChangeActive());
-		this.historyManager.registerHandler(
-			'layers::create_and_activate',
-			new LayerCreateAndActivate()
-		);
-		this.historyManager.registerHandler('layers::remove', new LayerRemove());
-		this.historyManager.registerHandler(
-			'layers::remove_and_activate',
-			new LayerRemoveAndActivate()
-		);
-		this.historyManager.registerHandler('layer::set_region', new SetRegion());
+		this.historyManager.registerHandler(setLayerChar, new SetCharHandler());
+		this.historyManager.registerHandler(updateLayer, new LayerUpdate());
+		this.historyManager.registerHandler(changeActiveLayer, new LayersChangeActive());
+		this.historyManager.registerHandler(createAndActivateLayer, new LayerCreateAndActivate());
+		this.historyManager.registerHandler(removeAndActivateLayer, new LayerRemoveAndActivate());
+		this.historyManager.registerHandler(moveLayerObject, new LayerMoveObject());
+		this.historyManager.registerHandler(removeLayerObject, new LayerRemoveObject());
+		this.historyManager.registerHandler(renameLayerObject, new LayerRenameObject());
+
+		this.historyManager.registerHandler(objectSetProperty, new SetPropertyHandler());
+		this.historyManager.registerHandler(objectPropertiesPatch, new ObjectPropertiesPatchHandler());
+		this.historyManager.registerHandler(objectAnchorsPatch, new ObjectAnchorsPatchHandler());
 	}
 
-	private registerStoreEventListeners() {
-		this.bus.on('layer::create::request', () => this.addLayer());
-		this.bus.on('layer::remove::request', ({ id }) => this.removeLayer(id));
-		this.bus.on('layer::update::request', ({ id, ...rest }) => this.updateLayer(id, rest));
-		this.bus.on('layer::change_active::request', ({ id }) => this.setActiveLayer(id));
-	}
-
-	private proxyLayerEvents(layer: ILayer) {
-		layer.on('tile_changed', (tile) => this.bus.emit('layer::tile::change', tile), this);
-		layer.on('tile_deleted', ({ x, y, layerId }) =>
-			this.bus.emit('layer::tile::removed', { x, y, layerId })
-		);
+	private proxyLayerEvents(layer: Layer) {
+		this.proxy(layer, {
+			prefixes: ['layer::', `layer::${layer.id}::`],
+			events: [
+				'object::op',
+				'object::added',
+				'object::moved',
+				'object::update',
+				'updated',
+				'object::removed'
+			],
+			transform: (_, payload) => {
+				return {
+					...payload,
+					layerId: layer.id
+				};
+			}
+		});
 		this.historyManager.registerTarget(`layer::${layer.id}`, layer);
+		this.historyManager.registerContext(`layer::${layer.id}`, {});
 	}
 
-	private unproxyLayerEvents(layer: ILayer | null) {
-		if (!layer) return;
-		layer.off('tile_changed');
-		layer.off('tile_deleted');
+	private unproxyLayerEvents(layer: Layer | null) {
+		if (layer) this.unproxy(layer);
 	}
 
-	private proxyTempLayerEvents(layer: ILayer) {
-		layer.on('changed', () => {
-			const mainLayerId = this.tempLayerAssociations.get(layer.id);
-			if (mainLayerId) {
-				const mainLayer = this.layers.getLayerById(mainLayerId);
-				mainLayer?.emit('changed');
+	private proxyTempLayerEvents(layer: Layer) {
+		this.proxy(layer, {
+			prefixes: ['temp_layer::', `temp_layer::${layer.id}::`],
+			events: [
+				'object::op',
+				'object::added',
+				'object::moved',
+				'object::update',
+				'updated',
+				'object::removed'
+			],
+			transform: (_, payload) => {
+				return {
+					...payload,
+					layerId: layer.id
+				};
 			}
 		});
 	}
 
-	private unproxyTempLayerEvents(layer: ILayer | null) {
-		if (!layer) return;
-		layer.emit('changed');
-		layer.off('changed');
+	private unproxyTempLayerEvents(layer: Layer | null) {
+		if (layer) this.unproxy(layer);
 	}
 
 	public internalOps(): ILayersManagerInternalOps {
@@ -136,122 +178,116 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	public updateLayer(id: string, updates: DeepPartial<ILayerModel>): void {
-		const command = new updateLayerCommand(this.internalOps(), this.historyManager, this.bus);
-		command.execute(id, updates);
+		this.historyManager.execute(updateLayer, 'layers', { id, changes: updates });
 	}
 
-	public addLayer(): [string, LayerApi] {
-		const command = new CreateAndActivateLayerCommand(
-			this.internalOps(),
-			this.historyManager,
-			this.bus
-		);
-		const { id, layer } = command.execute();
+	public addLayer(): [string, LayerController] {
+		const { id, layer } = this.historyManager.execute(createAndActivateLayer, 'layers');
 		this.proxyLayerEvents(layer);
-
-		return [id, new LayerApi(layer as Layer, this)];
+		return [id, new LayerController(layer as Layer, this)];
 	}
 
 	public removeLayer(id: string): void {
-		const command = new removeAndActivateLayerCommand(
-			this.internalOps(),
-			this.historyManager,
-			this.bus
-		);
-		const layer = command.execute(id);
-		this.unproxyLayerEvents(layer);
+		const layer = this.layers.getLayerById(id);
+		if (!layer) return;
+
+		this.historyManager.execute(removeAndActivateLayer, 'layers', { id });
+		if (layer) this.unproxyLayerEvents(layer);
 	}
 
 	public setActiveLayer(id: string): void {
 		if (id === this.getActiveLayer()?.id) return;
-		const command = new activateLayerCommand(this.internalOps(), this.historyManager, this.bus);
-		command.execute(id);
+		this.historyManager.execute(changeActiveLayer, 'layers', { id });
 	}
 
-	public insertLayer(id: string, layer: ILayer) {
-		this.layers.addLayer(layer);
-		this.proxyLayerEvents(layer);
-		this.bus.emit('layer::create::response', {
-			id,
-			name: layer.name,
-			index: layer.index,
-			opts: layer.opts
-		});
+	public moveLayerObject(
+		layerId: string,
+		objectId: string,
+		toIndex: number,
+		batchId?: string
+	): void {
+		this.historyManager.execute(moveLayerObject, 'layers', { layerId, objectId, toIndex }, batchId);
 	}
 
-	public insertLayerAtIndex(index: number, layer: ILayer): void {
-		const reindexed = this.layers.insertLayerAtIndex(layer, index);
-
-		this.bus.emit('layer::create::response', {
-			id: layer.id,
-			name: layer.name,
-			index: layer.index,
-			opts: layer.opts
-		});
-		if (reindexed && reindexed.length > 0) {
-			this.bus.emit('layers::update::response', reindexed);
-		}
-
-		const tiles = layer.queryAllTiles();
-		for (const tile of tiles) {
-			this.bus.emit('layer::tile::change', { ...tile, layerId: layer.id });
-		}
-		this.proxyLayerEvents(layer);
+	public removeLayerObject(layerId: string, objectId: string): void {
+		this.historyManager.execute(removeLayerObject, 'layers', { layerId, objectId });
 	}
 
-	public ensureLayer(): LayerApi {
+	public renameObject(layerId: string, objectId: string, name: string): void {
+		const composition = this.getLayerComposition(layerId);
+		if (composition.length === 0) return;
+		const existsInComposition = composition.some((l) => !!l.getObjectById(objectId));
+		if (!existsInComposition) return;
+		this.historyManager.execute(renameLayerObject, 'layers', { layerId, objectId, name });
+	}
+
+	public renameLayerObject(layerId: string, objectId: string, name: string): void {
+		this.renameObject(layerId, objectId, name);
+	}
+
+	public ensureLayer(): LayerController {
 		let activeLayer = this.getLayer(this.getActiveLayerKey() || '');
-		if (!activeLayer) {
-			const command = new CreateAndActivateLayerCommand(
-				this.internalOps(),
-				this.historyManager,
-				this.bus
-			);
-			const { layer } = command.execute();
-			this.proxyLayerEvents(layer);
-
-			activeLayer = this._getLayerApi(layer);
-		}
+		if (!activeLayer) activeLayer = this.addLayer()[1];
 		return activeLayer!;
 	}
 
-	public addTempLayer(sourceLayerId?: string): [string, ILayer] {
-		const idToUse = sourceLayerId ?? this.layers.getActiveLayerKey();
+	public addTempLayer(sourceLayerId: string): [string, LayerController] {
+		const idToUse = sourceLayerId;
 		const [id, tempLayer] = this.layerFactory.createTempLayer();
+
 		this.proxyTempLayerEvents(tempLayer);
-		if (idToUse) {
-			const sourceLayer = this.layers.getLayerById(idToUse);
-			if (!sourceLayer) {
-				throw new Error(`addTempLayer failed: Source layer with id ${idToUse} not found.`);
-			}
-			tempLayer.updateIndex(sourceLayer.index);
-			this.tempLayerAssociations.set(id, idToUse);
-		} else {
-			const mainLayers = this.layers.getSortedLayers();
-			const topIndex = mainLayers.length > 0 ? mainLayers[mainLayers.length - 1].index + 1 : 0;
-			tempLayer.updateIndex(topIndex);
+
+		const sourceLayer = this.layers.getLayerById(idToUse);
+		if (!sourceLayer) {
+			throw new Error(`addTempLayer failed: Source layer with id ${idToUse} not found.`);
 		}
 
+		tempLayer.update({ index: sourceLayer.index });
 		this.tempLayers.addLayer(tempLayer);
-		return [id, new LayerApi(tempLayer as Layer, this)];
+
+		this.tempLayerAssociations.set(id, idToUse);
+		this.emit('temp_layer::added', { layer: tempLayer as Layer });
+
+		return [id, new LayerController(tempLayer as Layer, this)];
+	}
+
+	public addOverlayTempLayer(index?: number): [string, LayerController] {
+		const [id, tempLayer] = this.layerFactory.createTempLayer();
+		this.proxyTempLayerEvents(tempLayer);
+		if (typeof index === 'number') tempLayer.update({ index });
+		this.tempLayers.addLayer(tempLayer);
+		this.emit('temp_layer::added', { layer: tempLayer as Layer });
+		return [id, new LayerController(tempLayer as Layer, this)];
 	}
 
 	public removeTempLayer(id: string): void {
 		const layer = this.tempLayers.getLayerById(id);
 		if (layer) {
 			this.tempLayers.removeLayer(id);
-			layer.emit('changed');
 			this.unproxyTempLayerEvents(layer);
 
 			this.tempLayerAssociations.delete(id);
+			this.emit('temp_layer::removed', { id });
 		}
 	}
 
-	public getLayerComposition(layerId: string): ILayer[] {
+	public _attachTempLayerInternal(realLayerId: string): [string, LayerController] {
+		return this.addTempLayer(realLayerId);
+	}
+
+	public getAttachedTempLayers(realLayerId: string): string[] {
+		const ids: string[] = [];
+		for (const [tempId, sourceId] of this.tempLayerAssociations.entries()) {
+			if (sourceId === realLayerId) ids.push(tempId);
+		}
+		return ids;
+	}
+
+	public getLayerComposition(layerId: string): Layer[] {
 		const baseLayer = this.layers.getLayerById(layerId) || this.tempLayers.getLayerById(layerId);
 		if (!baseLayer) return [];
 
-		const composition: ILayer[] = [baseLayer];
+		const composition: Layer[] = [baseLayer];
 		for (const [tempId, sourceId] of this.tempLayerAssociations.entries()) {
 			if (sourceId === layerId) {
 				const tempLayer = this.tempLayers.getLayerById(tempId);
@@ -261,20 +297,24 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		return composition;
 	}
 
-	public _getLayerApi(layer: ILayer | null) {
+	public _getLayerController(layer: Layer | null) {
 		if (!layer) return null;
-		return new LayerApi(layer as Layer, this);
+		return new LayerController(layer as Layer, this);
+	}
+
+	public getRealLayer(key: string) {
+		return this.layers.getLayerById(key) || null;
 	}
 
 	public getLayer(key: string) {
-		return this._getLayerApi(this.layers.getLayerById(key) || null);
+		return this._getLayerController(this.layers.getLayerById(key) || null);
 	}
 
-	public getTempOrRealLayer(key: string) {
+	public getTempOrRealLayer(key: string): Layer | null {
 		return this.layers.getLayerById(key) || this.tempLayers.getLayerById(key) || null;
 	}
 
-	public getTempLayer(key: string) {
+	public _getTempLayerInternal(key: string) {
 		return this.tempLayers.getLayerById(key) || null;
 	}
 
@@ -282,11 +322,11 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		return [...this.layers.getSortedLayers()];
 	}
 
-	public getTempLayers() {
+	public _getTempLayersInternal() {
 		return [...this.tempLayers.getSortedLayers()];
 	}
 
-	public getActiveLayer(): LayerApi | null {
+	public getActiveLayer(): LayerController | null {
 		return this.getLayer(this.getActiveLayerKey() || '');
 	}
 
@@ -299,6 +339,12 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	}
 
 	public clearTempLayers(): void {
+		const ids = this._getTempLayersInternal().map((l) => l.id);
+		for (const id of ids) this.removeTempLayer(id);
+		this.tempLayerAssociations.clear();
+	}
+
+	public _clearTempLayersInternal(): void {
 		this.tempLayers.clear();
 	}
 
@@ -341,8 +387,8 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 		const realLayers = this.layers.getSortedLayers();
 		const tempLayers = this.tempLayers.getSortedLayers();
 
-		const visibleReal = realLayers.filter((layer: ILayer) => layer.getOpts().visible);
-		const visibleTemp = tempLayers.filter((layer: ILayer) => layer.getOpts().visible);
+		const visibleReal = realLayers.filter((layer: Layer) => layer.getOpts().visible);
+		const visibleTemp = tempLayers.filter((layer: Layer) => layer.getOpts().visible);
 
 		const combined = [...visibleReal, ...visibleTemp];
 
@@ -372,29 +418,5 @@ export class LayersManager extends EventEmitter<LayersManagerIEvents> implements
 	public getVisibleTempLayers() {
 		const allLayers = [...this.tempLayers.getSortedLayers()];
 		return allLayers.filter((layer) => layer.getOpts().visible);
-	}
-
-	public deserializeLayer(layer: LayerSerializableSchemaType) {
-		return this.layerSerializer.deserialize(layer);
-	}
-
-	public getBus(): BaseBusLayers {
-		return this.bus;
-	}
-
-	public createLayer({
-		id,
-		name,
-		index,
-		opts,
-		tileMap
-	}: {
-		id: string;
-		index: number;
-		name: string;
-		opts: LayerConfig;
-		tileMap: ITileMap;
-	}): ILayer {
-		return this.layerFactory.newLayer({ id, name, index, opts, tileMap });
 	}
 }

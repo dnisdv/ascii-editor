@@ -3,7 +3,7 @@ export type ListenerFunction = (...args: unknown[]) => void;
 
 export type MetaData = Record<string, unknown> & { reason?: string };
 
-export interface IEventEmitter<T extends Record<EventName, unknown> = Record<EventName, unknown>> {
+export interface IEventEmitter<T> {
 	on<K extends keyof T>(
 		event: K,
 		fn: (data: T[K], meta?: MetaData) => void,
@@ -23,3 +23,7 @@ export interface IEventEmitter<T extends Record<EventName, unknown> = Record<Eve
 	listenerCount(event: keyof T): number;
 	listeners(event: keyof T): Array<(data: T[keyof T], meta?: MetaData) => void>;
 }
+
+export type PrefixedEvents<T, P extends string = '', E = object> = {
+	[K in keyof T as `${P}${string & K}`]: T[K] & E;
+};

@@ -1,12 +1,11 @@
+import { worldToCell } from '@editor/utils';
+import { SelectionMode } from '@editor/select/selection-mode';
 import { SelectionModeName, type ISelectionMode, type SelectingModePayload } from './modes.type';
+import { createCellRectangle, type CellRectangle, type ICamera } from '@editor/types';
 import type { SelectionModeContext } from './selection-mode-ctx';
-import type { ICamera } from '@editor/types';
-import type { SelectionSessionManager } from '../session/selection-session-manager';
-import { PopulateRegionCommand } from '../session/commands/populateRegion.cmd';
-import { CommitSessionCommand } from '../session/commands/commitSession.cmd';
-import { CreateAndReplaceSessionCommand } from '../session/commands/createAndReplaceSession.cmd';
 import type { SelectionRenderer } from '../renderer/selection-renderer';
 import type { CoreApi } from '@editor/core';
+import type { SelectionManager } from '@editor/select/selection-manager';
 
 export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING> {
 	readonly name = SelectionModeName.SELECTING;
@@ -16,7 +15,7 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
 
 	constructor(
 		private coreApi: CoreApi,
-		private selectionSessionManager: SelectionSessionManager,
+		private selectionManager: SelectionManager,
 		private selectionRender: SelectionRenderer
 	) {
 		this.camera = coreApi.getCamera();
@@ -27,27 +26,20 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
 	}
 
 	onEnter(_: SelectionModeContext, payload: SelectingModePayload): void {
-		this.selectionSessionManager.executeCommand(new CommitSessionCommand(this.coreApi));
-
 		const {
 			mouseDownEvent: { clientX, clientY }
 		} = payload;
 		const pos = this.camera.getMousePosition({ x: clientX, y: clientY });
 		this.startPoint = this.camera.screenToWorld(pos.x, pos.y);
-
-		this.selectionSessionManager.executeCommand(new CreateAndReplaceSessionCommand());
-		const activeSession = this.selectionSessionManager.getActiveSession();
-		if (activeSession) {
-			activeSession.updateSelectedRegion({
-				startX: this.startPoint.x,
-				startY: this.startPoint.y,
-				width: 0,
-				height: 0
-			});
-		}
+		this.selectionRender.setSelectionRectangle({ ...this.startPoint, width: 0, height: 0 });
 	}
-	onExit(): void { }
-	handleMouseDown(): void { }
+
+	onExit(): void {
+		this.startPoint = null;
+		this.selectionRender.setSelectionRectangle(null);
+	}
+
+	handleMouseDown(): void {}
 
 	handleMouseMove(event: MouseEvent) {
 		if (this.startPoint === null) return;
@@ -55,54 +47,57 @@ export class SelectingMode implements ISelectionMode<SelectionModeName.SELECTING
 		const { clientX, clientY } = event;
 		const pos = this.camera.getMousePosition({ x: clientX, y: clientY });
 		const endPoint = this.camera.screenToWorld(pos.x, pos.y);
-
-		const activeSession = this.selectionSessionManager.getActiveSession();
-		if (!activeSession) return;
-
-		activeSession.updateSelectedRegion({
-			startX: this.startPoint.x,
-			startY: this.startPoint.y,
+		const currentRect = {
+			x: this.startPoint.x,
+			y: this.startPoint.y,
 			width: endPoint.x - this.startPoint.x,
 			height: endPoint.y - this.startPoint.y
-		});
+		};
+		this.selectionRender.setSelectionRectangle(currentRect);
 	}
 
-
 	handleMouseUp(event: MouseEvent, context: SelectionModeContext): void {
-		this.selectionRender.clear();
+		const activeLayer = this.coreApi.getLayersManager().getActiveLayer();
+		const selectionRect = this.selectionRender.selectionRect;
 
-		if (context.isRestrictedMode()) {
+		if (!activeLayer || !selectionRect) {
+			if (this.selectionManager.getActiveSession()) {
+				this.selectionManager.commitSelection();
+			}
 			context.transitionTo(SelectionModeName.IDLE);
 			return;
 		}
 
-		this.selectionSessionManager.executeCommand(new CreateAndReplaceSessionCommand());
-
-		const { clientX, clientY } = event;
-		const mousePos = this.camera.getMousePosition({ x: clientX, y: clientY });
-		const endPoint = this.camera.screenToWorld(mousePos.x, mousePos.y);
-		const layerId = this.coreApi.getLayersManager().getActiveLayer()?.id;
-
-		this.selectionSessionManager.executeCommandOnActiveSession(
-			new PopulateRegionCommand(
-				this.coreApi,
-				{
-					x: this.startPoint!.x,
-					y: this.startPoint!.y,
-					width: endPoint.x - this.startPoint!.x,
-					height: endPoint.y - this.startPoint!.y
-				},
-				layerId!
-			)
+		const { width: charWidth, height: charHeight } = this.coreApi
+			.getFontManager()
+			.getMetrics().dimensions;
+		const cellStart = worldToCell({ charWidth, charHeight }, selectionRect.x, selectionRect.y);
+		const cellEnd = worldToCell(
+			{ charWidth, charHeight },
+			selectionRect.x + selectionRect.width,
+			selectionRect.y + selectionRect.height
 		);
 
-		const activeSession = this.selectionSessionManager.getActiveSession();
+		const normalizedRect: CellRectangle = createCellRectangle({
+			cellX: cellStart.x,
+			cellY: cellStart.y,
+			width: cellEnd.x - cellStart.x + 1,
+			height: cellEnd.y - cellStart.y + 1
+		});
 
-		if (activeSession?.isEmpty()) {
-			context.transitionTo(SelectionModeName.IDLE);
-			return;
+		let selectionMode = SelectionMode.SET;
+		if (event.shiftKey) {
+			selectionMode = SelectionMode.ADD;
+		} else if (event.ctrlKey) {
+			selectionMode = SelectionMode.SUBTRACT;
 		}
 
-		context.transitionTo(SelectionModeName.SELECTED);
+		const selectionMade = this.selectionManager.selectRegion(normalizedRect, selectionMode);
+
+		if (selectionMade) {
+			context.transitionTo(SelectionModeName.SELECTED);
+		} else {
+			context.transitionTo(SelectionModeName.IDLE);
+		}
 	}
 }

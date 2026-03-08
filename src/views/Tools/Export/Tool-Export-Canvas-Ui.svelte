@@ -67,9 +67,6 @@
 
 		const toolManager = core.getToolManager();
 		isExportToolActive.set(toolManager.getActiveToolName() === 'export');
-		toolManager.on('tool::activate', ({ name }) => {
-			isExportToolActive.set(name === 'export');
-		});
 
 		updateUiPosition();
 		toolExport.selectionSessionManager.on('session::region_updated', updateUiPosition);
@@ -80,8 +77,8 @@
 		camera.on('change', updateUiPosition);
 	});
 
-	function handleCopy() {
-		toolExport.handleExportCopy();
+	function handleCopy(mode: 'basic' | 'extended' = 'extended') {
+		toolExport.handleExportCopy(undefined, mode);
 	}
 
 	function handleClose() {
@@ -110,11 +107,12 @@
 							><ThemeIcon name="3dots-horizontal" /></Button
 						>
 					</DropdownMenu.Trigger>
-					<DropdownMenu.Content class="w-48" align="start">
-						<DropdownMenu.Item on:click={handleCopy}>
-							Copy Area
+					<DropdownMenu.Content class="w-56" align="start">
+						<DropdownMenu.Item on:click={() => handleCopy('extended')}>
+							Copy Extended
 							<DropdownMenu.Shortcut>Ctrl+Shift+C</DropdownMenu.Shortcut>
 						</DropdownMenu.Item>
+						<DropdownMenu.Item on:click={() => handleCopy('basic')}>Copy Basic</DropdownMenu.Item>
 						<DropdownMenu.Item on:click={handleClose}>
 							Close
 							<DropdownMenu.Shortcut>Esc</DropdownMenu.Shortcut>
@@ -122,17 +120,25 @@
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 			{:else}
-				<Button
-					on:click={handleCopy}
-					variant="default"
-					class="z-10 flex gap-1.5 bg-primary-export text-xs hover:bg-primary-export/90"
-					size="xxs"
-				>
-					Copy Area
-					{#if !$cq.hideShortcut}
-						<span class="opacity-50">Ctrl+Shift+C</span>
-					{/if}
-				</Button>
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						<Button
+							variant="default"
+							class="z-10 flex gap-1.5 bg-primary-export text-xs hover:bg-primary-export/90"
+							size="xxs"
+						>
+							Copy Area
+							<ThemeIcon name="arrow-down" size={12} />
+						</Button>
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content class="w-56" align="start">
+						<DropdownMenu.Item on:click={() => handleCopy('extended')}>
+							Copy Extended
+							<DropdownMenu.Shortcut>Ctrl+Shift+C</DropdownMenu.Shortcut>
+						</DropdownMenu.Item>
+						<DropdownMenu.Item on:click={() => handleCopy('basic')}>Copy Basic</DropdownMenu.Item>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 
 				{#if $cq.closeIconOnly}
 					<Button variant="secondary" size="icon-xxs"><ThemeIcon size={16} name="x" /></Button>

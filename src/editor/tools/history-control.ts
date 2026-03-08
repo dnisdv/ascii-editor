@@ -8,7 +8,6 @@ export class HistoryControlTool extends BaseTool implements ITool {
 
 	constructor(protected coreApi: CoreApi) {
 		super({
-			bus: coreApi.getBusManager(),
 			name: 'history-control',
 			isVisible: false,
 			config: {},

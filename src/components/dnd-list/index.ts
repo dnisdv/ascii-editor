@@ -22,8 +22,10 @@ export interface DndListEvents {
 export interface DndListCtx {
 	registerItem: (item: unknown) => (callback: (index: number) => void) => () => void;
 	unregisterItem: (item: unknown) => void;
+	updateItem: (item: unknown) => void;
 	startDrag: (item: unknown, index: number, e: MouseEvent) => void;
 	dragState: Writable<DragState>;
+	registerItemHeight: (id: string, height: number) => void;
 }
 
 export interface DragState {

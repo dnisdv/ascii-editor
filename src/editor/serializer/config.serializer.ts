@@ -4,9 +4,9 @@ import type { ConfigSerializableSchemaType } from './';
 export class ConfigSerializer {
 	constructor(private config: Config) {}
 
-	serialize(config: Config): ConfigSerializableSchemaType {
+	serialize(): ConfigSerializableSchemaType {
 		return {
-			tileSize: config.tileSize
+			tileSize: this.config.tileSize
 		};
 	}
 

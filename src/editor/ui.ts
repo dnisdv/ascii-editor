@@ -3,10 +3,11 @@ import { Ascii } from './canvas/ascii';
 import { Select } from './canvas/select';
 import type { CanvasKit } from 'canvaskit-wasm';
 import type { Config } from './config';
-import type { ICamera, ILayersManager } from './types';
+import type { ICamera } from './types';
 import type { FontManager } from './font-manager';
 import type { RenderManager } from './render-manager';
 import { AsciiStrategyFactory } from './canvas/strategies/strategy-factory';
+import type { LayersManager } from './layers/layers-manager';
 
 type IUI = {
 	gridCanvasElement: HTMLCanvasElement;
@@ -15,7 +16,7 @@ type IUI = {
 	canvasKitInstance: CanvasKit;
 	config: Config;
 	camera: ICamera;
-	layersManager: ILayersManager;
+	layersManager: LayersManager;
 	fontManager: FontManager;
 	renderManager: RenderManager;
 };
@@ -33,7 +34,7 @@ export class UI {
 
 	private camera: ICamera;
 	private config: Config;
-	private layersManager: ILayersManager;
+	private layersManager: LayersManager;
 	private fontManager: FontManager;
 	private renderManager: RenderManager;
 
@@ -72,11 +73,19 @@ export class UI {
 	}
 
 	public resizeCanvases() {
-		this.grid.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.gridCanvasElement)!);
-		this.select.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.selectCanvasElement)!);
-		this.ascii.updateSurface(this.canvasKit.MakeWebGLCanvasSurface(this.asciiCanvasElement)!);
+		try {
+			const gridSurface = this.canvasKit.MakeWebGLCanvasSurface(this.gridCanvasElement);
+			const selectSurface = this.canvasKit.MakeWebGLCanvasSurface(this.selectCanvasElement);
+			const asciiSurface = this.canvasKit.MakeWebGLCanvasSurface(this.asciiCanvasElement);
 
-		this.renderManager.requestRenderAll();
+			if (gridSurface) this.grid.updateSurface(gridSurface);
+			if (selectSurface) this.select.updateSurface(selectSurface);
+			if (asciiSurface) this.ascii.updateSurface(asciiSurface);
+
+			this.renderManager.requestRenderAll();
+		} catch (e) {
+			console.error('Failed to resize canvases', e);
+		}
 	}
 
 	public getGridCanvas() {
@@ -87,6 +96,11 @@ export class UI {
 	}
 	public getSelectCanvas() {
 		return this.select;
+	}
+
+	public toggleGrid(visible: boolean) {
+		this.gridCanvasElement.style.display = visible ? 'block' : 'none';
+		this.renderManager.requestRenderAll();
 	}
 
 	private onConfigChanged() {

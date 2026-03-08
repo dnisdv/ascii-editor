@@ -1,14 +1,12 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { svelteStoreEnhancer } from './sveltestore';
 
-import layersReducer from './slices/layers/layers.slice';
-import toolsReducer from './slices/tools/tool.slice';
 import documentReducer from './slices/document/document.slice';
+import uiReducer from './slices/ui/ui.slice';
 
 const rootReducer = combineReducers({
-	layers: layersReducer,
-	tools: toolsReducer,
-	document: documentReducer
+	document: documentReducer,
+	ui: uiReducer
 });
 
 export type RootState = ReturnType<typeof rootReducer>;

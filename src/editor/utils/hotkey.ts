@@ -17,7 +17,10 @@ export class VimKeyMapper {
 		less: '<',
 		lesser: '<',
 		gt: '>',
-		greater: '>'
+		greater: '>',
+		backslash: '\\',
+		quote: "'",
+		apostrophe: "'"
 	};
 
 	public static normalizeKeyEvent(event: KeyboardEvent): string {

@@ -1,9 +1,9 @@
 import type { ILayersManagerInternalOps } from '../layers-manager';
-import type { DeepPartial, ILayerModel, LayerSerializer } from '@editor/types';
+import type { DeepPartial, LayerSerializer } from '@editor/types';
 import type { LayerFactory } from '../layer-factory';
 import type { LayersListManager } from '../layer-list-manager';
 import type { HistoryManager } from '@editor/history-manager';
-import type { BaseBusLayers } from '@editor/bus-layers';
+import type { ILayerModel } from '@editor/types/external/layer-model';
 
 export class updateLayerCommand {
 	layerFactory: LayerFactory;
@@ -12,8 +12,7 @@ export class updateLayerCommand {
 
 	constructor(
 		private managerOps: ILayersManagerInternalOps,
-		private historyManager: HistoryManager,
-		private bus: BaseBusLayers
+		private historyManager: HistoryManager
 	) {
 		this.layerFactory = this.managerOps.getLayersFactory();
 		this.layerSerializer = this.managerOps.getLayerSerializer();
@@ -25,15 +24,7 @@ export class updateLayerCommand {
 		if (!beforeLayer) return;
 
 		const beforeData = this.layerSerializer.serialize(beforeLayer);
-
-		const res = this.layersListManager.updateLayer(id, updates);
-		if (res.success && res.beforeAfter) {
-			this.bus.emit('layer::update::response', res.beforeAfter.after);
-		}
-
-		if (res.reindexed) {
-			this.bus.emit('layers::update::response', res.reindexed);
-		}
+		this.layersListManager.updateLayer(id, updates);
 
 		this.historyManager.applyAction(
 			{
@@ -45,6 +36,6 @@ export class updateLayerCommand {
 			{ applyAction: false }
 		);
 
-		this.managerOps.emit('layer::update::model');
+		this.managerOps.emit('layer::updated');
 	}
 }

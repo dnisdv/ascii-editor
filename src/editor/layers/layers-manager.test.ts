@@ -1,23 +1,27 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { LayersManager } from './layers-manager';
 import { HistoryManager } from '@editor/history-manager';
-import { BaseBusLayers } from '@editor/bus-layers';
 import { Config } from '@editor/config';
 import { LayerSerializer } from '@editor/serializer/layer.serializer';
+import { SmartObjectsManager } from '@editor/smart-objects-manager';
+import { MockSmartObject } from '@editor/__mock__/smart-object';
 
 describe('LayersManager', () => {
 	let layersManager: LayersManager;
 	let historyManager: HistoryManager;
-	let layersBus: BaseBusLayers;
-	let config: Config;
 	let layerSerializer: LayerSerializer;
+	let config: Config;
 
 	beforeEach(() => {
-		layersBus = new BaseBusLayers();
 		config = new Config();
 		historyManager = new HistoryManager();
-		layersManager = new LayersManager({ layersBus, config, historyManager });
-		layerSerializer = new LayerSerializer({ layersBus });
+
+		const smartObjectsManager = new SmartObjectsManager(config);
+		smartObjectsManager.register(MockSmartObject.type, MockSmartObject);
+
+		layerSerializer = new LayerSerializer(smartObjectsManager, config);
+		layersManager = new LayersManager({ config, historyManager, layerSerializer });
+
 		vi.restoreAllMocks();
 	});
 
@@ -32,10 +36,18 @@ describe('LayersManager', () => {
 			expect(layersManager.getActiveLayerKey()).toBeNull();
 			expect(layersManager.getActiveLayer()).toBeNull();
 		});
+
+		it('ensureLayer creates a layer when none exists and returns the active layer', () => {
+			expect(layersManager.getLayers()).toHaveLength(0);
+			const layer = layersManager.ensureLayer();
+			expect(layer).toBeTruthy();
+			expect(layersManager.getLayers()).toHaveLength(1);
+			expect(layersManager.getActiveLayerKey()).toBe(layer.id);
+		});
 	});
 
-	describe('Core Layer Management Behaviors', () => {
-		it('should add new layers, make the latest one active, and assign correct indices', () => {
+	describe('Core Layer Management', () => {
+		it('should add layers and make the latest added one active', () => {
 			const [id1, layer1] = layersManager.addLayer();
 			expect(layersManager.getLayers().length).toBe(1);
 			expect(layersManager.getActiveLayerKey()).toBe(id1);
@@ -48,531 +60,577 @@ describe('LayersManager', () => {
 			expect(layer2.index).toBe(1);
 		});
 
-		describe('Layer Removal Scenarios and Active Layer Adjustments', () => {
-			let id1: string, id2: string, id3: string, id4: string;
-
-			beforeEach(() => {
-				[id1] = layersManager.addLayer();
-				[id2] = layersManager.addLayer();
-				[id3] = layersManager.addLayer();
-				[id4] = layersManager.addLayer();
-				layersManager.setActiveLayer(id2);
-			});
-
-			it('should activate the next layer when an active middle layer is removed', () => {
-				layersManager.removeLayer(id2);
-				expect(layersManager.getLayers().map((l) => l.id)).toEqual([id1, id3, id4]);
-				expect(layersManager.getLayer(id2)).toBeNull();
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-			});
-
-			it('should keep the current active layer if a non-active first layer is removed', () => {
-				layersManager.removeLayer(id1);
-				expect(layersManager.getLayers().map((l) => l.id)).toEqual([id2, id3, id4]);
-				expect(layersManager.getLayer(id1)).toBeNull();
-				expect(layersManager.getActiveLayerKey()).toBe(id2);
-			});
-
-			it('should activate the next layer when an active first layer is removed', () => {
-				layersManager.setActiveLayer(id1);
-				layersManager.removeLayer(id1);
-				expect(layersManager.getLayers().map((l) => l.id)).toEqual([id2, id3, id4]);
-				expect(layersManager.getActiveLayerKey()).toBe(id2);
-			});
-
-			it('should keep the current active layer if a non-active last layer is removed', () => {
-				layersManager.removeLayer(id4);
-				expect(layersManager.getLayers().map((l) => l.id)).toEqual([id1, id2, id3]);
-				expect(layersManager.getLayer(id4)).toBeNull();
-				expect(layersManager.getActiveLayerKey()).toBe(id2);
-			});
-
-			it('should activate the new last layer when an active last layer is removed', () => {
-				layersManager.setActiveLayer(id4);
-				layersManager.removeLayer(id4);
-				expect(layersManager.getLayers().map((l) => l.id)).toEqual([id1, id2, id3]);
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-			});
-
-			it('should have no active layer after removing the only existing layer', () => {
-				layersManager.clearLayers();
-				const [soleId] = layersManager.addLayer();
-				layersManager.removeLayer(soleId);
-				expect(layersManager.getLayers().length).toBe(0);
-				expect(layersManager.getActiveLayerKey()).toBeNull();
-			});
-
-			it('should not change layer list or active layer if attempting to remove a non-existent layer', () => {
-				const initialLayers = layersManager.getLayers().map((l) => l.id);
-				const initialActiveKey = layersManager.getActiveLayerKey();
-				layersManager.removeLayer('non-existent-id');
-				expect(layersManager.getLayers().map((l) => l.id)).toEqual(initialLayers);
-				expect(layersManager.getActiveLayerKey()).toBe(initialActiveKey);
-			});
-		});
-
-		describe('Setting the Active Layer', () => {
-			it('should change the active layer to the specified layer ID', () => {
-				const [id1] = layersManager.addLayer();
-				layersManager.addLayer();
-
-				layersManager.setActiveLayer(id1);
-				expect(layersManager.getActiveLayerKey()).toBe(id1);
-			});
-
-			it('should not change active layer if the specified layer is already active', () => {
-				const [id1] = layersManager.addLayer();
-				layersManager.setActiveLayer(id1);
-				expect(layersManager.getActiveLayerKey()).toBe(id1);
-			});
-
-			it('should not change active layer if attempting to activate a non-existent layer', () => {
-				const [id1] = layersManager.addLayer();
-				layersManager.setActiveLayer('non-existent-id');
-				expect(layersManager.getActiveLayerKey()).toBe(id1);
-			});
-		});
-
-		describe('Updating Layer Properties', () => {
-			it('should update the name of a specified layer', () => {
-				const [id1] = layersManager.addLayer();
-				const newName = 'Updated Layer Name';
-				layersManager.updateLayer(id1, { name: newName });
-				expect(layersManager.getLayer(id1)?.name).toBe(newName);
-			});
-
-			it('should update the visibility option of a specified layer', () => {
-				const [id1] = layersManager.addLayer();
-				expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(true);
-				layersManager.updateLayer(id1, { opts: { visible: false } });
-				expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(false);
-			});
-
-			it('should update the locked option of a specified layer', () => {
-				const [id1] = layersManager.addLayer();
-				expect(layersManager.getLayer(id1)?.getOpts().locked).toBe(false);
-				layersManager.updateLayer(id1, { opts: { locked: true } });
-				expect(layersManager.getLayer(id1)?.getOpts().locked).toBe(true);
-			});
-
-			it('should update the index of a layer and correctly reorder the layer list', () => {
-				const [id1] = layersManager.addLayer();
-				const [id2] = layersManager.addLayer();
-				const [id3] = layersManager.addLayer();
-
-				layersManager.updateLayer(id1, { index: 2 });
-				const layers = layersManager.getLayers();
-				expect(layers.map((l) => l.id)).toEqual([id2, id3, id1]);
-				expect(layersManager.getLayer(id1)?.index).toBe(2);
-				expect(layersManager.getLayer(id2)?.index).toBe(0);
-				expect(layersManager.getLayer(id3)?.index).toBe(1);
-			});
-
-			it('should not modify any layer if attempting to update a non-existent layer', () => {
-				const [id1] = layersManager.addLayer();
-				const originalName = layersManager.getLayer(id1)?.name;
-				layersManager.updateLayer('non-existent-id', { name: 'Should Not Apply' });
-				expect(layersManager.getLayer(id1)?.name).toBe(originalName);
-				expect(layersManager.getLayers().length).toBe(1);
-			});
-
-			it('should not modify a layer if an empty update object is provided', () => {
-				const [id1] = layersManager.addLayer();
-				const originalLayerState = layerSerializer.serialize(layersManager.getLayer(id1)!);
-				layersManager.updateLayer(id1, {});
-				const newLayerState = layerSerializer.serialize(layersManager.getLayer(id1)!);
-				expect(newLayerState).toEqual(originalLayerState);
-			});
-		});
-	});
-
-	describe('Bus Event Emission for Core Layer Operations', () => {
-		it('should emit creation and active change events when a layer is added', () => {
-			const busSpy = vi.spyOn(layersBus, 'emit');
-			const [layerId, layerInstance] = layersManager.addLayer();
-
-			expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: layerId });
-			expect(busSpy).toHaveBeenCalledWith(
-				'layer::create::response',
-				expect.objectContaining({ id: layerId, name: layerInstance.name, index: 0 })
-			);
-		});
-
-		describe('Bus Events During Layer Removal', () => {
-			let id1: string, id2: string, id3: string;
-			beforeEach(() => {
-				[id1] = layersManager.addLayer();
-				[id2] = layersManager.addLayer();
-				[id3] = layersManager.addLayer();
-			});
-
-			it('should emit removal and new active layer (next) events when an active middle layer is removed', () => {
-				layersManager.setActiveLayer(id2);
-				const busSpy = vi.spyOn(layersBus, 'emit');
-				layersManager.removeLayer(id2);
-				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id2 });
-				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id3 });
-			});
-
-			it('should emit removal and new active layer (next) events when an active first layer is removed', () => {
-				layersManager.setActiveLayer(id1);
-				const busSpy = vi.spyOn(layersBus, 'emit');
-				layersManager.removeLayer(id1);
-				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id1 });
-				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
-			});
-
-			it('should emit removal and new active layer (previous) events when an active last layer is removed', () => {
-				const busSpy = vi.spyOn(layersBus, 'emit');
-				layersManager.removeLayer(id3);
-				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id3 });
-				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
-			});
-
-			it('should emit removal event but not active change if the removed layer was not active', () => {
-				const busSpy = vi.spyOn(layersBus, 'emit');
-				layersManager.removeLayer(id1);
-				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: id1 });
-				expect(busSpy).not.toHaveBeenCalledWith(
-					'layer::change_active::response',
-					{ id: id1 },
-					expect.anything()
-				);
-			});
-
-			it('should emit removal and null active layer events when the only layer is removed', () => {
-				layersManager.clearLayers();
-				const [id] = layersManager.addLayer();
-				const busSpy = vi.spyOn(layersBus, 'emit');
-
-				layersManager.removeLayer(id);
-
-				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id });
-				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null });
-			});
-		});
-
-		it('should not emit active change event when setting an active layer that already is active', () => {
-			layersManager.addLayer();
+		it('should remove a layer and adjust the active layer accordingly', () => {
+			const [id1] = layersManager.addLayer();
 			const [id2] = layersManager.addLayer();
-			const busSpy = vi.spyOn(layersBus, 'emit');
+			const [id3] = layersManager.addLayer();
 
 			layersManager.setActiveLayer(id2);
-			expect(busSpy).not.toHaveBeenCalledWith('layer::change_active::response', { id: id2 });
+			layersManager.removeLayer(id2);
+
+			expect(layersManager.getLayers().map((l) => l.id)).toEqual([id1, id3]);
+			expect(layersManager.getLayer(id2)).toBeNull();
+			expect(layersManager.getActiveLayerKey()).toBe(id3);
 		});
 
-		it('should emit update event when a layer is updated', () => {
-			const [id1] = layersManager.addLayer();
-			const busSpy = vi.spyOn(layersBus, 'emit');
-			const newName = 'Updated Name';
-
-			layersManager.updateLayer(id1, { name: newName });
-			expect(busSpy).toHaveBeenCalledWith(
-				'layer::update::response',
-				expect.objectContaining({ id: id1, name: newName })
-			);
-		});
-	});
-
-	describe('Internal Event Emission for Core Layer Operations', () => {
-		it('should emit an internal active change event when the active layer is changed', () => {
-			const [id1] = layersManager.addLayer();
+		it('should remove the last layer and set active to the previous one', () => {
+			layersManager.addLayer();
 			const [id2] = layersManager.addLayer();
+			const [id3] = layersManager.addLayer();
 
-			const managerEventSpy = vi.spyOn(layersManager, 'emit');
+			layersManager.setActiveLayer(id3);
+			layersManager.removeLayer(id3);
 
-			layersManager.setActiveLayer(id1);
-			expect(managerEventSpy).toHaveBeenCalledWith('layers::active::change', {
-				oldId: id2,
-				newId: id1
-			});
+			expect(layersManager.getActiveLayerKey()).toBe(id2);
 		});
 
-		it('should not emit an internal active change event even if re-activating the same layer', () => {
-			const [id1] = layersManager.addLayer();
-
-			const managerEventSpy = vi.spyOn(layersManager, 'emit');
-			layersManager.setActiveLayer(id1);
-			expect(managerEventSpy).not.toHaveBeenCalledWith('layers::active::change', {
-				oldId: id1,
-				newId: id1
-			});
-		});
-
-		it('should emit an internal update event when a layer is updated', () => {
-			const [id1] = layersManager.addLayer();
-
-			const managerEventSpy = vi.spyOn(layersManager, 'emit');
-			const newName = 'Updated Name';
-
-			layersManager.updateLayer(id1, { name: newName });
-
-			expect(managerEventSpy).toHaveBeenCalledWith('layer::update::model');
-			expect(managerEventSpy).toHaveBeenCalledTimes(1);
+		it('should have no active layer after removing the only layer', () => {
+			const [soleId] = layersManager.addLayer();
+			layersManager.removeLayer(soleId);
+			expect(layersManager.getLayers().length).toBe(0);
+			expect(layersManager.getActiveLayerKey()).toBeNull();
 		});
 	});
 
-	describe('Undo/Redo Behavior', () => {
-		it('should correctly undo and redo active layer changes', () => {
+	describe('Setting Active Layer', () => {
+		it('should correctly change the active layer', () => {
 			const [id1] = layersManager.addLayer();
 			const [id2] = layersManager.addLayer();
 
 			layersManager.setActiveLayer(id1);
 			expect(layersManager.getActiveLayerKey()).toBe(id1);
 
+			layersManager.setActiveLayer(id2);
+			expect(layersManager.getActiveLayerKey()).toBe(id2);
+		});
+
+		it('should not change active layer if the target is already active', () => {
+			const [id1] = layersManager.addLayer();
+			layersManager.setActiveLayer(id1);
+
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+		});
+	});
+
+	describe('Updating Layer Properties', () => {
+		it("should update a layer's name", () => {
+			const [id1] = layersManager.addLayer();
+			const newName = 'Updated Layer Name';
+			layersManager.updateLayer(id1, { name: newName });
+			expect(layersManager.getLayer(id1)?.name).toBe(newName);
+		});
+
+		it("should update a layer's visibility", () => {
+			const [id1] = layersManager.addLayer();
+			expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(true);
+			layersManager.updateLayer(id1, { opts: { visible: false } });
+			expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(false);
+		});
+
+		it("should update a layer's index and reorder the list", () => {
+			const [id1] = layersManager.addLayer();
+			const [id2] = layersManager.addLayer();
+			const [id3] = layersManager.addLayer();
+
+			layersManager.updateLayer(id1, { index: 2 });
+			const layers = layersManager.getLayers();
+			expect(layers.map((l) => l.id)).toEqual([id2, id3, id1]);
+			expect(layersManager.getLayer(id1)?.index).toBe(2);
+			expect(layersManager.getLayer(id2)?.index).toBe(0);
+			expect(layersManager.getLayer(id3)?.index).toBe(1);
+		});
+	});
+
+	describe('Event Emission', () => {
+		it('should emit `layers::layer::added` and `layer::active::changed` when a layer is added', () => {
+			const addedSpy = vi.fn();
+			const activeChangeSpy = vi.fn();
+			layersManager.on('layer::added', addedSpy);
+			layersManager.on('layer::active::changed', activeChangeSpy);
+
+			const [id1] = layersManager.addLayer();
+
+			expect(addedSpy).toHaveBeenCalledOnce();
+			expect(addedSpy).toHaveBeenCalledWith({ layer: expect.objectContaining({ id: id1 }) });
+			expect(activeChangeSpy).toHaveBeenCalledOnce();
+			expect(activeChangeSpy).toHaveBeenCalledWith({ oldId: null, newId: id1 });
+		});
+
+		it('should emit `layer::removed` and `layer::active::changed` when an active layer is removed', () => {
+			const [id1] = layersManager.addLayer();
+			const [id2] = layersManager.addLayer();
+			layersManager.setActiveLayer(id1);
+
+			const removedSpy = vi.fn();
+			const activeChangeSpy = vi.fn();
+			layersManager.on('layer::removed', removedSpy);
+			layersManager.on('layer::active::changed', activeChangeSpy);
+
+			layersManager.removeLayer(id1);
+
+			expect(removedSpy).toHaveBeenCalledOnce();
+			expect(removedSpy).toHaveBeenCalledWith({ id: id1 });
+			expect(activeChangeSpy).toHaveBeenCalledOnce();
+			expect(activeChangeSpy).toHaveBeenCalledWith({ oldId: id1, newId: id2 });
+		});
+
+		it('should emit `layer::removed` only if the removed layer was not active', () => {
+			layersManager.addLayer();
+			const [id2] = layersManager.addLayer();
+			const [id3] = layersManager.addLayer();
+			layersManager.setActiveLayer(id3);
+
+			const removedSpy = vi.fn();
+			const activeChangeSpy = vi.fn();
+			layersManager.on('layer::removed', removedSpy);
+			layersManager.on('layer::active::changed', activeChangeSpy);
+
+			layersManager.removeLayer(id2);
+
+			expect(removedSpy).toHaveBeenCalledOnce();
+			expect(removedSpy).toHaveBeenCalledWith({ id: id2 });
+			expect(activeChangeSpy).not.toHaveBeenCalled();
+		});
+
+		it('should emit `layer::active::changed` when changing the active layer', () => {
+			const [id1] = layersManager.addLayer();
+			const [id2] = layersManager.addLayer();
+
+			const activeChangeSpy = vi.fn();
+			layersManager.on('layer::active::changed', activeChangeSpy);
+
+			layersManager.setActiveLayer(id1);
+
+			expect(activeChangeSpy).toHaveBeenCalledOnce();
+			expect(activeChangeSpy).toHaveBeenCalledWith({ oldId: id2, newId: id1 });
+		});
+
+		it('should not emit `layer::active::changed` if the active layer is changing to itself', () => {
+			const [id1] = layersManager.addLayer();
+			layersManager.setActiveLayer(id1);
+
+			const activeChangeSpy = vi.fn();
+			layersManager.on('layer::active::changed', activeChangeSpy);
+
+			layersManager.setActiveLayer(id1);
+
+			expect(activeChangeSpy).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('History', () => {
+		it('should move layer object with history and restore original orderKey on undo/redo', () => {
+			const [layerId, layer] = layersManager.addLayer();
+
+			const A = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			const B = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'B');
+			const C = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'C');
+
+			layer.addObject(A, { orderKey: 'a0a' });
+			layer.addObject(B, { orderKey: 'a0m' });
+			layer.addObject(C, { orderKey: 'a0z' });
+
+			const keyB0 = layer.getOrderKey('B')!;
+			expect(keyB0).toBe('a0m');
+			expect(layer.getObjects().map((o) => o.id)).toEqual(['default-text-grid', 'A', 'B', 'C']);
+
+			layersManager.moveLayerObject(layerId, 'B', 0);
+			expect(layer.getObjects().map((o) => o.id)[0]).toBe('B');
+			const keyB1 = layer.getOrderKey('B')!;
+			expect(keyB1).not.toBe(keyB0);
+
 			historyManager.undo();
+			expect(layer.getObjects().map((o) => o.id)).toEqual(['default-text-grid', 'A', 'B', 'C']);
+			expect(layer.getOrderKey('B')).toBe(keyB0);
+
+			historyManager.redo();
+			expect(layer.getObjects().map((o) => o.id)[0]).toBe('B');
+			expect(layer.getOrderKey('B')).toBe(keyB1);
+		});
+
+		it('should remove layer object with history and restore same orderKey on undo/redo', () => {
+			const [layerId, layer] = layersManager.addLayer();
+
+			const A = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			const B = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'B');
+
+			layer.addObject(A, { orderKey: 'a0m' });
+			layer.addObject(B, { orderKey: 'a0z' });
+
+			const keyA = layer.getOrderKey('A');
+			const indexA = layer.getIndexOfObject('A');
+			expect(keyA).toBe('a0m');
+			expect(layer.getObjects().map((o) => o.id)).toEqual(['default-text-grid', 'A', 'B']);
+
+			layersManager.removeLayerObject(layerId, 'A');
+			expect(layer.getObjectById('A')).toBeUndefined();
+			expect(layer.getObjects().map((o) => o.id)).toEqual(['default-text-grid', 'B']);
+
+			historyManager.undo();
+			expect(layer.getObjectById('A')).toBeTruthy();
+			expect(layer.getOrderKey('A')).toBe(keyA);
+			expect(layer.getIndexOfObject('A')).toBe(indexA);
+			expect(layer.getObjects().map((o) => o.id)).toEqual(['default-text-grid', 'A', 'B']);
+
+			historyManager.redo();
+			expect(layer.getObjectById('A')).toBeUndefined();
+			expect(layer.getObjects().map((o) => o.id)).toEqual(['default-text-grid', 'B']);
+		});
+
+		it('should rename layer object with history and undo/redo correctly', () => {
+			const [layerId, layer] = layersManager.addLayer();
+			const A = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			layer.addObject(A, { orderKey: 'a0m' });
+
+			const initialName = A.getName();
+			expect(initialName).toBeTruthy();
+
+			layersManager.renameLayerObject(layerId, 'A', 'Renamed');
+			expect(A.getName()).toBe('Renamed');
+
+			historyManager.undo();
+			expect(A.getName()).toBe(initialName);
+
+			historyManager.redo();
+			expect(A.getName()).toBe('Renamed');
+		});
+
+		it('should rename temp layer object with history and undo/redo correctly', () => {
+			const [tempLayerId, tempLayer] = layersManager.addOverlayTempLayer();
+			const A = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			tempLayer.addObject(A, { orderKey: 'a0m' });
+
+			const initialName = A.getName();
+			expect(initialName).toBeTruthy();
+
+			layersManager.renameLayerObject(tempLayerId, 'A', 'Renamed');
+			expect(A.getName()).toBe('Renamed');
+
+			historyManager.undo();
+			expect(A.getName()).toBe(initialName);
+
+			historyManager.redo();
+			expect(A.getName()).toBe('Renamed');
+		});
+
+		it('should rename across composition (real + attached temp clone) with history', () => {
+			const [realId, real] = layersManager.addLayer();
+			const realObj = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			real.addObject(realObj, { orderKey: 'a0m' });
+
+			const [, temp] = layersManager.addTempLayer(realId);
+			const tempClone = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			temp.addOrReplaceObject(tempClone, { orderKey: 'a0a' });
+
+			const initialName = realObj.getName();
+			expect(initialName).toBeTruthy();
+			expect(tempClone.getName()).toBe(initialName);
+
+			layersManager.renameLayerObject(realId, 'A', 'Renamed');
+			expect(realObj.getName()).toBe('Renamed');
+			expect(tempClone.getName()).toBe('Renamed');
+
+			historyManager.undo();
+			expect(realObj.getName()).toBe(initialName);
+			expect(tempClone.getName()).toBe(initialName);
+
+			historyManager.redo();
+			expect(realObj.getName()).toBe('Renamed');
+			expect(tempClone.getName()).toBe('Renamed');
+		});
+
+		it('should rename object that exists only in attached temp layer (shape-tool flow)', () => {
+			const [realId] = layersManager.addLayer();
+			const [, temp] = layersManager.addTempLayer(realId);
+			const tempOnly = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			temp.addOrReplaceObject(tempOnly, { orderKey: 'a0m' });
+
+			const initialName = tempOnly.getName();
+			expect(initialName).toBeTruthy();
+			layersManager.renameLayerObject(realId, 'A', 'Renamed');
+			expect(tempOnly.getName()).toBe('Renamed');
+
+			historyManager.undo();
+			expect(tempOnly.getName()).toBe(initialName);
+
+			historyManager.redo();
+			expect(tempOnly.getName()).toBe('Renamed');
+		});
+
+		it('should undo/redo rename correctly after delete/restore and temp layer changes', () => {
+			const [realId, real] = layersManager.addLayer();
+			const realObj = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			real.addObject(realObj, { orderKey: 'a0m' });
+			const initialName = realObj.getName();
+
+			const [tempId1, temp1] = layersManager.addTempLayer(realId);
+			const clone1 = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			temp1.addOrReplaceObject(clone1, { orderKey: 'a0a' });
+
+			layersManager.renameLayerObject(realId, 'A', 'Renamed');
+			expect(realObj.getName()).toBe('Renamed');
+			expect(clone1.getName()).toBe('Renamed');
+
+			layersManager.removeTempLayer(tempId1);
+
+			layersManager.removeLayerObject(realId, 'A');
+			expect(real.getObjectById('A')).toBeUndefined();
+			historyManager.undo();
+			const restored = real.getObjectById('A');
+			expect(restored).toBeTruthy();
+
+			const [, temp2] = layersManager.addTempLayer(realId);
+			const clone2 = new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'A');
+			temp2.addOrReplaceObject(clone2, { orderKey: 'a0a' });
+
+			historyManager.undo();
+			expect(
+				(real.getObjectById('A')?.getProperty('meta.name') as string | undefined) ?? initialName
+			).toBe(initialName);
+			expect(clone2.getName()).toBe(initialName);
+
+			historyManager.redo();
+			expect(real.getObjectById('A')?.getProperty('meta.name')).toBe('Renamed');
+			expect(clone2.getName()).toBe('Renamed');
+		});
+
+		it('should handle correct history when a layer is added and activated by undo-ing/redo-ing it', () => {
+			const [id1] = layersManager.addLayer();
+			expect(historyManager.getHistory().length).toBe(1);
+
+			expect(layersManager.getLayers().length).toBe(1);
+			expect(layersManager.getLayer(id1)).not.toBeNull();
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+
+			historyManager.undo();
+
+			expect(layersManager.getLayers().length).toBe(0);
+			expect(layersManager.getLayer(id1)).toBeNull();
+			expect(layersManager.getActiveLayerKey()).toBe(null);
+
+			historyManager.redo();
+
+			expect(layersManager.getLayers().length).toBe(1);
+			expect(layersManager.getLayer(id1)).not.toBeNull();
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+		});
+
+		it('should handle correct history when a layer is updated by undo-ing/redo-ing it', () => {
+			const [id1] = layersManager.addLayer();
+
+			const defaultLayerModel = {
+				name: layersManager.getLayer(id1)?.name,
+				index: layersManager.getLayer(id1)?.index,
+				opts: layersManager.getLayer(id1)?.getOpts()
+			};
+
+			layersManager.updateLayer(id1, {
+				name: 'update_1',
+				index: 0,
+				opts: { visible: true, locked: false }
+			});
+			expect(layersManager.getLayer(id1)?.name).toBe('update_1');
+			expect(layersManager.getLayer(id1)?.index).toBe(0);
+			expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(true);
+			expect(layersManager.getLayer(id1)?.getOpts().locked).toBe(false);
+
+			historyManager.undo();
+
+			expect(layersManager.getLayer(id1)?.name).toBe(defaultLayerModel.name);
+			expect(layersManager.getLayer(id1)?.index).toBe(defaultLayerModel.index);
+			expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(defaultLayerModel.opts?.visible);
+			expect(layersManager.getLayer(id1)?.getOpts().locked).toBe(defaultLayerModel.opts?.locked);
+
+			historyManager.redo();
+
+			expect(layersManager.getLayer(id1)?.name).toBe('update_1');
+			expect(layersManager.getLayer(id1)?.index).toBe(0);
+			expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(true);
+			expect(layersManager.getLayer(id1)?.getOpts().locked).toBe(false);
+		});
+
+		it('should handle correct history when an active layer is changing', () => {
+			const [id1] = layersManager.addLayer();
+
+			const [id2] = layersManager.addLayer();
+			expect(layersManager.getActiveLayerKey()).toBe(id2);
+
+			historyManager.undo();
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+
+			historyManager.redo();
+			expect(layersManager.getActiveLayerKey()).toBe(id2);
+		});
+
+		it('should handle correct history when only layer is removed and activated layer set to null by undo-ing/redo-ing it', () => {
+			const [id1] = layersManager.addLayer();
+			expect(layersManager.getLayers().length).toBe(1);
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+
+			layersManager.removeLayer(id1);
+
+			expect(layersManager.getLayers().length).toBe(0);
+			expect(layersManager.getActiveLayerKey()).toBe(null);
+
+			historyManager.undo();
+
+			expect(layersManager.getLayers().length).toBe(1);
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+
+			historyManager.redo();
+
+			expect(layersManager.getLayers().length).toBe(0);
+			expect(layersManager.getActiveLayerKey()).toBe(null);
+		});
+
+		it('should handle correct history when layer is removed and activated by undo-ing/redo-ing it', () => {
+			const [id1] = layersManager.addLayer();
+			const [id2] = layersManager.addLayer();
+
+			expect(layersManager.getLayers().length).toBe(2);
+			expect(layersManager.getActiveLayerKey()).toBe(id2);
+
+			layersManager.removeLayer(id2);
+
+			expect(layersManager.getLayers().length).toBe(1);
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
+
+			historyManager.undo();
+
+			expect(layersManager.getLayers().length).toBe(2);
 			expect(layersManager.getActiveLayerKey()).toBe(id2);
 
 			historyManager.redo();
+
+			expect(layersManager.getLayers().length).toBe(1);
 			expect(layersManager.getActiveLayerKey()).toBe(id1);
 		});
 
-		it('should correctly undo and redo layer property updates', () => {
-			const [id1, layer1] = layersManager.addLayer();
-			const originalName = layer1.name;
-			const newName = 'History Update';
+		it('should handle correct history restoring the layer with all his data', () => {
+			const [id1] = layersManager.addLayer();
+			const [id2] = layersManager.addLayer();
 
-			layersManager.updateLayer(id1, { name: newName });
-			expect(layersManager.getLayer(id1)?.name).toBe(newName);
+			const activeLayer = layersManager.getLayer(id2);
+
+			expect(activeLayer!.id).toBe(id2);
+
+			activeLayer?.grid.setChar(0, 0, 'A');
+			activeLayer?.grid.setChar(1, 1, 'B');
+
+			layersManager.removeLayer(id2);
+			expect(layersManager.getLayer(id2)).toBe(null);
+
+			expect(layersManager.getActiveLayerKey()).toBe(id1);
 
 			historyManager.undo();
-			expect(layersManager.getLayer(id1)?.name).toBe(originalName);
+
+			expect(layersManager.getActiveLayerKey()).toBe(id2);
+			expect(layersManager.getLayer(id2)?.grid.getChar(0, 0)).toBe('A');
+			expect(layersManager.getLayer(id2)?.grid.getChar(1, 1)).toBe('B');
 
 			historyManager.redo();
-			expect(layersManager.getLayer(id1)?.name).toBe(newName);
-		});
-
-		describe('Undo/Redo of Layer Removal', () => {
-			let id2: string, id3: string;
-
-			beforeEach(() => {
-				layersManager.addLayer();
-				[id2] = layersManager.addLayer();
-				[id3] = layersManager.addLayer();
-			});
-
-			it('should correctly undo/redo removal of an active middle layer, restoring active state', () => {
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-
-				layersManager.setActiveLayer(id2);
-				layersManager.removeLayer(id2);
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-
-				historyManager.undo();
-
-				expect(layersManager.getLayer(id2)?.id).toBe(id2);
-				expect(layersManager.getLayers().length).toBe(3);
-				expect(layersManager.getActiveLayerKey()).toBe(id2);
-
-				historyManager.redo();
-				expect(layersManager.getLayer(id2)).toBeNull();
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-
-				historyManager.undo();
-				historyManager.undo();
-
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-			});
-
-			it('should correctly undo/redo removal of an active last layer, restoring active state', () => {
-				layersManager.removeLayer(id3);
-				expect(layersManager.getActiveLayerKey()).toBe(id2);
-
-				historyManager.undo();
-				expect(layersManager.getLayer(id3)?.id).toBe(id3);
-				expect(layersManager.getActiveLayerKey()).toBe(id3);
-
-				historyManager.redo();
-				expect(layersManager.getLayer(id3)).toBeNull();
-				expect(layersManager.getActiveLayerKey()).toBe(id2);
-			});
-
-			it('should correctly undo/redo removal of the only layer, restoring active state', () => {
-				layersManager.clearLayers();
-				const [soleId] = layersManager.addLayer();
-
-				layersManager.removeLayer(soleId);
-				expect(layersManager.getLayers().length).toBe(0);
-
-				historyManager.undo();
-				expect(layersManager.getLayers().length).toBe(1);
-				expect(layersManager.getLayer(soleId)?.id).toBe(soleId);
-				expect(layersManager.getActiveLayerKey()).toBe(soleId);
-
-				historyManager.redo();
-				expect(layersManager.getLayers().length).toBe(0);
-			});
+			expect(layersManager.getLayer(id2)).toBe(null);
 		});
 	});
 
-	describe('Reactions to External Bus Event Requests', () => {
-		describe('Responding to "layer::create::request"', () => {
-			it('should correctly undo/redo layer creation triggered by a bus request, managing layers and events', () => {
-				const busSpy = vi.spyOn(layersBus, 'emit');
-				layersBus.emit('layer::create::request', undefined);
-				const createdLayerId = layersManager.getActiveLayerKey()!;
+	describe('Temp Layers and Composition', () => {
+		it('getLayerComposition for a temp layer id returns only that temp layer', () => {
+			const [realId] = layersManager.addLayer();
+			const [tempId] = layersManager.addTempLayer(realId);
+			const comp = layersManager.getLayerComposition(tempId);
+			expect(comp.map((l) => l.id)).toEqual([tempId]);
+		});
 
-				historyManager.undo();
-				expect(layersManager.getLayers().length).toBe(0);
-				expect(layersManager.getActiveLayerKey()).toBeNull();
+		it('addTempLayer throws if source layer does not exist', () => {
+			expect(() => layersManager.addTempLayer('missing-layer')).toThrow();
+		});
 
-				expect(busSpy).toHaveBeenCalledWith('layer::remove::response', { id: createdLayerId });
-				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', { id: null });
+		it('getVisibleLayers/getVisibleTempLayers filter by opts.visible', () => {
+			const [realId] = layersManager.addLayer();
+			const [tempId] = layersManager.addTempLayer(realId);
 
-				historyManager.redo();
-				expect(layersManager.getLayers().length).toBe(1);
-				expect(layersManager.getActiveLayerKey()).toBe(createdLayerId);
+			expect(layersManager.getVisibleLayers().map((l) => l.id)).toContain(realId);
+			expect(layersManager.getVisibleTempLayers().map((l) => l.id)).toContain(tempId);
 
-				const redoneLayer = layersManager.getLayer(createdLayerId)!;
+			layersManager.updateLayer(realId, { opts: { visible: false } });
+			const tempLayer = layersManager._getTempLayerInternal(tempId)!;
+			tempLayer.update({ opts: { visible: false } });
 
-				expect(busSpy).toHaveBeenCalledWith(
-					'layer::create::response',
-					expect.objectContaining({
-						id: redoneLayer.id,
-						name: redoneLayer.name,
-						index: redoneLayer.index
-					})
-				);
-				expect(busSpy).toHaveBeenCalledWith('layer::change_active::response', {
-					id: redoneLayer.id
-				});
+			expect(layersManager.getVisibleLayers().map((l) => l.id)).not.toContain(realId);
+			expect(layersManager.getVisibleTempLayers().map((l) => l.id)).not.toContain(tempId);
+		});
+
+		it('_clearTempLayersInternal removes all temp layers', () => {
+			const [realId] = layersManager.addLayer();
+			layersManager.addTempLayer(realId);
+			layersManager.addTempLayer(realId);
+			expect(layersManager._getTempLayersInternal().length).toBeGreaterThan(0);
+			layersManager._clearTempLayersInternal();
+			expect(layersManager._getTempLayersInternal()).toEqual([]);
+		});
+
+		it('addTempLayer attaches to a real layer and shares its index; removeTempLayer detaches', () => {
+			const [realId, real] = layersManager.addLayer();
+			const realIndex = real.index;
+			const [tempId, temp] = layersManager.addTempLayer(realId);
+
+			expect(layersManager.getAttachedTempLayers(realId)).toContain(tempId);
+			expect(temp.index).toBe(realIndex);
+
+			const comp0 = layersManager.getLayerComposition(realId).map((l) => l.id);
+			expect(comp0).toContain(realId);
+			expect(comp0).toContain(tempId);
+
+			layersManager.removeTempLayer(tempId);
+			expect(layersManager.getAttachedTempLayers(realId)).not.toContain(tempId);
+			const comp1 = layersManager.getLayerComposition(realId).map((l) => l.id);
+			expect(comp1).toContain(realId);
+			expect(comp1).not.toContain(tempId);
+		});
+
+		it('addOverlayTempLayer is visible but not part of any real-layer composition', () => {
+			const [realId, real] = layersManager.addLayer();
+			real.addObject(new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'R1'), {
+				orderKey: 'a0m'
 			});
-		});
 
-		it('should remove a layer when requested via "layer::remove::request"', () => {
-			layersManager.addLayer();
-			const [id2] = layersManager.addLayer();
-			const removeLayerSpy = vi.spyOn(layersManager, 'removeLayer');
-
-			layersBus.emit('layer::remove::request', { id: id2 });
-			expect(removeLayerSpy).toHaveBeenCalledWith(id2);
-		});
-
-		it('should update a layer and record history when requested via "layer::update::request"', () => {
-			const [id1, layer1] = layersManager.addLayer();
-			const newName = 'Updated via Bus Request Handler';
-			const serializedBefore = layerSerializer.serialize(layer1);
-			const historySpy = vi.spyOn(historyManager, 'applyAction');
-			const busSpy = vi.spyOn(layersBus, 'emit');
-
-			layersBus.emit('layer::update::request', { id: id1, name: newName });
-
-			const updatedLayer = layersManager.getLayer(id1)!;
-			const serializedAfter = layerSerializer.serialize(updatedLayer);
-
-			expect(updatedLayer.name).toBe(newName);
-			expect(busSpy).toHaveBeenNthCalledWith(
-				2,
-				'layer::update::response',
-				expect.objectContaining({ id: id1, name: newName })
+			const [overlayId, overlay] = layersManager.addOverlayTempLayer(real.index);
+			overlay.addOrReplaceObject(
+				new MockSmartObject({ cellX: 0, cellY: 0, width: 1, height: 1 }, 'OV1'),
+				{ orderKey: 'a0a' }
 			);
-			expect(historySpy).toHaveBeenCalledWith(
-				expect.objectContaining({
-					type: 'layer::update',
-					before: serializedBefore,
-					after: serializedAfter
-				}),
-				{ applyAction: false }
-			);
+
+			const api = layersManager.getLayer(realId)!;
+			expect(api.getObjects().map((o) => o.id)).not.toContain('OV1');
+
+			const visibleIds = layersManager.getAllVisibleLayersSorted().map((l) => l.id);
+			expect(visibleIds).toContain(realId);
+			expect(visibleIds).toContain(overlayId);
 		});
 
-		it('should change the active layer when requested via "layer::change_active::request"', () => {
-			const [id1] = layersManager.addLayer();
-			layersManager.addLayer();
-			const setActiveLayerSpy = vi.spyOn(layersManager, 'setActiveLayer');
-
-			layersBus.emit('layer::change_active::request', { id: id1 });
-			expect(setActiveLayerSpy).toHaveBeenCalledWith(id1);
+		it('getAllVisibleLayersSorted orders temp before real when indices are equal', () => {
+			const [realId] = layersManager.addLayer();
+			const [tempId] = layersManager.addTempLayer(realId);
+			const ids = layersManager.getAllVisibleLayersSorted().map((l) => l.id);
+			const tempPos = ids.indexOf(tempId);
+			const realPos = ids.indexOf(realId);
+			expect(tempPos).toBeGreaterThanOrEqual(0);
+			expect(realPos).toBeGreaterThanOrEqual(0);
+			expect(tempPos).toBeLessThan(realPos);
 		});
 	});
 
-	describe('History Integration with Random Actions', () => {
-		it('should record corresponding actions in history for a sequence of layer operations', () => {
-			const actionsToPerform = [
-				{ type: 'add', params: {} },
-				{ type: 'add', params: {} },
-				{ type: 'update', params: { name: 'Updated Layer 1' } },
-				{ type: 'setActive', params: { layerIndex: 0 } },
-				{ type: 'remove', params: { layerIndex: 1 } },
-				{ type: 'update', params: { opts: { visible: false } } }
-			];
+	describe('Tile Composition', () => {
+		it('getCombinedTileData uses getAllVisibleLayersSorted precedence (earlier layer wins)', () => {
+			const [realId, real] = layersManager.addLayer();
+			const [tempId] = layersManager.addTempLayer(realId);
+			const tempLayer = layersManager._getTempLayerInternal(tempId)!;
 
-			const expectedHistoryActionTypes: string[] = [];
-			const createdLayerIds: string[] = [];
+			real.grid.setChar(0, 0, 'R');
+			tempLayer.grid.setChar(0, 0, 'T');
 
-			actionsToPerform.forEach((action) => {
-				let targetLayerId: string | null = null;
-
-				switch (action.type) {
-					case 'add':
-						{
-							const [id] = layersManager.addLayer();
-							createdLayerIds.push(id);
-							expectedHistoryActionTypes.push('layers::create_and_activate');
-						}
-						break;
-					case 'update':
-						{
-							targetLayerId = layersManager.getActiveLayerKey() || createdLayerIds[0];
-							if (targetLayerId) {
-								layersManager.updateLayer(targetLayerId, action.params);
-								expectedHistoryActionTypes.push('layer::update');
-							}
-						}
-						break;
-					case 'setActive':
-						{
-							const layerToActivate = layersManager.getLayers()[action.params.layerIndex as number];
-							if (layerToActivate && layersManager.getActiveLayerKey() !== layerToActivate.id) {
-								layersManager.setActiveLayer(layerToActivate.id);
-								expectedHistoryActionTypes.push('layers::change::active');
-							}
-						}
-						break;
-					case 'remove':
-						{
-							const layerToRemove = layersManager.getLayers()[action.params.layerIndex as number];
-							if (layerToRemove) {
-								layersManager.removeLayer(layerToRemove.id);
-								expectedHistoryActionTypes.push('layers::remove_and_activate');
-							}
-						}
-						break;
-				}
-			});
-
-			const historyStack = historyManager.getHistory();
-
-			expect(historyStack.length).toBe(expectedHistoryActionTypes.length);
-			historyStack.forEach((recordedAction, index) => {
-				expect(recordedAction.type).toBe(expectedHistoryActionTypes[index]);
-			});
-		});
-
-		it('should correctly undo and redo a mixed sequence of layer operations', () => {
-			const [id1] = layersManager.addLayer();
-			layersManager.updateLayer(id1, { name: 'Layer One New Name' });
-			const [id2] = layersManager.addLayer();
-			layersManager.setActiveLayer(id1);
-			layersManager.removeLayer(id2);
-
-			const initialLayerStates = layersManager.getLayers().map((l) => layerSerializer.serialize(l));
-			const initialActiveKey = layersManager.getActiveLayerKey();
-			const historyStackSize = historyManager.getHistory().length;
-
-			for (let i = 0; i < historyStackSize; i++) {
-				historyManager.undo();
-			}
-
-			expect(layersManager.getLayers().length).toBe(0);
-			expect(layersManager.getActiveLayerKey()).toBeNull();
-
-			for (let i = 0; i < historyStackSize; i++) {
-				historyManager.redo();
-			}
-			const finalLayerStates = layersManager.getLayers().map((l) => layerSerializer.serialize(l));
-			expect(finalLayerStates).toEqual(initialLayerStates);
-			expect(layersManager.getActiveLayerKey()).toBe(initialActiveKey);
+			const composed = layersManager.getCombinedTileData(0, 0);
+			expect(composed[0]).toBe('T');
 		});
 	});
 });

@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Core } from '@editor/core';
 import { App, createAppInstance } from '@editor/app';
-import { BusManager } from '@editor/bus-manager';
-import { BaseBusLayers } from '@editor/bus-layers';
-import { BaseBusTools } from '@editor/bus-tools';
-import { BaseBusNotification } from '@editor/bus-notification';
 import { Camera } from '@editor/camera';
 import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import { HistoryControlTool } from './history-control';
 import { DrawTool } from './draw-tool';
 import type { ToolManager } from '@editor/tool-manager';
 import type { FontManager } from '@editor/font-manager';
-import type { ILayer } from '@editor/types';
+import type { LayerController } from '@editor/layers/layer-api';
 
 vi.mock('canvaskit-wasm', () => cvk);
 
@@ -39,22 +35,14 @@ describe('History Control Tool', () => {
 	let historyControlTool: HistoryControlTool;
 	let drawTool: DrawTool;
 	let camera: Camera;
-	let busManager: BusManager;
 	let toolManager: ToolManager;
 	let fontManager: FontManager;
-	let activeLayer: ILayer;
+	let activeLayer: LayerController;
 	let selectCanvasElement: HTMLCanvasElement;
 
 	beforeEach(() => {
-		busManager = new BusManager({
-			layers: new BaseBusLayers(),
-			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification()
-		});
-
 		camera = new Camera(1200, 800);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const canvasKitInstance = cvk.CanvasKit as any;
+		const canvasKitInstance = cvk.CanvasKit;
 		const appFontData = { buffer: new ArrayBuffer(8), family: 'TestAppFont' };
 
 		const gridEl = document.createElement('canvas');
@@ -66,7 +54,6 @@ describe('History Control Tool', () => {
 			gridCanvasElement: gridEl,
 			selectCanvasElement,
 			asciiCanvasElement: asciiEl,
-			busManager,
 			camera,
 			font: appFontData
 		});

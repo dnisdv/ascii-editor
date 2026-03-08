@@ -1,7 +1,17 @@
-import type { EventName, IEventEmitter, MetaData } from './types';
+import type { IEventEmitter, MetaData } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export class EventEmitter<T extends Record<EventName, any>> implements IEventEmitter<T> {
+export interface ProxyOptions<S, T> {
+	prefixes?: string | string[];
+	events?: (keyof S)[];
+	transform?: (
+		eventName: keyof S,
+		payload: S[keyof S],
+		prefix: string,
+		source: IEventEmitter<S>
+	) => T[keyof T];
+}
+
+export class EventEmitter<T> implements IEventEmitter<T> {
 	private _events: {
 		[K in keyof T]?: Array<{
 			fn: (data: T[K], meta?: MetaData) => void;
@@ -9,6 +19,25 @@ export class EventEmitter<T extends Record<EventName, any>> implements IEventEmi
 			context: unknown;
 		}>;
 	} = {};
+	private eventSuspended = false;
+	private _proxies = new Map<object, () => void>();
+
+	private suspendEvents(): void {
+		this.eventSuspended = true;
+	}
+
+	private resumeEvents(): void {
+		this.eventSuspended = false;
+	}
+
+	public withSuspended(fn: () => void): void {
+		this.suspendEvents();
+		try {
+			fn.call(this);
+		} finally {
+			this.resumeEvents();
+		}
+	}
 
 	on<K extends keyof T>(
 		event: K,
@@ -46,6 +75,10 @@ export class EventEmitter<T extends Record<EventName, any>> implements IEventEmi
 	}
 
 	emit<K extends keyof T>(event: K, data?: T[K], meta?: MetaData): boolean {
+		if (this.eventSuspended) {
+			return false;
+		}
+
 		const listeners = this._events[event];
 		if (!listeners) return false;
 
@@ -71,6 +104,59 @@ export class EventEmitter<T extends Record<EventName, any>> implements IEventEmi
 	listeners<K extends keyof T>(event: K): Array<(data: T[K], meta?: MetaData) => void> {
 		const listeners = this._events[event];
 		return listeners ? listeners.map((listener) => listener.fn) : [];
+	}
+
+	public proxy<S>(source: IEventEmitter<S>, options: ProxyOptions<S, T> = {}): void {
+		if (this._proxies.has(source)) {
+			console.warn('Already proxying this event emitter.');
+			return;
+		}
+
+		if (!options.events) {
+			console.error('Cannot proxy all events');
+			return;
+		}
+
+		const eventsToProxy = options.events;
+		const prefixes = options.prefixes
+			? Array.isArray(options.prefixes)
+				? options.prefixes
+				: [options.prefixes]
+			: [''];
+
+		const handlers: { event: keyof S; handler: (payload: S[keyof S]) => void }[] = [];
+
+		for (const eventName of eventsToProxy) {
+			const handler = (payload: S[keyof S]) => {
+				for (const prefix of prefixes) {
+					const finalPayload = options.transform
+						? options.transform(eventName, payload, prefix, source)
+						: payload;
+					this.emit(
+						`${prefix}${String(eventName)}` as keyof T,
+						finalPayload as unknown as T[keyof T]
+					);
+				}
+			};
+			handlers.push({ event: eventName, handler });
+			source.on(eventName, handler);
+		}
+
+		const unproxy = () => {
+			for (const { event, handler } of handlers) {
+				source.off(event, handler);
+			}
+			this._proxies.delete(source);
+		};
+
+		this._proxies.set(source, unproxy);
+	}
+
+	public unproxy<S>(source: IEventEmitter<S>): void {
+		const unproxyFn = this._proxies.get(source);
+		if (unproxyFn) {
+			unproxyFn();
+		}
 	}
 
 	private _addListener<K extends keyof T>(

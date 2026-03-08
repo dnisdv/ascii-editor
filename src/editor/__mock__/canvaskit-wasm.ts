@@ -864,7 +864,7 @@ const mockCanvasKitObject = {
 	UnderlineDecoration: 1,
 	OverlineDecoration: 2,
 	LineThroughDecoration: 4
-};
+} as any;
 
 const CanvasKitInitMock = vi.fn((opts?: any): Promise<typeof mockCanvasKitObject> => {
 	if (opts && typeof opts.locateFile === 'function') {

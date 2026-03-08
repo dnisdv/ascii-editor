@@ -1,6 +1,7 @@
 import { LayersApi } from './layers-api';
 import { ToolsApi } from './tools-config-api';
 import { DBLocalStorage } from './db-localstorage';
+import { DocumentController } from './document'; // Import the controller
 import type { DocumentMetaData, DocumentSchemaType } from '@editor/types';
 
 export const DocumentsApi = {
@@ -13,34 +14,40 @@ export const DocumentsApi = {
 	}
 };
 
-const DocumentApi = (id: string) => ({
-	updateDocument(updates: Pick<DocumentMetaData, 'title'>): DocumentMetaData {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${id}`);
-		const document = db.load();
-		if (!document) {
-			throw new Error(`Document with id ${id} not found`);
-		}
-		document.meta = { ...document.meta, ...updates };
-		db.save(document);
-		return document.meta;
-	},
+const DocumentApi = (id: string) => {
+	const db = new DBLocalStorage<DocumentSchemaType>(`document_${id}`);
+	const documentSchema = db.load();
 
-	getDocument(): DocumentSchemaType {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${id}`);
-		const document = db.load();
-		return document!;
-	},
+	const documentController = new DocumentController(documentSchema || undefined);
 
-	getDocumentMetadata(): DocumentMetaData {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${id}`);
-		const document = db.load();
-		if (!document) {
-			throw new Error(`Document with id ${id} not found`);
-		}
+	const save = () => db.save(documentController.getSchema());
 
-		return document.meta;
-	},
+	const dependencies = { documentController, save };
 
-	...LayersApi(id),
-	...ToolsApi(id)
-});
+	return {
+		updateDocument(updates: Pick<DocumentMetaData, 'title'>): DocumentMetaData {
+			const document = documentController.getSchema();
+			if (!document) {
+				throw new Error(`Document with id ${id} not found`);
+			}
+			document.meta = { ...document.meta, ...updates };
+			save();
+			return document.meta;
+		},
+
+		getDocument(): DocumentSchemaType {
+			return documentController.getSchema();
+		},
+
+		getDocumentMetadata(): DocumentMetaData {
+			const document = documentController.getSchema();
+			if (!document) {
+				throw new Error(`Document with id ${id} not found`);
+			}
+			return document.meta;
+		},
+
+		...LayersApi(dependencies),
+		...ToolsApi(dependencies)
+	};
+};

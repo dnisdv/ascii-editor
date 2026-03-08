@@ -1,35 +1,13 @@
 import { z } from 'zod';
-import {
-	CameraSerializableSchema,
-	type CameraSerializableSchemaType
-} from './camera.serializer.schema';
-import {
-	ConfigSerializableSchema,
-	type ConfigSerializableSchemaType
-} from './config.serializer.schema';
-import type { HistoryManagerSerializableSchemaType } from './historyManager.serializer.schema';
-import {
-	LayersSerializableSchema,
-	type LayersSerializableSchemaType
-} from './layers.serializer.schema';
-import {
-	ToolsConfigSerializableSchema,
-	type ToolsConfigSerializableSchemaType
-} from './tools.serializer.schema';
+import { CameraSerializableSchema } from './camera.serializer.schema';
+import { ConfigSerializableSchema } from './config.serializer.schema';
+import { LayersSerializableSchema } from './layers.serializer.schema';
+import { ToolsConfigSerializableSchema } from './tools.serializer.schema';
 
 export type DocumentMetaData = {
 	id: string;
 	version: string;
 	title: string;
-};
-
-export type DocumentSchemaType = {
-	meta: DocumentMetaData;
-	config: ConfigSerializableSchemaType;
-	layers: LayersSerializableSchemaType;
-	camera: CameraSerializableSchemaType;
-	history: HistoryManagerSerializableSchemaType;
-	tools: ToolsConfigSerializableSchemaType;
 };
 
 export const DocumentSchema = z.object({
@@ -44,3 +22,5 @@ export const DocumentSchema = z.object({
 	tools: ToolsConfigSerializableSchema,
 	history: z.any()
 });
+
+export type DocumentSchemaType = z.infer<typeof DocumentSchema>;

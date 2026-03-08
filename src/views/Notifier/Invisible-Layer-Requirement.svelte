@@ -3,8 +3,12 @@
 	import { Button } from '@components/button';
 	import { Separator } from '@components/separator';
 
-	export let action: { label: string; onClick: () => void };
+	export let actions: { label: string; onClick: () => void }[] = [];
+	export let action: { label: string; onClick: () => void } | undefined = undefined;
+	export let description: string = 'Layer is hidden';
 	export let close = () => {};
+
+	$: allActions = action ? [action, ...actions] : actions;
 </script>
 
 <div
@@ -12,8 +16,12 @@
 >
 	<ThemeIcon class="pl-2" name="eye-closed" />
 	<Separator class="mx-2" orientation="vertical" />
-	<p class="text-sm font-medium">Layer is hidden</p>
-	<Button class="ml-2  text-xs" on:click={action.onClick} variant="outline" size="xxs">Show</Button>
+	<p class="text-sm font-medium">{description}</p>
+	{#each allActions as act, i (i)}
+		<Button class="ml-2 text-xs" on:click={act.onClick} variant="outline" size="xxs"
+			>{act.label}</Button
+		>
+	{/each}
 
 	<Separator class="mx-2" orientation="vertical" />
 	<Button class="mr-2" on:click={close} variant="ghost" size="icon-xxs">

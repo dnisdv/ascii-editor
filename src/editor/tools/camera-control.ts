@@ -1,6 +1,7 @@
 import { BaseTool, type ITool } from '../tool';
 import type { ICamera } from '@editor/types';
 import type { CoreApi } from '@editor/core';
+import { StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
 
 export class CameraControlTool extends BaseTool implements ITool {
 	readonly visible = false;
@@ -13,7 +14,6 @@ export class CameraControlTool extends BaseTool implements ITool {
 
 	constructor(coreApi: CoreApi) {
 		super({
-			bus: coreApi.getBusManager(),
 			name: 'camera-control',
 			isVisible: false,
 			config: {},
@@ -95,7 +95,7 @@ export class CameraControlTool extends BaseTool implements ITool {
 		const { tileSize } = this.coreApi.getConfig();
 
 		for (const layer of visibleLayers) {
-			for (const tile of layer.queryAllTiles()) {
+			for (const tile of layer.grid.queryAllTiles()) {
 				if (tile.isEmpty()) continue;
 
 				const tileContentString = tile.toString();
@@ -107,6 +107,32 @@ export class CameraControlTool extends BaseTool implements ITool {
 					globalMinY = Math.min(globalMinY, tile.y * tileSize + bounds.minY);
 					globalMaxX = Math.max(globalMaxX, tile.x * tileSize + bounds.maxX);
 					globalMaxY = Math.max(globalMaxY, tile.y * tileSize + bounds.maxY);
+				}
+			}
+
+			for (const object of layer.objects) {
+				if (object.type === 'text-grid') continue;
+
+				const x = object.getProperty(`${StandardGroupKeys.TRANSFORM}.${TransformProperties.X}`);
+				const y = object.getProperty(`${StandardGroupKeys.TRANSFORM}.${TransformProperties.Y}`);
+				const width = object.getProperty(
+					`${StandardGroupKeys.TRANSFORM}.${TransformProperties.WIDTH}`
+				);
+				const height = object.getProperty(
+					`${StandardGroupKeys.TRANSFORM}.${TransformProperties.HEIGHT}`
+				);
+
+				if (
+					typeof x === 'number' &&
+					typeof y === 'number' &&
+					typeof width === 'number' &&
+					typeof height === 'number'
+				) {
+					hasContent = true;
+					globalMinX = Math.min(globalMinX, x);
+					globalMinY = Math.min(globalMinY, y);
+					globalMaxX = Math.max(globalMaxX, x + width);
+					globalMaxY = Math.max(globalMaxY, y + height);
 				}
 			}
 		}
@@ -216,7 +242,7 @@ export class CameraControlTool extends BaseTool implements ITool {
 		this.coreApi.render();
 	}
 
-	update(): void {
-		this.camera.setState(this.config as { offsetX: number; offsetY: number; scale: number });
+	restoreConfig(config: Record<string, unknown>): void {
+		this.camera.setState(config as { offsetX: number; offsetY: number; scale: number });
 	}
 }

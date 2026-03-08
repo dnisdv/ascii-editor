@@ -3,23 +3,29 @@ import { CameraSerializer } from './camera.serializer';
 import { DocumentSchema, type DocumentSchemaType } from './document.serializer.schema';
 import { ConfigSerializer } from './config.serializer';
 import { ToolsConfigSerializer } from './tools.serializer';
-import type { CoreApi } from '@editor/core';
-import type { LayersManager } from '@editor/layers/layers-manager';
+import { LayerSerializer } from './layer.serializer';
+
+export type AppSerializerDeps = {
+	layerSerializer: LayerSerializer;
+	layersSerializer: LayersSerializer;
+	cameraSerializer: CameraSerializer;
+	configSerializer: ConfigSerializer;
+	toolsConfigSerializer: ToolsConfigSerializer;
+};
 
 export class AppSerializer {
-	private layersSerializer: LayersSerializer;
-	private cameraSerializer: CameraSerializer;
-	private configSerializer: ConfigSerializer;
-	private toolsConfigSerializer: ToolsConfigSerializer;
+	public layersSerializer: LayersSerializer;
+	public cameraSerializer: CameraSerializer;
+	public configSerializer: ConfigSerializer;
+	public toolsConfigSerializer: ToolsConfigSerializer;
+	public layerSerializer: LayerSerializer;
 
-	constructor(private core: CoreApi) {
-		this.layersSerializer = new LayersSerializer(
-			this.core.getLayersManager() as LayersManager,
-			this.core
-		);
-		this.cameraSerializer = new CameraSerializer(this.core.getCamera());
-		this.configSerializer = new ConfigSerializer(this.core.getConfig());
-		this.toolsConfigSerializer = new ToolsConfigSerializer(this.core.getToolManager());
+	constructor(deps: AppSerializerDeps) {
+		this.layersSerializer = deps.layersSerializer;
+		this.cameraSerializer = deps.cameraSerializer;
+		this.configSerializer = deps.configSerializer;
+		this.toolsConfigSerializer = deps.toolsConfigSerializer;
+		this.layerSerializer = deps.layerSerializer;
 	}
 
 	serialize(): DocumentSchemaType {
@@ -27,11 +33,9 @@ export class AppSerializer {
 			meta: {
 				id: '1',
 				title: 'DEFAULT DOCUMENT',
-				version: '1.0'
+				version: '2.0'
 			},
-			config: {
-				tileSize: 25
-			},
+			config: this.configSerializer.serialize(),
 			tools: this.toolsConfigSerializer.serialize(),
 			layers: this.layersSerializer.serialize(),
 			camera: this.cameraSerializer.serialize(),
@@ -51,7 +55,5 @@ export class AppSerializer {
 		this.layersSerializer.deserialize(validData.layers);
 		this.configSerializer.deserialize(validData.config);
 		this.toolsConfigSerializer.deserialize(validData.tools);
-
-		this.core.render();
 	}
 }

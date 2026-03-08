@@ -5,42 +5,26 @@ import {
 	type ISelectionMode,
 	type ModePayloads
 } from './modes.type';
-import { IdleMode } from './idle-mode';
-import type { SelectionSessionManager } from '../session/selection-session-manager';
-import { SelectedMode } from './selected-mode';
 import { EventEmitter } from '@editor/event-emitter';
 import type { CoreApi } from '@editor/core';
+import type { SelectionManager } from '@editor/select/selection-manager';
+import { IdleMode } from './idle-mode';
 
 type SelectionModeContextEventType = {
 	'ctx::transitioned': undefined;
 };
 
 export class SelectionModeContext extends EventEmitter<SelectionModeContextEventType> {
-	private currentState: AnyConcreteSelectionMode;
-	private modes: Map<SelectionModeName, AnyConcreteSelectionMode>;
+	private currentState: AnyConcreteSelectionMode | null = null;
+	private modes: Map<SelectionModeName, AnyConcreteSelectionMode> = new Map();
 	public isRestricted: boolean = false;
 
 	constructor(
 		private coreApi: CoreApi,
-		private sessionManager: SelectionSessionManager
+		private selectionManager: SelectionManager
 	) {
 		super();
-		this.modes = new Map();
 		this.currentState = new IdleMode();
-		this.selectAppropiateState();
-	}
-
-	private selectAppropiateState() {
-		const activeSession = this.sessionManager.getActiveSession();
-
-		if (activeSession && !activeSession?.isEmpty()) {
-			this.currentState = new SelectedMode(this.coreApi, this.sessionManager);
-			this.currentState.onEnter(this, undefined);
-			return;
-		}
-
-		this.currentState = new IdleMode();
-		this.currentState.onEnter(this, undefined);
 	}
 
 	public registerMode(name: SelectionModeName, mode: AnyConcreteSelectionMode): void {
@@ -65,7 +49,9 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 			return;
 		}
 
-		this.currentState.onExit(this);
+		if (this.currentState) {
+			this.currentState.onExit(this);
+		}
 		this.currentState = newMode;
 
 		(this.currentState as ISelectionMode<MName>).onEnter(this, payload);
@@ -79,37 +65,32 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 		return mode as ConcreteModeTypeMap[MName] | undefined;
 	}
 
-	public getCurrentMode(): AnyConcreteSelectionMode {
+	public getCurrentMode(): AnyConcreteSelectionMode | null {
 		return this.currentState;
 	}
 
-	public getCurrentModeName(): SelectionModeName {
-		for (const [name] of this.modes.entries()) {
-			if (name === this.currentState.name) {
-				return name;
-			}
-		}
-		return SelectionModeName.IDLE;
+	public getCurrentModeName(): SelectionModeName | null {
+		return this.currentState?.name || null;
 	}
 
 	public onMouseDown(event: MouseEvent): void {
-		this.currentState.handleMouseDown(event, this);
+		this.currentState?.handleMouseDown(event, this);
 	}
 
 	public onMouseMove(event: MouseEvent): void {
-		this.currentState.handleMouseMove(event, this);
+		this.currentState?.handleMouseMove(event, this);
 	}
 
 	public onMouseUp(event: MouseEvent): void {
-		this.currentState.handleMouseUp(event, this);
+		this.currentState?.handleMouseUp(event, this);
 	}
 
 	public onMouseLeave(event: MouseEvent): void {
-		this.currentState.handleMouseLeave?.(event, this);
+		this.currentState?.handleMouseLeave?.(event, this);
 	}
 
 	public onKeyPress(event: KeyboardEvent): void {
-		this.currentState.handleKeyDown?.(event, this);
+		this.currentState?.handleKeyDown?.(event, this);
 	}
 
 	public cleanup(): void {
@@ -118,6 +99,8 @@ export class SelectionModeContext extends EventEmitter<SelectionModeContextEvent
 				mode.cleanup();
 			}
 		});
-		this.selectAppropiateState();
+		if (this.currentState?.name !== SelectionModeName.IDLE) {
+			this.transitionTo(SelectionModeName.IDLE);
+		}
 	}
 }

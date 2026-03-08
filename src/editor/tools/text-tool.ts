@@ -1,16 +1,18 @@
 import { BaseTool } from '../tool';
 import type { ITool } from '../tool';
-import type { ILayersManager, ICamera, IRenderManager, ICanvas } from '@editor/types';
+import type { ICamera, IRenderManager, ICanvas } from '@editor/types';
+import type { LayersManager } from '@editor/layers/layers-manager';
 import type { CanvasKit, Paint, Canvas as WasmCanvas } from 'canvaskit-wasm';
 import type { HistoryManager } from '@editor/history-manager';
 import { RequireActiveLayerVisible } from '@editor/tool-requirements';
 import type { CoreApi } from '@editor/core';
+import { createFillPaint } from '@editor/utils/rendering';
 
 export class TextTool extends BaseTool implements ITool {
 	readonly name = 'text';
 	readonly icon = '/icons/text.svg';
 
-	private layers: ILayersManager;
+	private layers: LayersManager;
 	private camera: ICamera;
 
 	private canvasKit: CanvasKit;
@@ -32,7 +34,6 @@ export class TextTool extends BaseTool implements ITool {
 	constructor(coreApi: CoreApi) {
 		super({
 			hotkey: '<A-t>',
-			bus: coreApi.getBusManager(),
 			name: 'text',
 			isVisible: true,
 			config: {},
@@ -52,10 +53,7 @@ export class TextTool extends BaseTool implements ITool {
 		this.selectCanvas = this.coreApi.getCanvases().select;
 
 		const { primary } = this.coreApi.getConfig().getTheme();
-		this.paint = new this.canvasKit.Paint();
-		this.paint.setColor(this.canvasKit.Color4f(primary[0], primary[1], primary[2], 0.8));
-		this.paint.setStyle(this.canvasKit.PaintStyle.Fill);
-		this.paint.setAntiAlias(true);
+		this.paint = createFillPaint(this.canvasKit, [primary[0], primary[1], primary[2], 0.8]);
 
 		this.camera.on('change', () => this.drawCursorOverlay());
 
@@ -66,16 +64,13 @@ export class TextTool extends BaseTool implements ITool {
 			this.clearCursorOverlay();
 		});
 
-		this.historyManager.onAfterUndo(() => this.coreApi.getRenderManager().requestRender());
-		this.historyManager.onAfterRedo(() => this.coreApi.getRenderManager().requestRender());
-
-		this.layers.on('layer::remove::before', () => {
+		this.layers.on('layer::removed', () => {
 			this.commitCurrentBatch();
 			this.selectedCell = null;
 			this.drawCursorOverlay();
 		});
 
-		this.layers.on('layers::active::change', () => {
+		this.layers.on('layer::active::changed', () => {
 			this.commitCurrentBatch();
 			this.selectedCell = null;
 			this.drawCursorOverlay();
@@ -159,6 +154,7 @@ export class TextTool extends BaseTool implements ITool {
 	private addMouseListeners(): void {
 		this.getEventApi().registerMouseDown('left', this.handleCanvasMouseDown.bind(this));
 		this.getEventApi().registerKeyPress('<C-v>', this.handlePaste.bind(this));
+		this.getEventApi().registerKeyPress('<Backspace>', this.handleKeyPress.bind(this));
 		this.getEventApi().registerKeyPress(
 			/^(?:<[CSM]?-?)?(?:[a-zA-Z0-9 !"#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~]|Backspace|ArrowLeft|ArrowRight|ArrowUp|ArrowDown|Escape)>$/,
 			this.handleKeyPress.bind(this)
@@ -251,7 +247,7 @@ export class TextTool extends BaseTool implements ITool {
 
 		this.ensureHistoryBatch();
 		const { x, y } = this.selectedCell;
-		const beforeChar = activeLayer.getChar(x, y);
+		const beforeChar = activeLayer.grid.getChar(x, y);
 
 		this.historyManager.applyAction(
 			{
@@ -263,7 +259,7 @@ export class TextTool extends BaseTool implements ITool {
 			{ batchId: String(this.historyBatchTransaction), applyAction: false }
 		);
 
-		activeLayer.setChar(x, y, char);
+		activeLayer.grid.setChar(x, y, char);
 		this.selectedCell = { x: x + 1, y: y };
 		this.coreApi.getRenderManager().requestRender();
 	}
@@ -302,7 +298,7 @@ export class TextTool extends BaseTool implements ITool {
 		const deleteAtX = currentX - 1;
 		const deleteAtY = currentY;
 
-		const charToDelete = activeLayer.getChar(deleteAtX, deleteAtY);
+		const charToDelete = activeLayer.grid.getChar(deleteAtX, deleteAtY);
 
 		this.historyManager.applyAction(
 			{
@@ -314,7 +310,7 @@ export class TextTool extends BaseTool implements ITool {
 			{ batchId: String(this.historyBatchTransaction), applyAction: false }
 		);
 
-		activeLayer.setChar(deleteAtX, deleteAtY, ' ');
+		activeLayer.grid.setChar(deleteAtX, deleteAtY, ' ');
 		this.selectedCell = { x: deleteAtX, y: deleteAtY };
 		this.coreApi.getRenderManager().requestRender();
 	}
@@ -330,7 +326,6 @@ export class TextTool extends BaseTool implements ITool {
 		try {
 			const clipboardText = await navigator.clipboard.readText();
 			if (!clipboardText) return;
-
 			const { x: initialCursorX, y: initialCursorY } = this.selectedCell;
 			let currentLineY = initialCursorY;
 			let currentLineX = initialCursorX;
@@ -348,7 +343,7 @@ export class TextTool extends BaseTool implements ITool {
 					const pasteX = currentLineX + j;
 					const pasteY = currentLineY;
 
-					const beforeChar = activeLayer.getChar(pasteX, pasteY);
+					const beforeChar = activeLayer.grid.getChar(pasteX, pasteY);
 					this.historyManager.applyAction(
 						{
 							targetId: `layer::${activeLayer.id}`,
@@ -358,7 +353,7 @@ export class TextTool extends BaseTool implements ITool {
 						},
 						{ batchId: String(this.historyBatchTransaction), applyAction: false }
 					);
-					activeLayer.setChar(pasteX, pasteY, charToPaste);
+					activeLayer.grid.setChar(pasteX, pasteY, charToPaste);
 				}
 				if (i === lines.length - 1) {
 					this.selectedCell = { x: currentLineX + line.length, y: currentLineY };

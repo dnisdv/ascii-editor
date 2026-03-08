@@ -3,8 +3,8 @@
 	import { writable, type Writable } from 'svelte/store';
 
 	export interface ContextMenu {
-		activeMenu: Writable<number | null>;
-		open: (id: number) => void;
+		activeMenu: Writable<string | null>;
+		open: (id: string) => void;
 		close: () => void;
 	}
 
@@ -16,10 +16,10 @@
 </script>
 
 <script lang="ts">
-	const activeMenu = writable<null | number>(null);
+	const activeMenu = writable<null | string>(null);
 	const contextMenu: ContextMenu = {
 		activeMenu,
-		open: (id: number) => activeMenu.set(id),
+		open: (id: string) => activeMenu.set(id),
 		close: () => activeMenu.set(null)
 	};
 

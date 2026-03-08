@@ -9,7 +9,7 @@ export const RequireActiveLayerVisible = (coreApi: CoreApi, tool: string) => ({
 		if (!layer) return true;
 		return layer?.opts.visible || false;
 	},
-	message: `Layer must be visible to edit text, ${tool}`,
+	message: `Layer must be visible`,
 	type: 'requirement',
 	actions: [
 		{
@@ -24,15 +24,14 @@ export const RequireActiveLayerVisible = (coreApi: CoreApi, tool: string) => ({
 		}
 	],
 	subscribe: (callback: () => void) => {
-		const layerBus = coreApi.getBusManager().layers;
-		layerBus.on('layer::change_active::response', callback);
-		layerBus.on('layer::update::response', callback);
-		layerBus.on('layer::remove::response', callback);
+		void tool;
+		const layersManager = coreApi.getLayersManager();
+		layersManager.on('layer::active::changed', callback);
+		layersManager.on('layer::updated', callback);
 
 		return () => {
-			layerBus.off('layer::change_active::response', callback);
-			layerBus.off('layer::update::response', callback);
-			layerBus.off('layer::remove::response', callback);
+			layersManager.off('layer::active::changed', callback);
+			layersManager.off('layer::updated', callback);
 		};
 	}
 });

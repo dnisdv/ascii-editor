@@ -1,5 +1,5 @@
 import { Tile } from './tile';
-import type { ITile, ITileMap, SerializedTile, SerializedTileMap } from './types';
+import type { ITile, ITileMap } from './types';
 
 export class TileMap implements ITileMap {
 	readonly tileSize: number;
@@ -49,7 +49,7 @@ export class TileMap implements ITileMap {
 		return Array.from(this.map.keys());
 	}
 
-	public queryAll(): Tile[] {
+	public queryAll(): ITile[] {
 		return Array.from(this.map.values());
 	}
 
@@ -100,7 +100,7 @@ export class TileMap implements ITileMap {
 		};
 	}
 
-	public queryByData(searchString: string): Tile[] {
+	public queryByData(searchString: string): ITile[] {
 		return Array.from(this.map.values()).filter((tile) => tile.data.includes(searchString));
 	}
 
@@ -108,23 +108,47 @@ export class TileMap implements ITileMap {
 		this.map.clear();
 	}
 
-	public serialize(): SerializedTileMap {
-		return {
-			map: Array.from(this.map.entries()).reduce<Record<string, SerializedTile>>(
-				(acc, [key, tile]) => {
-					acc[key] = tile.serialize();
-					return acc;
-				},
-				{} as Record<string, ITile>
-			)
-		};
+	public getTileAtPosition(x: number, y: number): ITile | null {
+		const tileSize = this.tileSize;
+		const tileX = Math.floor(x / tileSize);
+		const tileY = Math.floor(y / tileSize);
+
+		const tile = this.getTile(tileX, tileY);
+		if (!tile) return null;
+
+		const tileStartX = tile.x * tileSize;
+		const tileStartY = tile.y * tileSize;
+		const tileEndX = tileStartX + tileSize;
+		const tileEndY = tileStartY + tileSize;
+
+		if (x >= tileStartX && x < tileEndX && y >= tileStartY && y < tileEndY) {
+			return tile;
+		}
+		return null;
 	}
 
-	static deserialize(data: SerializedTileMap): TileMap {
-		const tileMap = new TileMap({ tileSize: 25 });
-		tileMap.map = new Map(
-			Object.entries(data.map).map(([key, tileData]) => [key, Tile.deserialize(tileData)])
-		);
-		return tileMap;
+	public getChar(x: number, y: number): string {
+		const tileSize = this.tileSize;
+		const tile = this.getTileAtPosition(x, y);
+		if (!tile) {
+			return ' ';
+		}
+
+		const localX = x % tileSize;
+		const localY = y % tileSize;
+		return tile.getChar(localX, localY) || ' ';
+	}
+
+	public readRegion(startX: number, startY: number, width: number, height: number): string {
+		const lines: string[] = [];
+		for (let y = 0; y < height; y++) {
+			let line = '';
+			const currentY = startY + y;
+			for (let x = 0; x < width; x++) {
+				line += this.getChar(startX + x, currentY);
+			}
+			lines.push(line);
+		}
+		return lines.join('\n');
 	}
 }

@@ -1,33 +1,17 @@
 <script lang="ts">
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { onMount, onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { useNotificationBus } from '@/bus/useNotificationBus';
+	import { useCore } from '@/config/useCore';
 	import InvisibleLayerRequirement from './Invisible-Layer-Requirement.svelte';
 	import ErrorNotifier from './Error-Notifier.svelte';
 	import InfoNotifier from './Info-Notifier.svelte';
 	import SuccessNotifier from './Success-Notifier.svelte';
 	import { NOTIFICATION_CODE_TO_DESCRIPTION_MAP } from './notification-descriptions';
+	import type { FeedbackPayload } from '@/editor/feedback-manager';
 
-	interface NotificationAction {
-		label: string;
-		callback: () => void;
-	}
-
-	type NotificationType = keyof typeof notificationConfig;
-
-	interface Notification {
-		code: string;
-		message: string;
-		type: NotificationType;
-		actions?: NotificationAction[];
-	}
-
-	interface NotificationPayload {
-		code: string;
-		message: string;
-		type: string;
-		actions?: NotificationAction[];
-	}
+	const core = useCore();
+	const feedbackManager = core.getFeedbackManager();
 
 	const NOTIFICATION_DURATION = 2000;
 
@@ -35,55 +19,69 @@
 		requirement: {
 			component: InvisibleLayerRequirement,
 			duration: Infinity,
-			getProps: (notification: Notification) => ({
+			getProps: (notification: FeedbackPayload) => ({
 				description: notification.message,
 				close: () => toast.dismiss(notification.code),
-				action: {
-					label: notification.actions![0].label,
-					onClick: notification.actions![0].callback
-				}
+				actions: notification.actions?.map((a) => ({
+					label: a.label,
+					onClick: a.callback
+				}))
 			})
 		},
 		success: {
 			component: SuccessNotifier,
 			duration: NOTIFICATION_DURATION,
-			getProps: (notification: Notification) => ({
+			getProps: (notification: FeedbackPayload) => ({
 				description:
-					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] || 'no name (unexpected)',
+					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] ||
+					notification.message ||
+					'Success',
 				close: () => toast.dismiss(notification.code)
 			})
 		},
 		info: {
 			component: InfoNotifier,
 			duration: NOTIFICATION_DURATION,
-			getProps: (notification: Notification) => ({
+			getProps: (notification: FeedbackPayload) => ({
 				description:
-					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] || 'no name (unexpected)',
+					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] || notification.message || 'Info',
 				close: () => toast.dismiss(notification.code)
 			})
 		},
 		error: {
 			component: ErrorNotifier,
 			duration: NOTIFICATION_DURATION,
-			getProps: (notification: Notification) => ({
+			getProps: (notification: FeedbackPayload) => ({
 				description:
-					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] || 'no name (unexpected)',
+					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] ||
+					notification.message ||
+					'Error',
+				close: () => toast.dismiss(notification.code)
+			})
+		},
+		warning: {
+			component: InfoNotifier,
+			duration: NOTIFICATION_DURATION,
+			getProps: (notification: FeedbackPayload) => ({
+				description:
+					NOTIFICATION_CODE_TO_DESCRIPTION_MAP[notification.code] ||
+					notification.message ||
+					'Warning',
 				close: () => toast.dismiss(notification.code)
 			})
 		}
 	};
 
-	function isHandledNotificationType(type: string): type is NotificationType {
+	function isHandledNotificationType(type: string): type is keyof typeof notificationConfig {
 		return type in notificationConfig;
 	}
 
-	const bus = useNotificationBus();
-	const pendingDismissals = new Map<string, ReturnType<typeof setTimeout>>();
-	const activeToastCodes = new Set<string>();
+	const pendingDismissals = new SvelteMap<string, ReturnType<typeof setTimeout>>();
+	const activeToastCodes = new SvelteSet<string>();
 
 	const clearPendingDismissal = (code: string) => {
 		if (pendingDismissals.has(code)) {
-			clearTimeout(pendingDismissals.get(code));
+			clearTimeout(pendingDismissals.get(code)!);
 			pendingDismissals.delete(code);
 		}
 	};
@@ -101,7 +99,7 @@
 		scheduleDismissal(code);
 	};
 
-	const handleNotification = (notification: NotificationPayload) => {
+	const handleNotification = (notification: FeedbackPayload) => {
 		const { code, type } = notification;
 
 		if (!isHandledNotificationType(type)) {
@@ -125,7 +123,7 @@
 			duration: config.duration,
 			position: 'bottom-center',
 			classes: { toast: 'flex items-center justify-center w-full' },
-			componentProps: config.getProps(notification as Notification),
+			componentProps: config.getProps(notification),
 			onDismiss: () => {
 				activeToastCodes.delete(code);
 			}
@@ -133,11 +131,14 @@
 	};
 
 	onMount(() => {
-		bus.on('notificationCleared', handleNotificationCleared);
-		bus.on('notify', handleNotification);
+		feedbackManager.on('resolved', handleNotificationCleared);
+		feedbackManager.on('report', handleNotification);
 	});
 
 	onDestroy(() => {
+		feedbackManager.off('resolved', handleNotificationCleared);
+		feedbackManager.off('report', handleNotification);
+
 		for (const code of pendingDismissals.keys()) {
 			clearTimeout(pendingDismissals.get(code));
 		}

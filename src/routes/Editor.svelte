@@ -4,41 +4,46 @@
 	import { App, createAppInstance } from '@editor/app';
 	import { type ConfigTheme } from '@editor/config';
 	import { Camera } from '@editor/camera';
-	import { BusManager } from '@editor/bus-manager';
-	import { useLayerBus, useToolBus, useNotificationBus } from '@/bus';
-	import { DocumentsApi } from '@/api';
 	import {
 		DrawTool,
 		SelectTool,
 		DrawShapeTool,
-		ClipboardTool,
 		TextTool,
-		HistoryControlTool
+		HistoryControlTool,
+		ContextMenuTool
 	} from '@editor/tools';
 	import { CameraControlTool } from '@editor/tools/camera-control';
 	import { useTheme } from '@/theme/useTheme';
 	import type { FontData } from '@editor/font';
 	import { loader } from '@lib/load/load-manager';
-	import { useDispatch } from '@store/useDispatch';
-	import { getDocument } from '@store/slices/document';
 	import wasmUrl from 'canvaskit-wasm/bin/canvaskit.wasm?url';
 	import ConfigProvider from '@/config/ConfigProvider.svelte';
 	import Notifier from '@views/Notifier/Notifier.svelte';
 	import Tools from '@views/Tools/Tools.svelte';
 	import SideMenu from '@views/SideMenu/SideMenu.svelte';
 	import Actions from '@views/Actions/Actions.svelte';
+	import EditorContextMenu from '@views/ContextMenu/EditorContextMenu.svelte';
 	import type { CoreApi } from '@editor/core';
+	import { registerDefaultCommands } from '@editor/commands/register-default';
+
 	import CoreProvider from '@/config/CoreProvider.svelte';
 	import { ExportTool } from '@editor/tools/export/export-tool';
 	import type { Theme } from '@/theme';
-
-	const layer_bus = useLayerBus();
-	const tools_bus = useToolBus();
-	const notification_bus = useNotificationBus();
-
-	const dispatch = useDispatch();
+	import { RectangleObject } from '@editor/tools/shape/rectangle-object';
+	import { LineObject } from '@editor/tools/shape/line-object';
+	import { Project } from '@/project/project';
+	import { useDispatch } from '@store/useDispatch';
+	import { useSelector } from '@store/useSelector';
+	import { toggleGrid, toggleUI } from '@store/slices/ui/ui.slice';
+	import { EditorCommand } from '@editor/commands/ids';
+	import { contextMenuService } from '@/views/ContextMenu/service-instance';
+	import type { MenuContext } from '@editor/context-menu';
 
 	const { theme, currentThemeRGBA } = useTheme();
+	const dispatch = useDispatch();
+	const uiVisible = useSelector((state) => state.ui.visible);
+	const gridVisible = useSelector((state) => state.ui.gridVisible);
+
 	const editorThemes: { [x in 'light' | 'dark']: ConfigTheme } = {
 		light: {
 			background: [1, 1, 1, 1.0],
@@ -55,16 +60,16 @@
 	};
 
 	let core: CoreApi;
+	$: if (core) {
+		core.getUI().toggleGrid($gridVisible);
+	}
+	let currentProject: Project | null = null;
 
 	onMount(async () => {
 		const loadPromise = (async () => {
 			const ckLoaded = CanvasKitInit({
 				locateFile: () => wasmUrl
 			});
-
-			// WARNING: Hardcoded until multiple documents/document selection
-			const __document = DocumentsApi.withDocument('__PROJECT__').getDocument();
-			dispatch(getDocument('__PROJECT__'));
 
 			let canvasContainer = document.getElementById('canvas-container');
 
@@ -99,12 +104,6 @@
 					return { buffer, family };
 				}
 
-				const busManager = new BusManager({
-					layers: layer_bus,
-					tools: tools_bus,
-					notifications: notification_bus
-				});
-
 				const ratio = window.devicePixelRatio || 1;
 				const camera = new Camera(
 					canvasContainer!.clientWidth * ratio,
@@ -114,8 +113,12 @@
 				let app: App;
 
 				function resizeCanvases() {
-					const width = canvasContainer!.clientWidth;
-					const height = canvasContainer!.clientHeight;
+					if (!canvasContainer) return;
+					const width = canvasContainer.clientWidth;
+					const height = canvasContainer.clientHeight;
+
+					if (width === 0 || height === 0) return;
+
 					const ratio = window.devicePixelRatio || 1;
 
 					[gridCanvas, selectCanvas, animationCanvas].forEach((canvas) => {
@@ -139,7 +142,6 @@
 
 				const [coreApi, appInstance] = createAppInstance({
 					canvasKitInstance: canvasKit,
-					busManager,
 					camera,
 					gridCanvasElement: gridCanvas,
 					selectCanvasElement: selectCanvas,
@@ -150,6 +152,9 @@
 				core = coreApi;
 
 				app = appInstance;
+
+				const documentId = '__PROJECT__';
+				currentProject = new Project(documentId, coreApi);
 
 				const toolExport = new ExportTool(coreApi);
 
@@ -163,24 +168,46 @@
 						primary: $currentThemeRGBA['--primary-export']
 					});
 				};
+
 				updateTheme($theme);
 
 				const drawTool = new DrawTool(coreApi);
 				const selectTool = new SelectTool(coreApi);
 				const drawShapeTool = new DrawShapeTool(coreApi);
 				const textTool = new TextTool(coreApi);
-				const clipboardTool = new ClipboardTool(coreApi);
 				const historyControlTool = new HistoryControlTool(coreApi);
 				const cameraControlTool = new CameraControlTool(coreApi);
+				const contextMenuTool = new ContextMenuTool(coreApi);
 
 				app.registerTool(selectTool);
 				app.registerTool(drawTool);
 				app.registerTool(drawShapeTool);
 				app.registerTool(textTool);
-				app.registerTool(clipboardTool);
 				app.registerTool(historyControlTool);
 				app.registerTool(cameraControlTool);
 				app.registerTool(toolExport);
+				app.registerTool(contextMenuTool);
+
+				app.registerObject('rectangle', RectangleObject);
+				app.registerObject('line', LineObject);
+
+				registerDefaultCommands(core.getCommands(), core);
+
+				core.getCommandRegistry().register(EditorCommand.ViewToggleUI, () => dispatch(toggleUI()));
+				core
+					.getCommandRegistry()
+					.register(EditorCommand.ViewToggleGrid, () => dispatch(toggleGrid()));
+				core.getCommandRegistry().register(EditorCommand.ViewThemeSet, (args: unknown) => {
+					const _args = args as { theme: Theme };
+					if (_args && _args.theme) {
+						theme.set(_args.theme);
+					}
+				});
+
+				core.getCommandRegistry().register(EditorCommand.ViewShowContextMenu, (args: unknown) => {
+					const _args = args as { x: number; y: number; context: MenuContext };
+					contextMenuService.showAt(_args.x, _args.y, _args.context);
+				});
 
 				const toolManager = app.getToolManager();
 				toolManager.setDefaultTool(selectTool);
@@ -189,12 +216,10 @@
 					updateTheme(theme);
 				});
 
+				currentProject.startSyncing();
+
 				window.addEventListener('resize', () => app.render());
-
-				if (__document) {
-					app.hydratateDocument(__document);
-				}
-
+				app.hydratateDocument(currentProject.documentSchema());
 				app.render();
 			});
 		})();
@@ -213,10 +238,13 @@
 {#if core}
 	<CoreProvider coreApi={core}>
 		<ConfigProvider config={core.getConfig()}>
-			<Notifier />
-			<Tools />
-			<SideMenu />
-			<Actions />
+			<EditorContextMenu />
+			<div class={$uiVisible ? 'contents' : 'hidden'}>
+				<Notifier />
+				<Tools />
+				<SideMenu />
+				<Actions />
+			</div>
 		</ConfigProvider>
 	</CoreProvider>
 {/if}

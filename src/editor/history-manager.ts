@@ -1,8 +1,15 @@
-export interface ActionHandler<T extends BaseAction> {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	apply(action: T, target: any): void;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	revert(action: T, target: any): void;
+// TODO: Improve typing throughout the file
+
+export interface ActionDefinition<T extends string, P, R> {
+	readonly type: T;
+	_payload?: P;
+	_result?: R;
+}
+
+export function createActionDefinition<T extends string, P = void, R = void>(
+	type: T
+): ActionDefinition<T, P, R> {
+	return { type };
 }
 
 export interface BaseAction {
@@ -21,11 +28,16 @@ export interface BatchConfig {
 
 type Action = BaseAction;
 
-export interface ActionHandler<T extends BaseAction> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface ActionHandler<T extends BaseAction, R, P = any> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	apply(action: T, target: any): void;
+	execute(target: any, context: any, payload: P | undefined): [T | undefined, R];
+
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	revert(action: T, target: any): void;
+	apply(action: T, target: any, context: any): void;
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	revert(action: T, target: any, context: any): void;
 }
 
 type HistorySubscriber = () => void;
@@ -35,9 +47,13 @@ export class HistoryManager {
 	private stack: Action[] = [];
 	private currentIndex: number = -1;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private handlers: Map<string, ActionHandler<any>> = new Map();
+	private handlers: Map<string, ActionHandler<any, any>> = new Map();
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private targets: Map<string, any> = new Map();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private contexts: Map<string, any> = new Map();
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private stringHandlers: Map<string, ActionHandler<any, any>> = new Map();
 
 	private isApplying = false;
 
@@ -48,6 +64,11 @@ export class HistoryManager {
 			actions: Action[];
 		}
 	> = new Map();
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public registerContext(targetId: string, context: any): void {
+		this.contexts.set(targetId, context);
+	}
 
 	private beforeUndoSubscribers: HistorySubscriber[] = [];
 	private afterUndoSubscribers: HistorySubscriber[] = [];
@@ -75,6 +96,7 @@ export class HistoryManager {
 
 	public clear() {
 		this.stack = [];
+		this.currentIndex = -1;
 	}
 
 	public getHistory() {
@@ -142,15 +164,54 @@ export class HistoryManager {
 		return id;
 	}
 
+	public execute<T extends string, P, R>(
+		definition: ActionDefinition<T, P, R>,
+		targetId: string,
+		payload?: P,
+		batchId?: string
+	): R {
+		const handler = this.getHandler(definition.type);
+		const target = this.targets.get(targetId);
+		const context = this.contexts.get(targetId);
+
+		if (!handler) throw new Error(`No handler registered for action type: ${definition.type}`);
+		if (!target) throw new Error(`No target registered with ID: ${targetId}`);
+		if (!context) throw new Error(`No context registered with ID: ${targetId}`);
+
+		const [action, result] = handler.execute(target, context, payload);
+
+		if (!action) {
+			return result as R;
+		}
+
+		const safeAction = JSON.parse(JSON.stringify(action));
+
+		if (batchId) {
+			const batch = this.activeBatches.get(batchId);
+			if (batch && this.canAddToBatch(batchId, safeAction)) {
+				batch.actions.push(safeAction);
+				return result as R;
+			}
+		}
+
+		this.stack = this.stack.slice(0, this.currentIndex + 1);
+		this.stack.push(safeAction);
+		this.currentIndex++;
+
+		return result;
+	}
+
 	public applyAction(action: Action, config?: { batchId?: string; applyAction?: boolean }): void {
 		this.beforeApplyActionSubscribers.forEach((subscriber) => subscriber(action));
 		if (this.isApplying) return;
 
-		const handler = this.handlers.get(action.type);
+		const handler = this.getHandler(action.type);
 		const target = this.targets.get(action.targetId);
+		const context = this.contexts.get(action.targetId);
 
 		if (!handler) throw new Error(`No handler registered for action type: ${action.type}`);
 		if (!target) throw new Error(`No target registered with ID: ${action.targetId}`);
+		if (!context) throw new Error(`No context registered with ID: ${action.targetId}`);
 
 		if (config?.batchId) {
 			const batch = this.activeBatches.get(config.batchId);
@@ -165,11 +226,12 @@ export class HistoryManager {
 		}
 
 		if (config?.applyAction !== false) {
-			handler.apply(action, target);
+			handler.apply(action, target, context);
 		}
 
+		const safeAction = JSON.parse(JSON.stringify(action));
 		this.stack = this.stack.slice(0, this.currentIndex + 1);
-		this.stack.push(action);
+		this.stack.push(safeAction);
 		this.currentIndex++;
 
 		this.afterApplyActionSubscribers.forEach((subscriber) => subscriber());
@@ -189,12 +251,13 @@ export class HistoryManager {
 		batch.actions.forEach((action) => {
 			const handler = this.handlers.get(action.type);
 			const target = this.targets.get(action.targetId);
+			const context = this.contexts.get(action.targetId);
 
-			if (!handler || !target) {
-				throw new Error('Handler or target not found for batch action');
-			}
+			if (!handler) throw new Error(`No handler registered for action type: ${action.type}`);
+			if (!target) throw new Error(`No target registered with ID: ${action.targetId}`);
+			if (!context) throw new Error(`No context registered with ID: ${action.targetId}`);
 
-			handler.apply(action, target);
+			handler.apply(action, target, context);
 		});
 
 		const compositeAction: BaseAction = {
@@ -204,24 +267,31 @@ export class HistoryManager {
 			targetId: batch.actions[0].targetId
 		};
 
-		if (!this.handlers.has(compositeAction.type)) {
-			this.registerHandler(compositeAction.type, {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				apply: (_action: BaseAction, target: any) => {
+		if (!this.getHandler(compositeAction.type)) {
+			this.registerStringHandler(compositeAction.type, {
+				execute: () => {
+					throw new Error('Composite actions are created internally and cannot be executed.');
+				},
+
+				apply: () => {
 					batch.actions.forEach((subAction) => {
 						const handler = this.handlers.get(subAction.type);
-						if (handler) {
-							handler.apply(subAction, target);
+						const target = this.targets.get(subAction.targetId);
+						const context = this.contexts.get(subAction.targetId);
+						if (handler && target && context) {
+							handler.apply(subAction, target, context);
 						}
 					});
 				},
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				revert: (_action: BaseAction, target: any) => {
+
+				revert: () => {
 					for (let i = batch.actions.length - 1; i >= 0; i--) {
 						const subAction = batch.actions[i];
 						const handler = this.handlers.get(subAction.type);
-						if (handler) {
-							handler.revert(subAction, target);
+						const target = this.targets.get(subAction.targetId);
+						const context = this.contexts.get(subAction.targetId);
+						if (handler && target && context) {
+							handler.revert(subAction, target, context);
 						}
 					}
 				}
@@ -239,8 +309,23 @@ export class HistoryManager {
 		this.activeBatches.delete(batchId);
 	}
 
-	public registerHandler<T extends BaseAction>(type: string, handler: ActionHandler<T>): void {
-		this.handlers.set(type, handler);
+	public registerHandler<T extends string, P, R>(
+		definition: ActionDefinition<T, P, R>,
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		handler: ActionHandler<any, R, P>
+	): void {
+		this.handlers.set(definition.type, handler);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private registerStringHandler(type: string, handler: ActionHandler<any, any>): void {
+		this.stringHandlers.set(type, handler);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private getHandler(type: string): ActionHandler<any, any> | undefined {
+		return this.handlers.get(type) ?? this.stringHandlers.get(type);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -277,7 +362,7 @@ export class HistoryManager {
 			);
 		}
 
-		return this.handlers.delete(type);
+		return this.handlers.delete(type) || this.stringHandlers.delete(type);
 	}
 
 	public undo(): void {
@@ -288,14 +373,15 @@ export class HistoryManager {
 
 		this.isApplying = true;
 		const action = this.stack[this.currentIndex];
-		const handler = this.handlers.get(action.type);
+		const handler = this.getHandler(action.type);
 		const target = this.targets.get(action.targetId);
+		const context = this.contexts.get(action.targetId);
 
-		if (!handler || !target) {
-			throw new Error('Handler or target not found for undo');
-		}
+		if (!handler) throw new Error(`No handler registered for action type: ${action.type}`);
+		if (!target) throw new Error(`No target registered with ID: ${action.targetId}`);
+		if (!context) throw new Error(`No context registered with ID: ${action.targetId}`);
 
-		handler.revert(action, target);
+		handler.revert(action, target, context);
 		this.currentIndex--;
 		this.isApplying = false;
 
@@ -312,14 +398,15 @@ export class HistoryManager {
 
 		this.currentIndex++;
 		const action = this.stack[this.currentIndex];
-		const handler = this.handlers.get(action.type);
+		const handler = this.getHandler(action.type);
 		const target = this.targets.get(action.targetId);
+		const context = this.contexts.get(action.targetId);
 
-		if (!handler || !target) {
-			throw new Error('Handler or target not found for redo');
-		}
+		if (!handler) throw new Error(`No handler registered for action type: ${action.type}`);
+		if (!target) throw new Error(`No target registered with ID: ${action.targetId}`);
+		if (!context) throw new Error(`No context registered with ID: ${action.targetId}`);
 
-		handler.apply(action, target);
+		handler.apply(action, target, context);
 
 		this.isApplying = false;
 		this.afterRedoSubscribers.forEach((subscriber) => subscriber());

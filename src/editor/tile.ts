@@ -1,4 +1,5 @@
-import type { ITile, RegionOptions, SerializedTile } from './types';
+import type { ITile, RegionOptions, TileSchemaType } from './types';
+import { isAllowedSingleCellChar } from '@editor/utils/char-policy';
 
 export class Tile implements ITile {
 	constructor(
@@ -19,7 +20,8 @@ export class Tile implements ITile {
 			return;
 		}
 
-		this.data = this.data.substring(0, index) + char + this.data.substring(index + 1);
+		const safeChar = isAllowedSingleCellChar(char) ? char[0] : ' ';
+		this.data = this.data.substring(0, index) + safeChar + this.data.substring(index + 1);
 	}
 
 	getChar(localX: number, localY: number): string | null {
@@ -37,24 +39,52 @@ export class Tile implements ITile {
 	setRegion(offsetX: number, offsetY: number, lines: string[], options: RegionOptions = {}): void {
 		const { skipSpaces = true } = options;
 
+		if (skipSpaces === false) {
+			for (let r = 0; r < lines.length; r++) {
+				const line = lines[r];
+				if (!line) continue;
+				const rowIndex = offsetY + r;
+				if (rowIndex < 0 || rowIndex >= this.tileSize) continue;
+				const colStart = Math.max(0, Math.min(this.tileSize, offsetX));
+				const frag = line;
+				let sanitized = '';
+				for (let i = 0; i < frag.length; i++) {
+					const ch = frag[i];
+					sanitized += isAllowedSingleCellChar(ch) ? ch[0] : ' ';
+				}
+				const maxLen = this.tileSize - colStart;
+				if (sanitized.length > maxLen) sanitized = sanitized.substring(0, maxLen);
+				const rowAbsStart = rowIndex * this.tileSize;
+				const sliceStart = rowAbsStart + colStart;
+				const sliceEnd = sliceStart + sanitized.length;
+				this.data = this.data.substring(0, sliceStart) + sanitized + this.data.substring(sliceEnd);
+			}
+			return;
+		}
+
 		for (let row = 0; row < lines.length; row++) {
 			const line = lines[row];
 			for (let col = 0; col < line.length; col++) {
 				const char = line[col];
-
-				if (skipSpaces && char === ' ') {
-					continue;
-				}
+				if (skipSpaces && char === ' ') continue;
 				this.setChar(offsetX + col, offsetY + row, char);
 			}
 		}
 	}
 
 	fillRegion(offsetX: number, offsetY: number, width: number, height: number, char: string): void {
-		for (let row = 0; row < height; row++) {
-			for (let col = 0; col < width; col++) {
-				this.setChar(offsetX + col, offsetY + row, char);
-			}
+		const safeChar = isAllowedSingleCellChar(char) ? char[0] : ' ';
+		for (let r = 0; r < height; r++) {
+			const rowIndex = offsetY + r;
+			if (rowIndex < 0 || rowIndex >= this.tileSize) continue;
+			const colStart = Math.max(0, Math.min(this.tileSize, offsetX));
+			const maxLen = Math.max(0, Math.min(this.tileSize - colStart, width));
+			if (maxLen <= 0) continue;
+			const fill = safeChar.repeat(maxLen);
+			const rowAbsStart = rowIndex * this.tileSize;
+			const sliceStart = rowAbsStart + colStart;
+			const sliceEnd = sliceStart + maxLen;
+			this.data = this.data.substring(0, sliceStart) + fill + this.data.substring(sliceEnd);
 		}
 	}
 
@@ -93,7 +123,7 @@ export class Tile implements ITile {
 		return this.data.trim().length === 0;
 	}
 
-	serialize(): SerializedTile {
+	serialize(): TileSchemaType {
 		return {
 			tileSize: this.tileSize,
 			x: this.x,
@@ -102,7 +132,7 @@ export class Tile implements ITile {
 		};
 	}
 
-	static deserialize(data: SerializedTile): ITile {
+	static deserialize(data: TileSchemaType): ITile {
 		const tile = new Tile(data.tileSize, data.x, data.y, data.data);
 		return tile;
 	}

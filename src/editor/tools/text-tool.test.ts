@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Core } from '@editor/core';
 import { App, createAppInstance } from '@editor/app';
-import { BusManager } from '@editor/bus-manager';
-import { BaseBusLayers } from '@editor/bus-layers';
-import { BaseBusTools } from '@editor/bus-tools';
-import { BaseBusNotification } from '@editor/bus-notification';
 import { Camera } from '@editor/camera';
 import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import type { ToolManager } from '@editor/tool-manager';
@@ -57,7 +53,6 @@ describe('TextTool', () => {
 	let app: App;
 	let textTool: TextTool;
 	let camera: Camera;
-	let busManager: BusManager;
 	let toolManager: ToolManager;
 	let historyManager: HistoryManager;
 	let fontManager: FontManager;
@@ -76,12 +71,6 @@ describe('TextTool', () => {
 		vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue(mockClipboard as any);
 		mockClipboardData.text = '';
 
-		busManager = new BusManager({
-			layers: new BaseBusLayers(),
-			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification()
-		});
-
 		camera = new Camera(1200, 800);
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const canvasKitInstance = cvk.CanvasKit as any;
@@ -96,7 +85,6 @@ describe('TextTool', () => {
 			gridCanvasElement: gridEl,
 			selectCanvasElement,
 			asciiCanvasElement: asciiEl,
-			busManager,
 			camera,
 			font: appFontData
 		});

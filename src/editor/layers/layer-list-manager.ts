@@ -1,11 +1,16 @@
-import type { DeepPartial, ILayer, ILayerModel } from '@editor/types';
+import type { DeepPartial } from '@editor/types';
+import { EventEmitter } from '@editor/event-emitter';
+import type { LayersListManagerEvents } from '@editor/types/external/layers-events';
+import type { Layer } from './layer';
+import type { ILayerModel } from '@editor/types/external/layer-model';
 
-export class LayersListManager {
-	private layers: Map<string, ILayer>;
+export class LayersListManager extends EventEmitter<LayersListManagerEvents> {
+	private layers: Map<string, Layer>;
 	private sortedLayerIds: string[];
 	private activeLayerKey: string | null;
 
-	constructor(layers: ILayer[] = []) {
+	constructor(layers: Layer[] = []) {
+		super();
 		this.layers = new Map();
 		this.sortedLayerIds = [];
 		this.activeLayerKey = null;
@@ -20,7 +25,7 @@ export class LayersListManager {
 		this.sortedLayerIds.forEach((id, index) => {
 			const layer = this.layers.get(id);
 			if (layer) {
-				layer.updateIndex(index);
+				layer.update({ index });
 				reindexedLayers.push({ id, index });
 			}
 		});
@@ -28,7 +33,7 @@ export class LayersListManager {
 		return reindexedLayers;
 	}
 
-	public addLayer(layer: ILayer): void {
+	public addLayer(layer: Layer): void {
 		const layerId = layer.id;
 		this.layers.set(layerId, layer);
 
@@ -39,9 +44,10 @@ export class LayersListManager {
 
 		this.sortedLayerIds.push(layerId);
 		this.reindexLayers();
+		this.emit('layer::added', { layer });
 	}
 
-	public insertLayerAtIndex(layer: ILayer, index: number): { id: string; index: number }[] {
+	public insertLayerAtIndex(layer: Layer, index: number): { id: string; index: number }[] {
 		const layerId = layer.id;
 
 		const oldIndex = this.sortedLayerIds.indexOf(layerId);
@@ -53,10 +59,12 @@ export class LayersListManager {
 
 		const effectiveIndex = Math.max(0, Math.min(index, this.sortedLayerIds.length));
 		this.sortedLayerIds.splice(effectiveIndex, 0, layerId);
-		return this.reindexLayers();
+		const reindexed = this.reindexLayers();
+		this.emit('layer::added', { layer });
+		return reindexed;
 	}
 
-	public addMultipleLayers(layersToAdd: ILayer[]): void {
+	public addMultipleLayers(layersToAdd: Layer[]): void {
 		if (layersToAdd.length === 0) return;
 
 		layersToAdd.forEach((layer) => {
@@ -68,6 +76,7 @@ export class LayersListManager {
 				this.sortedLayerIds.splice(existingIndex, 1);
 			}
 			this.sortedLayerIds.push(layerId);
+			this.emit('layer::added', { layer });
 		});
 
 		this.reindexLayers();
@@ -86,6 +95,7 @@ export class LayersListManager {
 		}
 		this.layers.delete(layerId);
 		this.sortedLayerIds.splice(index, 1);
+		this.emit('layer::removed', { id: layerId });
 		this.reindexLayers();
 	}
 
@@ -106,11 +116,12 @@ export class LayersListManager {
 
 		this.layers.delete(layerId);
 		this.sortedLayerIds.splice(index, 1);
+		this.emit('layer::removed', { id: layerId });
 
 		let newActiveKey = this.activeLayerKey;
 		if (this.activeLayerKey === layerId) {
 			newActiveKey = this.sortedLayerIds[index] || this.sortedLayerIds[index - 1] || null;
-			this.activeLayerKey = newActiveKey;
+			this.setActiveLayer(newActiveKey);
 		}
 
 		this.reindexLayers();
@@ -133,7 +144,6 @@ export class LayersListManager {
 		updates: DeepPartial<ILayerModel>
 	): {
 		success: boolean;
-		beforeAfter?: { before: ILayerModel; after: ILayerModel };
 		reindexed?: { id: string; index: number }[];
 	} {
 		const layer = this.layers.get(layerId);
@@ -142,6 +152,7 @@ export class LayersListManager {
 		}
 
 		const currentOrderIndex = this.sortedLayerIds.indexOf(layerId);
+
 		if (updates.index !== undefined && updates.index !== currentOrderIndex) {
 			if (currentOrderIndex !== -1) {
 				this.sortedLayerIds.splice(currentOrderIndex, 1);
@@ -149,23 +160,23 @@ export class LayersListManager {
 			const effectiveUpdateIndex = Math.max(0, Math.min(updates.index, this.sortedLayerIds.length));
 			this.sortedLayerIds.splice(effectiveUpdateIndex, 0, layerId);
 		}
+		layer.update(updates);
 
-		const beforeAfter = layer.update(updates);
 		const reindexed = this.reindexLayers();
-		return { success: true, beforeAfter, reindexed };
+		return { success: true, reindexed };
 	}
 
-	public getLayerById(layerId: string): ILayer | undefined {
+	public getLayerById(layerId: string): Layer | undefined {
 		return this.layers.get(layerId);
 	}
 
-	public getSortedLayers(): ILayer[] {
+	public getSortedLayers(): Layer[] {
 		return this.sortedLayerIds
 			.map((id) => this.layers.get(id))
 			.filter((layer) => layer !== undefined);
 	}
 
-	public getFirstLayer(): ILayer | undefined {
+	public getFirstLayer(): Layer | undefined {
 		return this.layers.get(this.sortedLayerIds[0]);
 	}
 
@@ -174,18 +185,23 @@ export class LayersListManager {
 	}
 
 	public clear(): void {
+		this.layers.forEach((layer) => this.emit('layer::removed', { id: layer.id }));
 		this.layers.clear();
 		this.sortedLayerIds = [];
 		this.activeLayerKey = null;
 	}
 
-	public getActiveLayer(): ILayer | null {
+	public getActiveLayer(): Layer | null {
 		return this.activeLayerKey ? this.layers.get(this.activeLayerKey) || null : null;
 	}
 
 	public setActiveLayer(layerId: string | null): boolean {
 		if (layerId === null || !layerId) {
-			this.activeLayerKey = null;
+			if (this.activeLayerKey !== null) {
+				const oldId = this.activeLayerKey;
+				this.activeLayerKey = null;
+				this.emit('layer::active::changed', { oldId, newId: null });
+			}
 			return true;
 		}
 
@@ -193,7 +209,11 @@ export class LayersListManager {
 			return false;
 		}
 
-		this.activeLayerKey = layerId;
+		if (this.activeLayerKey !== layerId) {
+			const oldId = this.activeLayerKey;
+			this.activeLayerKey = layerId;
+			this.emit('layer::active::changed', { oldId, newId: layerId });
+		}
 		return true;
 	}
 

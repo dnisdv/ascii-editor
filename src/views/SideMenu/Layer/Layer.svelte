@@ -2,16 +2,22 @@
 	import EditableText from '@components/editable-text/EditableText.svelte';
 	import { Button } from '@components/button';
 
-	import { useSelector } from '@store/useSelector';
 	import { getContextMenu } from './Layer-contextMenuProvider.svelte';
 	import LayerContextMenu from './Layer-contextMenu.svelte';
-	import { useLayerBus } from '@/bus';
 	import { writable } from 'svelte/store';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
 	import { useCore } from '@/config/useCore';
-	import { onMount } from 'svelte';
+	import ScrollArea from '@components/scroll-area/scroll-area.svelte';
+	import DndList from '@components/dnd-list/DndList.svelte';
+	import DndListItem from '@components/dnd-list/DndListItem.svelte';
+	import LayerObject from './Objects/Layer-object.svelte';
+	import LayerObjectContextMenuProvider from './Objects/Layer-object-contextMenuProvider.svelte';
+	import type { ILayerModel } from '@editor/types/external/layer-model';
+	import type { ISmartObject } from '@editor/objects/smart-object.interface';
 
 	const core = useCore();
+	const layersManager = core.getLayersManager();
+
 	const { activeMenu, open, close } = getContextMenu();
 
 	export let dragging = false;
@@ -20,16 +26,61 @@
 
 	let isEmpty = false;
 
-	export let layer;
-	export let id;
+	export let layer: ILayerModel;
+	export let id: string;
 
-	const currentLayer = useSelector((store) => store.layers.data[id]);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	type ObjectWithMeta = ISmartObject & { index: number; __isSelected: boolean; [key: string]: any };
+
+	function buildObjectsList(): ObjectWithMeta[] {
+		const apiLayer = layersManager.getLayer(layer.id);
+		if (!apiLayer) return [];
+
+		const composition = layersManager.getLayerComposition(layer.id);
+		const tempIds = new Set(composition.slice(1).flatMap((l) => l.getObjects().map((o) => o.id)));
+
+		return apiLayer.getObjects().map((object, index) => {
+			const objWithMeta = object as ObjectWithMeta;
+			objWithMeta.index = index;
+			objWithMeta.__isSelected = tempIds.has(object.id);
+			return objWithMeta;
+		});
+	}
+
+	const objects = writable(buildObjectsList());
+	const currentLayer = writable<string | null>(null);
 	const isEditing = writable(false);
 
-	const layerBus = useLayerBus();
+	function refreshObjects() {
+		objects.set(buildObjectsList());
+		isEmpty = layersManager.getLayer(layer.id)?.isEmpty() ?? true;
+	}
+
+	// Real layer events
+	layersManager.on('layer::object::added', refreshObjects);
+	layersManager.on('layer::object::removed', refreshObjects);
+	layersManager.on('layer::object::moved', refreshObjects);
+	layersManager.on('layer::object::update', refreshObjects);
+
+	// Temp layer events (selected overlays)
+	layersManager.on('temp_layer::object::added', refreshObjects);
+	layersManager.on('temp_layer::object::removed', refreshObjects);
+	layersManager.on('temp_layer::object::moved', refreshObjects);
+	layersManager.on('temp_layer::object::update', refreshObjects);
+
+	layersManager.on('temp_layer::added', refreshObjects);
+	layersManager.on('temp_layer::removed', refreshObjects);
+
+	layersManager.on('layer::updated', () => {
+		isVisible = layersManager.getLayer(layer.id)?.getOpts().visible ?? true;
+	});
+
+	layersManager.on('layer::object::op',() => {
+		isEmpty = layersManager.getLayer(layer.id)?.isEmpty() ?? true;
+	})
 
 	const setActiveLayer = () => {
-		layerBus.emit('layer::change_active::request', { id });
+		core.getLayersManager().setActiveLayer(layer.id);
 	};
 
 	const onOpenChange = (isOpen: boolean) => {
@@ -46,11 +97,12 @@
 	const nameChange = (e: { value: string }) => {
 		if (e.value.trim() === '') return;
 		const newName = e.value;
-		layerBus.emit('layer::update::request', { id, name: newName });
+		const layersManager = core.getLayersManager();
+		layersManager.updateLayer(layer.id, { name: newName });
 	};
 
 	const remove = () => {
-		layerBus.emit('layer::remove::request', { id });
+		core.getLayersManager().removeLayer(layer.id);
 	};
 
 	const copyName = () => {
@@ -61,29 +113,26 @@
 	};
 
 	const toggleLayerVisibility = () => {
-		layerBus.emit('layer::update::request', {
-			id,
-			opts: { visible: !isVisible }
-		});
+		const current = layersManager.getLayer(layer.id)?.getOpts().visible ?? true;
+		layersManager.updateLayer(layer.id, { opts: { visible: !current } });
 	};
 
 	const editableTextChange = (e: { isEditing: boolean }) => {
 		isEditing.set(e.isEditing);
 	};
 
-	onMount(() => {
-		const _layer = core.getLayersManager()?.getLayer(layer.id);
-		if (!_layer) return;
+	const handleObjectReorder = (e: CustomEvent) => {
+		const { fromItem, toIndex } = e.detail;
+		if (fromItem) layersManager.moveLayerObject(layer.id, fromItem.id, toIndex);
+	};
 
-		_layer.on('changed', () => {
-			isEmpty = _layer.isEmpty();
-		});
-	});
-
+	$: layerName = layer.name;
 	$: isOpen = $activeMenu === id;
-	$: isVisible = $currentLayer?.opts?.visible ?? true;
+	$: isVisible = layer.opts.visible;
 	$: visibleIcon = isVisible ? 'eye' : 'eye-closed';
 	$: isEmpty = core.getLayersManager()?.getLayer(layer.id)?.isEmpty() || false;
+
+	$: sortedObjects = $objects ? [...$objects].sort((a, b) => a.index - b.index) : [];
 </script>
 
 <LayerContextMenu
@@ -113,7 +162,7 @@
 			onToggled={editableTextChange}
 			bind:this={editableText}
 			class="pl-1 text-xs"
-			value={layer.name}
+			value={layerName}
 		/>
 		{#if !$isEditing}
 			<div
@@ -138,6 +187,31 @@
 		{/if}
 	</div>
 </LayerContextMenu>
+
+<LayerObjectContextMenuProvider>
+	<ScrollArea onScroll={() => {}} hideDelay={0} class="flex h-full flex-col overflow-y-auto">
+		<div class="px-1.5 pb-1.5 pt-1.5">
+			<DndList on:change={handleObjectReorder}>
+				{#each sortedObjects as object (object.id)}
+					<DndListItem item={object} let:isBeingDragged let:isSomethingDragging>
+						<div class="flex items-center">
+							<div class:selection-active={object.__isSelected} class="w-full rounded-sm">
+								<LayerObject
+									layerId={layer.id}
+									id={object.id}
+									{isSomethingDragging}
+									{object}
+									dragging={isBeingDragged}
+									active={String($currentLayer) === String(layer.id)}
+								/>
+							</div>
+						</div>
+					</DndListItem>
+				{/each}
+			</DndList>
+		</div>
+	</ScrollArea>
+</LayerObjectContextMenuProvider>
 
 <style lang="postcss">
 	.layer {
@@ -179,5 +253,9 @@
 		& .actions.always-visible {
 			@apply flex;
 		}
+	}
+
+	.selection-active {
+		@apply bg-blue-500/30;
 	}
 </style>

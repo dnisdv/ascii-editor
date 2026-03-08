@@ -10,8 +10,8 @@ import { SelectionRenderer, type ExportToolTheme } from './renderer/selection-re
 import { SelectionSessionManager } from './session/selection-session-manager';
 import type { CoreApi } from '@editor/core';
 import { ResizingMode } from './modes/resizing-mode';
-import type { ClipboardToolApi } from '../clipboard-tool';
 import type { Rectangle } from './session/selection-session';
+import { convertToBasicAscii } from '@editor/utils/ascii-utils';
 
 export class ExportTool extends BaseTool {
 	readonly name = 'export';
@@ -23,7 +23,6 @@ export class ExportTool extends BaseTool {
 	constructor(coreApi: CoreApi) {
 		super({
 			hotkey: '<A-e>',
-			bus: coreApi.getBusManager(),
 			coreApi,
 			name: 'export',
 			isVisible: true,
@@ -148,7 +147,10 @@ export class ExportTool extends BaseTool {
 		this.modeContext.transitionTo(SelectionModeName.IDLE);
 	}
 
-	public handleExportCopy(event?: KeyboardEvent | undefined): void {
+	public handleExportCopy(
+		event?: KeyboardEvent | undefined,
+		mode: 'basic' | 'extended' = 'extended'
+	): void {
 		event?.preventDefault();
 		const activeSession = this.selectionSessionManager.getActiveSession();
 		const selectedRegion = activeSession?.getSelectedRegion();
@@ -169,26 +171,85 @@ export class ExportTool extends BaseTool {
 
 		const allVisibleLayers = layersManager.getAllVisibleLayersSorted();
 
+		const layersData = allVisibleLayers.map((layer) => {
+			const relevantObjects = layer
+				.getObjects()
+				.filter((obj) => {
+					const tx = Math.round(obj.getProperty('transform.x'));
+					const ty = Math.round(obj.getProperty('transform.y'));
+					const tw = Math.round(obj.getProperty('transform.width'));
+					const th = Math.round(obj.getProperty('transform.height'));
+					return (
+						startX < tx + tw && startX + width > tx && startY < ty + th && startY + height > ty
+					);
+				})
+				.map((obj) => {
+					const tx = Math.round(obj.getProperty('transform.x'));
+					const ty = Math.round(obj.getProperty('transform.y'));
+					const str = obj.toString ? obj.toString() : null;
+					return {
+						tx,
+						ty,
+						lines: str ? str.split('\n') : []
+					};
+				});
+
+			return {
+				layer,
+				objects: relevantObjects
+			};
+		});
+
 		let content = '';
 		for (let y = 0; y < height; y++) {
 			let line = '';
 			for (let x = 0; x < width; x++) {
+				const globalX = startX + x;
+				const globalY = startY + y;
 				let char = ' ';
-				for (const layer of [...allVisibleLayers].reverse()) {
-					const charOnLayer = layer.getChar(startX + x, startY + y);
-					if (charOnLayer.trim() !== '') {
-						char = charOnLayer;
+
+				for (let i = 0; i < layersData.length; i++) {
+					const { layer, objects } = layersData[i];
+					let foundChar: string | null = null;
+
+					for (let j = 0; j < objects.length; j++) {
+						const { tx, ty, lines } = objects[j];
+						const localY = globalY - ty;
+						if (localY >= 0 && localY < lines.length) {
+							const lineStr = lines[localY];
+							const localX = globalX - tx;
+							if (localX >= 0 && localX < lineStr.length) {
+								const ch = lineStr[localX];
+								if (ch && ch !== ' ') {
+									foundChar = ch;
+									break;
+								}
+							}
+						}
+					}
+
+					if (foundChar) {
+						char = foundChar;
 						break;
 					}
+
+					const gridChar = layer.grid.getChar(globalX, globalY);
+					if (gridChar && gridChar.trim() !== '') {
+						char = gridChar;
+						break;
+					}
+				}
+				if (mode === 'basic') {
+					char = convertToBasicAscii(char);
 				}
 				line += char;
 			}
 			content += line + (y < height - 1 ? '\n' : '');
 		}
 
-		const clipboardApi = this.coreApi.getToolManager().getToolApi<ClipboardToolApi>('clipboard');
+		const clipboardManager = this.coreApi.getClipboardManager();
 		if (content && navigator) {
-			clipboardApi?.copyText(content);
+			clipboardManager.writeText(content);
 		}
 	}
 

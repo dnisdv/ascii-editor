@@ -1,138 +1,98 @@
-import type { DocumentSchemaType, ILayerModel, RequireAtLeastOne } from '@editor/types';
-import { DBLocalStorage } from './db-localstorage';
-import { DocumentsApi } from './document-api';
+import type {
+	ILayerModel,
+	RequireAtLeastOne,
+	DeepPartial,
+	ObjectOperation,
+	LayerSerializableSchemaType
+} from '@editor/types';
 import { DocumentController } from './document';
+import type { SmartObjectSerializableSchemaType } from '@editor/serializer/smart-object.schema';
 
-export const LayersApi = (documentId: string) => ({
-	listLayers(): string[] {
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
+interface ApiDependencies {
+	documentController: DocumentController;
+	save: () => void;
+}
 
-		const layerIds = Object.keys(documentController.getSchema().layers.data);
-		return layerIds;
-	},
+export const LayersApi = ({ documentController, save }: ApiDependencies) => {
+	return {
+		listLayers(): string[] {
+			return Object.keys(documentController.getSchema().layers.data);
+		},
 
-	moveLayer(layerId: string, newPosition: number): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
+		moveLayer(layerId: string, newPosition: number): void {
+			documentController.updateLayer(layerId, { index: newPosition });
+			save();
+		},
 
-		const layer = documentController.getSchema().layers.data[layerId];
-		if (!layer) {
-			throw new Error(`Layer with ID ${layerId} does not exist.`);
-		}
+		setActiveLayer(layerId: string | null): void {
+			documentController.setActiveLayer(layerId);
+			save();
+		},
 
-		documentController.updateLayer(layerId, { index: newPosition });
-		db.save(documentController.getSchema());
-	},
+		addLayer(layer: LayerSerializableSchemaType) {
+			documentController.addLayer(layer);
+			save();
+		},
 
-	setActiveLayer(layerId: string | null): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
+		updateLayer(layer: RequireAtLeastOne<DeepPartial<ILayerModel>, 'id'>): void {
+			const id = layer.id as string;
+			documentController.updateLayer(id, layer as unknown as Partial<LayerSerializableSchemaType>);
+			save();
+		},
 
-		documentController.setActiveLayer(layerId);
+		removeLayer(layerId: string): void {
+			documentController.removeLayer(layerId);
+			save();
+		},
 
-		db.save(documentController.getSchema());
-	},
+		duplicateLayer(layerId: string): void {
+			const originalLayer = documentController.getSchema().layers.data[layerId];
+			if (!originalLayer) {
+				throw new Error(`Layer with ID ${layerId} does not exist.`);
+			}
 
-	addLayer(layer: ILayerModel) {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
-
-		documentController.addLayer(layer);
-
-		db.save(documentController.getSchema());
-	},
-
-	updateLayer(layer: RequireAtLeastOne<ILayerModel, 'id'>): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
-
-		const layerId = layer.id!;
-		documentController.updateLayer(layerId, layer);
-
-		db.save(documentController.getSchema());
-	},
-
-	removeTile(layerId: string, x: number, y: number): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
-
-		documentController.removeTile(layerId, x, y);
-
-		db.save(documentController.getSchema());
-	},
-
-	removeLayer(layerId: string): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
-
-		documentController.removeLayer(layerId);
-
-		db.save(documentController.getSchema());
-	},
-
-	updateTile(layerId: string, x: number, y: number, newData: string): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
-
-		let layer = documentController.getSchema().layers.data[layerId];
-		if (!layer) {
-			throw new Error(`Layer with ID ${layerId} does not exist.`);
-		}
-
-		if (!layer.tileMap) {
-			documentController.updateLayer(layerId, {
-				tileMap: {
-					map: {}
-				}
-			});
-
-			layer = documentController.getSchema().layers.data[layerId];
-		}
-
-		const tileKey = `${x},${y}`;
-		const tileMap = layer.tileMap!.map;
-
-		if (!tileMap[tileKey]) {
-			tileMap[tileKey] = {
-				tileSize: documentSchema.config.tileSize,
-				x,
-				y,
-				data: newData
+			const newLayerId = `${layerId}_copy_${Date.now()}`;
+			const duplicatedLayer: LayerSerializableSchemaType = {
+				...originalLayer,
+				id: newLayerId,
+				name: `${originalLayer.name} (Copy)`,
+				index: Object.keys(documentController.getSchema().layers.data).length
 			};
-		} else {
-			tileMap[tileKey].data = newData;
+
+			documentController.addLayer(duplicatedLayer);
+			save();
+		},
+
+		addSmartObject(
+			layerId: string,
+			objectId: string,
+			objectType: string,
+			toIndex: number,
+			data: SmartObjectSerializableSchemaType,
+			orderKey?: string
+		): void {
+			documentController.addSmartObject(layerId, objectId, objectType, toIndex, data, orderKey);
+			save();
+		},
+
+		removeSmartObject(layerId: string, objectId: string): void {
+			documentController.removeSmartObject(layerId, objectId);
+			save();
+		},
+
+		updateSmartObject(
+			layerId: string,
+			objectId: string,
+			objectType: string,
+			operation: ObjectOperation
+		): void {
+			documentController.doObjectOperation(layerId, objectId, objectType, operation);
+			save();
+		},
+
+		moveSmartObject(layerId: string, objectId: string, toIndex: number, orderKey?: string): void {
+			documentController.moveSmartObject(layerId, objectId, toIndex, orderKey);
+			save();
 		}
-
-		db.save(documentController.getSchema());
-	},
-
-	duplicateLayer(layerId: string): void {
-		const db = new DBLocalStorage<DocumentSchemaType>(`document_${documentId}`);
-		const documentSchema = DocumentsApi.withDocument(documentId).getDocument();
-		const documentController = new DocumentController(documentSchema);
-
-		const originalLayer = documentController.getSchema().layers.data[layerId];
-		if (!originalLayer) {
-			throw new Error(`Layer with ID ${layerId} does not exist.`);
-		}
-
-		const newLayerId = `${layerId}_copy`;
-		const duplicatedLayer = {
-			...originalLayer,
-			id: newLayerId,
-			name: `${originalLayer.name} (Copy)`
-		};
-
-		documentController.addLayer(duplicatedLayer);
-
-		db.save(documentController.getSchema());
-	}
-});
+	};
+};

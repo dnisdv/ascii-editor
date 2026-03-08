@@ -1,24 +1,23 @@
 import { LayersListManager } from './layer-list-manager';
-import { Layer, defaultLayerConfig } from './layer';
-import { TileMap } from '@editor/tileMap';
-import { type ILayer, type ILayerModel } from '@editor/types';
-import { describe, it, expect, beforeEach } from 'vitest';
-import { BaseBusLayers } from '@editor/bus-layers';
+import { defaultLayerConfig, Layer } from './layer';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Config } from '@editor/config';
+import type { ILayerModel } from '@editor/types/external/layer-model';
 
-const createLayer = (id: string, index: number = 0, name: string = `Layer ${id}`): ILayer => {
+const config = new Config();
+const createLayer = (id: string, index: number = 0, name: string = `Layer ${id}`): Layer => {
 	return new Layer({
 		id,
 		name,
+		config: config,
 		index,
-		opts: { ...defaultLayerConfig },
-		tileMap: new TileMap({ tileSize: 16 }),
-		layersBus: new BaseBusLayers()
+		opts: { ...defaultLayerConfig }
 	});
 };
 
 describe('Layers List Manager', () => {
 	let manager: LayersListManager;
-	let layer1: ILayer, layer2: ILayer, layer3: ILayer;
+	let layer1: Layer, layer2: Layer, layer3: Layer;
 
 	beforeEach(() => {
 		layer1 = createLayer('id1', 0, 'LayerOne');
@@ -33,13 +32,18 @@ describe('Layers List Manager', () => {
 			expect(manager.getActiveLayerKey()).toBeNull();
 		});
 
-		it('should initialize with layers, set first as active, and reindex them', () => {
-			manager = new LayersListManager([layer1, layer2]);
-			manager.setActiveLayer(layer1.id);
+		it('should add multiple layers at once, re-indexing them in order', () => {
+			const onLayerAdded = vi.fn();
+			manager = new LayersListManager();
+			manager.on('layer::added', onLayerAdded);
+			manager.addMultipleLayers([layer1, layer2]);
+
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2']);
-			expect(manager.getActiveLayerKey()).toBe('id1');
 			expect(layer1.index).toBe(0);
 			expect(layer2.index).toBe(1);
+			expect(onLayerAdded).toHaveBeenCalledTimes(2);
+			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer1 });
+			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer2 });
 		});
 	});
 
@@ -48,35 +52,45 @@ describe('Layers List Manager', () => {
 			manager = new LayersListManager();
 		});
 
-		it('should add to empty list, not making it active', () => {
+		it('should add to empty list, not making it active, and emit `layer::added`', () => {
+			const onLayerAdded = vi.fn();
+			manager.on('layer::added', onLayerAdded);
 			manager.addLayer(layer1);
+
 			expect(manager.getSortedLayers()).toEqual([layer1]);
 			expect(manager.getActiveLayerKey()).toBe(null);
 			expect(layer1.index).toBe(0);
+			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer1 });
 		});
 
-		it('should insert into populated list, reindex, and maintain active layer', () => {
+		it('should insert into populated list, reindex, maintain active layer, and emit `layer::added`', () => {
 			manager.addLayer(layer1);
 			manager.setActiveLayer(layer1.id);
-
 			manager.addLayer(layer3);
 
+			const onLayerAdded = vi.fn();
+			manager.on('layer::added', onLayerAdded);
 			manager.insertLayerAtIndex(layer2, 1);
 
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
 			expect(manager.getActiveLayerKey()).toBe(layer1.id);
 			expect(layer2.index).toBe(1);
+			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer2 });
 		});
 
-		it('re-adding an existing layer moves it to end and reindexes', () => {
+		it('re-adding an existing layer moves it to end, reindexes, and emits `layer::added`', () => {
 			manager.addLayer(layer1);
 			manager.setActiveLayer(layer1.id);
 			manager.addLayer(layer2);
+
+			const onLayerAdded = vi.fn();
+			manager.on('layer::added', onLayerAdded);
 			manager.addLayer(layer1);
 
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1']);
 			expect(manager.getActiveLayerKey()).toBe(layer1.id);
 			expect(layer1.index).toBe(1);
+			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer1 });
 		});
 	});
 
@@ -86,36 +100,60 @@ describe('Layers List Manager', () => {
 			manager.setActiveLayer(layer1.id);
 		});
 
-		it('should remove the active layer, select next as new active, reindex, and return newActive', () => {
+		it('should remove the active layer, select next as new active, reindex, and emit `layer::removed` and `active::changed`', () => {
+			const onLayerRemoved = vi.fn();
+			const onActiveChanged = vi.fn();
+			manager.on('layer::removed', onLayerRemoved);
+			manager.on('layer::active::changed', onActiveChanged);
+
 			const result = manager.removeLayerWithNewActive('id1');
 			expect(result.removed).toBe(true);
 			expect(result.newActive).toBe('id2');
 			expect(manager.getActiveLayerKey()).toBe('id2');
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3']);
+			expect(onLayerRemoved).toHaveBeenCalledWith({ id: 'id1' });
+			expect(onActiveChanged).toHaveBeenCalledWith({ oldId: 'id1', newId: 'id2' });
 		});
 
-		it('should remove a layer preserving last active and reindex event is the layers was deleted', () => {
-			manager.removeLayer('id1');
+		it('should remove a non-active layer while preserving the active layer', () => {
+			const onLayerRemoved = vi.fn();
+			manager.on('layer::removed', onLayerRemoved);
+			manager.removeLayer('id2');
+
 			expect(manager.getActiveLayerKey()).toBe('id1');
-			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3']);
+			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id3']);
+			expect(onLayerRemoved).toHaveBeenCalledWith({ id: 'id2' });
 		});
 
-		it('should remove a non-active layer, reindex, and active layer remains unchanged', () => {
+		it('should remove a non-active layer, reindex, active layer remains unchanged, and emit `layer::removed`', () => {
 			manager.setActiveLayer(layer3.id);
+			const onLayerRemoved = vi.fn();
+			manager.on('layer::removed', onLayerRemoved);
 
 			const result = manager.removeLayerWithNewActive(layer1.id);
 			expect(result.removed).toBe(true);
 			expect(manager.getActiveLayerKey()).toBe(layer3.id);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id3']);
+			expect(onLayerRemoved).toHaveBeenCalledWith({ id: 'id1' });
 		});
 
 		it('should remove the only layer, resulting in an empty list and null active layer', () => {
 			manager = new LayersListManager([layer1]);
+			manager.setActiveLayer(layer1.id);
+
+			const onLayerRemoved = vi.fn();
+			const onActiveChanged = vi.fn();
+			manager.on('layer::removed', onLayerRemoved);
+			manager.on('layer::active::changed', onActiveChanged);
+
 			const result = manager.removeLayerWithNewActive('id1');
 			expect(result.removed).toBe(true);
 			expect(result.newActive).toBeNull();
 			expect(manager.getActiveLayerKey()).toBeNull();
 			expect(manager.getSortedLayers()).toEqual([]);
+
+			expect(onLayerRemoved).toHaveBeenCalledWith({ id: 'id1' });
+			expect(onActiveChanged).toHaveBeenCalledWith({ oldId: 'id1', newId: null });
 		});
 	});
 
@@ -133,33 +171,26 @@ describe('Layers List Manager', () => {
 			expect(layer1.index).toBe(2);
 		});
 
-		it('should update properties, reindex, and return beforeAfter/reindexed', () => {
+		it("should update a layer's properties without changing its position", () => {
 			const updates: Partial<ILayerModel> = { name: 'Updated L1 Name' };
 			const result = manager.updateLayer('id1', updates);
 
 			expect(result.success).toBe(true);
-			expect(result.beforeAfter?.before.name).toBe('LayerOne');
-			expect(result.beforeAfter?.after.name).toBe('Updated L1 Name');
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-
 			expect(result.reindexed?.length).toBe(3);
 			expect(layer1.name).toBe('Updated L1 Name');
 		});
 
-		it('should update properties, reorder if visual index changes, call layer.update, and reindex all', () => {
+		it('should update properties, reorder if visual index changes, and reindex all', () => {
 			const updates: Partial<ILayerModel> = { name: 'Moved L1', index: 1 };
 			const result = manager.updateLayer('id1', updates);
 
 			expect(result.success).toBe(true);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1', 'id3']);
 			expect(layer1.name).toBe('Moved L1');
-
 			expect(layer2.index).toBe(0);
 			expect(layer1.index).toBe(1);
 			expect(layer3.index).toBe(2);
-
-			expect(result.beforeAfter?.after.name).toBe('Moved L1');
-			expect(result.beforeAfter?.after.index).toBe(1);
 			expect(result.reindexed).toEqual([
 				{ id: 'id2', index: 0 },
 				{ id: 'id1', index: 1 },
@@ -174,24 +205,38 @@ describe('Layers List Manager', () => {
 			manager.setActiveLayer(layer1.id);
 		});
 
-		it('should set active layer and getActiveLayer/Key should reflect it', () => {
+		it('should set active layer, emit `active::changed`, and getActiveLayer/Key should reflect it', () => {
+			const onActiveChanged = vi.fn();
+			manager.on('layer::active::changed', onActiveChanged);
 			const success = manager.setActiveLayer('id2');
+
 			expect(success).toBe(true);
 			expect(manager.getActiveLayerKey()).toBe('id2');
 			expect(manager.getActiveLayer()).toBe(layer2);
+			expect(onActiveChanged).toHaveBeenCalledWith({ oldId: 'id1', newId: 'id2' });
 		});
 
-		it('should fail for non-existent layer, active state unchanged', () => {
+		it('should fail for non-existent layer, active state unchanged and no event emitted', () => {
+			const onActiveChanged = vi.fn();
+			manager.on('layer::active::changed', onActiveChanged);
 			const success = manager.setActiveLayer('nonexistent');
+
 			expect(success).toBe(false);
 			expect(manager.getActiveLayerKey()).toBe('id1');
+			expect(onActiveChanged).not.toHaveBeenCalled();
 		});
 
-		it('should remove all layers and reset active layer', () => {
+		it('should remove all layers, reset active layer and emit `layer::removed` for each', () => {
+			const onLayerRemoved = vi.fn();
+			manager.on('layer::removed', onLayerRemoved);
 			manager.clear();
+
 			expect(manager.getSortedLayers()).toEqual([]);
 			expect(manager.hasLayer('id1')).toBe(false);
 			expect(manager.getActiveLayerKey()).toBeNull();
+			expect(onLayerRemoved).toHaveBeenCalledTimes(2);
+			expect(onLayerRemoved).toHaveBeenCalledWith({ id: 'id1' });
+			expect(onLayerRemoved).toHaveBeenCalledWith({ id: 'id2' });
 		});
 	});
 

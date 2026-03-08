@@ -27,6 +27,7 @@
 		moon: () => import('./Moon.svelte'),
 		sun: () => import('./Sun.svelte'),
 		rectangle: () => import('./Rectangle.svelte'),
+		line: () => import('./Line.svelte'),
 		'eye-closed': () => import('./EyeClosed.svelte'),
 		show: () => import('./Show.svelte'),
 		copy: () => import('./Copy.svelte'),

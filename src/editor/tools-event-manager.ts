@@ -17,6 +17,7 @@ type SpecificGenericEventHandler = (event: Event) => void | Promise<void>;
 
 export class ToolEventManager {
 	private keyEventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]> = new Map();
+	private globalShortcutMap: Map<string, EventHandler> = new Map();
 	private mouseEventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]> = new Map();
 	private customEventMap: Map<string, { tool: BaseTool; handler: EventHandler }[]> = new Map();
 	private tools: Map<string, BaseTool> = new Map();
@@ -26,6 +27,14 @@ export class ToolEventManager {
 	constructor(private canvas: ICanvas) {
 		this.registerDefaultListeners();
 		setTimeout(() => this._checkInitialMousePosition(), 0);
+	}
+
+	public registerGlobalShortcut(key: string, handler: SpecificKeyboardEventHandler) {
+		this.globalShortcutMap.set(key, handler as EventHandler);
+	}
+
+	public getLastMousePosition(): { x: number; y: number } | null {
+		return this.lastMousePosition ? { ...this.lastMousePosition } : null;
 	}
 
 	public registerTool(tool: BaseTool) {
@@ -272,14 +281,27 @@ export class ToolEventManager {
 
 		const exactLocalKey = `${eventType}:${vimKey}`;
 		const exactGlobalKey = `global:${eventType}:${vimKey}`;
-		const handlersToExecute: { tool: BaseTool; handler: EventHandler }[] = [];
-
-		const exactGlobalHandlers = this.keyEventMap.get(exactGlobalKey) || [];
-		handlersToExecute.push(...exactGlobalHandlers);
+		const handlersToExecute: EventHandler[] = [];
 
 		if (this.isMouseInsideCanvas) {
 			const exactLocalHandlers = this.keyEventMap.get(exactLocalKey) || [];
-			handlersToExecute.push(...exactLocalHandlers);
+			if (exactLocalHandlers.length > 0) {
+				handlersToExecute.push(...exactLocalHandlers.map((h) => h.handler));
+			}
+		}
+
+		if (handlersToExecute.length === 0) {
+			const exactGlobalHandlers = this.keyEventMap.get(exactGlobalKey) || [];
+			if (exactGlobalHandlers.length > 0) {
+				handlersToExecute.push(...exactGlobalHandlers.map((h) => h.handler));
+			}
+		}
+
+		if (handlersToExecute.length === 0 && eventType === 'keydown') {
+			const globalHandler = this.globalShortcutMap.get(vimKey);
+			if (globalHandler) {
+				handlersToExecute.push(globalHandler);
+			}
 		}
 
 		if (handlersToExecute.length === 0) {
@@ -293,7 +315,7 @@ export class ToolEventManager {
 
 					try {
 						if (new RegExp(pattern).test(vimKey)) {
-							handlersToExecute.push(...handlers);
+							handlersToExecute.push(...handlers.map((h) => h.handler));
 						}
 					} catch (err) {
 						console.warn(`Invalid regex: ${pattern}`, err);
@@ -308,7 +330,7 @@ export class ToolEventManager {
 		}
 
 		const executedHandlers = new Set<EventHandler>();
-		for (const { handler } of handlersToExecute) {
+		for (const handler of handlersToExecute) {
 			if (!executedHandlers.has(handler)) {
 				handler(event);
 				executedHandlers.add(handler);
@@ -317,6 +339,8 @@ export class ToolEventManager {
 	}
 
 	private _dispatchMouseEvent(eventType: string, event: MouseEvent, isGlobal: boolean) {
+		this.lastMousePosition = { x: event.clientX, y: event.clientY };
+
 		const dispatch = (baseEventType: string) => {
 			const localKey = `${baseEventType}`;
 			const globalKey = `global:${baseEventType}`;

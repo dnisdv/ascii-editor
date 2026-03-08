@@ -1,28 +1,25 @@
 import { defaultLayerConfig, Layer } from './layer';
 import { nanoid } from '@reduxjs/toolkit';
-import { TileMap } from '@editor/tileMap';
-import type { ILayer, ILayerModel, ITileMap } from '@editor/types';
-import type { BaseBusLayers } from '@editor/bus-layers';
 import type { Config } from '@editor/config';
+import type { ObjectHistoryBinder } from './object-history-binder';
+import type { ILayerModel } from '@editor/types/external/layer-model';
 
 export interface LayerFactoryOption {
-	layersBus: BaseBusLayers;
 	config: Config;
+	objectHistoryBinder?: ObjectHistoryBinder;
 }
 
 export class LayerFactory {
 	private config: Config;
-	private bus: BaseBusLayers;
+	private binder?: ObjectHistoryBinder;
 
-	constructor({ config, layersBus }: LayerFactoryOption) {
+	constructor({ config, objectHistoryBinder }: LayerFactoryOption) {
 		this.config = config;
-		this.bus = layersBus;
+		this.binder = objectHistoryBinder;
 	}
 
-	createLayerWithDefaultConfig(): [string, ILayer] {
+	createLayerWithDefaultConfig(): [string, Layer] {
 		const id = nanoid();
-		const tileSize = this.config.tileSize;
-		const tileMap = new TileMap({ tileSize });
 
 		const layer = new Layer({
 			id,
@@ -30,31 +27,33 @@ export class LayerFactory {
 			name: 'Untitled layer',
 			index: 0,
 			opts: defaultLayerConfig,
-			layersBus: this.bus,
-			tileMap
+			config: this.config,
+			binder: this.binder
+		});
+
+		layer.addObject(layer.grid);
+
+		return [id, layer];
+	}
+
+	createTempLayer(): [string, Layer] {
+		const id = nanoid();
+
+		const layer = new Layer({
+			id,
+			name: 'Temp layer',
+			index: 0,
+			opts: defaultLayerConfig,
+			config: this.config,
+			binder: this.binder
 		});
 
 		return [id, layer];
 	}
 
-	createTempLayer(): [string, ILayer] {
-		return this.createLayerWithDefaultConfig();
-	}
-
-	newLayer({
-		id,
-		name,
-		opts,
-		tileMap,
-		index
-	}: ILayerModel & { tileMap: ITileMap; config?: Partial<ILayerModel> }): ILayer {
-		return new Layer({
-			id,
-			name,
-			opts,
-			index,
-			tileMap,
-			layersBus: this.bus
-		});
+	newLayer({ id, name, opts, index }: ILayerModel & { config?: Partial<ILayerModel> }): Layer {
+		const layer = new Layer({ id, name, opts, index, config: this.config, binder: this.binder });
+		layer.addObject(layer.grid);
+		return layer;
 	}
 }

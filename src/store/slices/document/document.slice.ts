@@ -1,5 +1,4 @@
 // WARNING: Hardcoded until multiple documents/document selection
-//
 import type { DocumentMetaData } from '@editor/serializer';
 import { createSlice } from '@reduxjs/toolkit';
 import type { RootState } from '@store/store';

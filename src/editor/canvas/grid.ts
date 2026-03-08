@@ -81,9 +81,7 @@ export class Grid extends Canvas implements ICanvas {
 
 		const effect = this.canvasKit.RuntimeEffect.Make(skslCode);
 
-		if (!effect) {
-			throw new Error('Failed to compile shader');
-		}
+		if (!effect) throw new Error('Failed to compile shader');
 
 		this.runtimeEffect = effect;
 

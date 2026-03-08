@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Core } from '@editor/core';
 import { App, createAppInstance } from '@editor/app';
-import { BusManager } from '@editor/bus-manager';
-import { BaseBusLayers } from '@editor/bus-layers';
-import { BaseBusTools } from '@editor/bus-tools';
-import { BaseBusNotification } from '@editor/bus-notification';
 import { Camera } from '@editor/camera';
 import * as cvk from '@editor/__mock__/canvaskit-wasm';
 import { DrawTool } from './draw-tool';
 import type { ToolManager } from '@editor/tool-manager';
 import type { FontManager } from '@editor/font-manager';
 import type { HistoryManager } from '@editor/history-manager';
-import type { ILayer } from '@editor/types';
+import type { LayerController } from '@editor/layers/layer-api';
 
 vi.mock('canvaskit-wasm', () => cvk);
 
@@ -46,20 +42,13 @@ describe('Draw Tool', () => {
 	let app: App;
 	let drawTool: DrawTool;
 	let camera: Camera;
-	let busManager: BusManager;
 	let toolManager: ToolManager;
 	let historyManager: HistoryManager;
 	let fontManager: FontManager;
-	let activeLayer: ILayer;
+	let activeLayer: LayerController;
 	let selectCanvasElement: HTMLCanvasElement;
 
 	beforeEach(() => {
-		busManager = new BusManager({
-			layers: new BaseBusLayers(),
-			tools: new BaseBusTools(),
-			notifications: new BaseBusNotification()
-		});
-
 		camera = new Camera(1200, 800);
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const canvasKitInstance = cvk.CanvasKit as any;
@@ -74,7 +63,6 @@ describe('Draw Tool', () => {
 			gridCanvasElement: gridEl,
 			selectCanvasElement,
 			asciiCanvasElement: asciiEl,
-			busManager,
 			camera,
 			font: appFontData
 		});

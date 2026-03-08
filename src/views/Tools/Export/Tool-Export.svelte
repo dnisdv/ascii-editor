@@ -1,22 +1,25 @@
 <script lang="ts">
-	import { useToolBus } from '@/bus/useToolsBus';
 	import { useTheme } from '@/theme';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
 	import { Button } from '@components/button';
 	import * as Tooltip from '@components/tooltip';
-	import { isToolActive } from '@store/slices/tools';
-	import { useSelector } from '@store/useSelector';
 	import ToolTooltip from '../Tool-Tooltip.svelte';
 	import ToolExportCanvasUi from './Tool-Export-Canvas-Ui.svelte';
+	import { writable } from 'svelte/store';
+	import { useCore } from '@/config/useCore';
 
 	let name = 'export';
 	const { currentThemeHEX } = useTheme();
+	const core = useCore();
+	const tools = core.getToolManager();
 
-	const toolBus = useToolBus();
-	const isActive = useSelector(isToolActive(name));
+	const isActive = writable(tools.getActiveToolName() === name);
+	tools.on('tool::activated', (tool) => {
+		isActive.set(tool.name === name);
+	});
 
 	function activate(toolName: string) {
-		toolBus.emit('tool::activate::request', { name: toolName });
+		tools.activateTool(toolName);
 	}
 </script>
 

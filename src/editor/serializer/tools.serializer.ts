@@ -29,15 +29,7 @@ export class ToolsConfigSerializer {
 		this.toolManager.deactivateAllTools();
 		for (const [toolName, config] of Object.entries(validatedData.data)) {
 			const tool = this.toolManager.getTools().find((p) => p.name === toolName);
-
-			if (tool) {
-				tool.config = config;
-				tool.saveConfig(config);
-
-				if (tool) {
-					tool.onConfigRestored();
-				}
-			}
+			if (tool) tool.restoreConfig(config);
 		}
 
 		if (validatedData.activeTool) {

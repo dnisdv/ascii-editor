@@ -1,15 +1,16 @@
-import type { ILayer, ILayerModel } from '@editor/types';
+import type { ILayerModel } from '@editor/types/external/layer-model';
+import type { Layer } from './layer';
 
 export class TempLayersListManager {
-	private layers: Map<string, ILayer>;
+	private layers: Map<string, Layer>;
 	private sortedLayerIds: string[];
 
-	constructor(layers: ILayer[] = []) {
+	constructor(layers: Layer[] = []) {
 		this.layers = new Map(layers.map((layer) => [layer.id, layer]));
 		this.sortedLayerIds = layers.map((layer) => layer.id);
 	}
 
-	addLayer(layer: ILayer): void {
+	addLayer(layer: Layer): void {
 		const layerId = layer.id;
 		this.layers.set(layerId, layer);
 
@@ -21,7 +22,7 @@ export class TempLayersListManager {
 		this.sortedLayerIds.push(layerId);
 	}
 
-	public insertLayerAtIndex(layer: ILayer, index: number): void {
+	public insertLayerAtIndex(layer: Layer, index: number): void {
 		const layerId = layer.id;
 
 		const oldIndex = this.sortedLayerIds.indexOf(layerId);
@@ -35,7 +36,7 @@ export class TempLayersListManager {
 		this.sortedLayerIds.splice(effectiveIndex, 0, layerId);
 	}
 
-	addMultipleLayers(layersToAdd: ILayer[]): void {
+	addMultipleLayers(layersToAdd: Layer[]): void {
 		if (layersToAdd.length === 0) {
 			return;
 		}
@@ -95,15 +96,15 @@ export class TempLayersListManager {
 		return { success: true };
 	}
 
-	getLayerById(layerId: string): ILayer | undefined {
+	getLayerById(layerId: string): Layer | undefined {
 		return this.layers.get(layerId);
 	}
 
-	getSortedLayers(): ILayer[] {
+	getSortedLayers(): Layer[] {
 		return this.sortedLayerIds.map((id) => this.layers.get(id)!);
 	}
 
-	getFirstLayer(): ILayer | undefined {
+	getFirstLayer(): Layer | undefined {
 		return this.layers.get(this.sortedLayerIds[0]);
 	}
 

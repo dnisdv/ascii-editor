@@ -1,18 +1,18 @@
-import type { BusManager } from './bus-manager';
-import type { NotificationAction, NotificationType } from './bus-notification';
-import { NotificationManager } from './notification-manager';
 import type { ToolEventManager } from './tools-event-manager';
 import type { IToolConfig, IToolModel, IToolOptions } from './types/external/tool';
 import type { CoreApi } from './core';
+import type { FeedbackAction, FeedbackManager, FeedbackType } from './feedback-manager';
+import type { ToolEventMap } from './types';
+import { EventEmitter } from './event-emitter';
 
-export interface ITool extends IToolModel {
+export interface ITool extends IToolModel, EventEmitter<ToolEventMap> {
 	requirements: {
 		condition: () => boolean;
 		code: string;
 		message: string;
-		type: NotificationType;
+		type: FeedbackType;
 		context?: Record<string, unknown>;
-		actions?: NotificationAction[];
+		actions?: FeedbackAction[];
 		subscribe?: (callback: () => void) => void;
 	}[];
 
@@ -27,12 +27,15 @@ export interface ITool extends IToolModel {
 	cleanup(): void;
 	update(): void;
 	saveConfig(config: Record<string, unknown>): void;
+	restoreConfig(config: Record<string, unknown>): void;
 	onConfigRestored(): void;
 	getApi(): unknown;
 }
 
-// TODO: SCHEMA FOR CONFIG
-export abstract class BaseTool<Api extends object = object> implements ITool {
+export abstract class BaseTool<Api extends object = object>
+	extends EventEmitter<ToolEventMap>
+	implements ITool
+{
 	requirements: ITool['requirements'] = [];
 
 	name: string;
@@ -40,8 +43,7 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 	hotkey?: string | null;
 
 	config: IToolOptions;
-	bus: BusManager;
-	notificationManager: NotificationManager;
+	feedbackManager: FeedbackManager;
 	private lastRequirementStatus: boolean = false;
 
 	private requirementUnsubscribes: Array<() => void> = [];
@@ -51,23 +53,22 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 
 	constructor({
 		name,
-		bus,
 		requirements,
 		isVisible,
 		hotkey,
 		config,
 		coreApi
 	}: IToolConfig & { requirements?: BaseTool['requirements'] }) {
+		super();
 		this.coreApi = coreApi;
 		this.eventManager = this.coreApi.getToolManager().toolEventManager;
-		this.bus = bus;
 		this.name = name;
 		this.hotkey = hotkey || null;
 		this.isVisible = isVisible;
 		this.config = config;
 		this.requirements = requirements || [];
 
-		this.notificationManager = new NotificationManager(coreApi);
+		this.feedbackManager = coreApi.getFeedbackManager();
 		this.eventManager.registerTool(this);
 	}
 
@@ -87,14 +88,13 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 		});
 	}
 
-	emitToolNotification(
+	emitToolFeedback(
 		code: string,
 		message: string,
-		type: NotificationType = 'warning',
-		context?: Record<string, unknown>,
-		actions?: NotificationAction[]
+		type: FeedbackType = 'warning',
+		actions?: FeedbackAction[]
 	): void {
-		this.notificationManager.emit(this.name, code, message, type, context, actions);
+		this.feedbackManager.report({ code, message, type, actions });
 	}
 
 	deactivate(): void {
@@ -104,13 +104,12 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 
 	checkRequirements(): boolean {
 		const allRequirementsPassed = this.requirements.every((req) => {
-			return this.notificationManager.checkRequirement(
-				this.name,
+			return this.feedbackManager.checkRequirement(
 				req.condition(),
-				req.code,
-				req.message,
-				'requirement',
-				undefined,
+				{
+					code: req.code,
+					message: req.message
+				},
 				req.actions
 			);
 		});
@@ -133,10 +132,12 @@ export abstract class BaseTool<Api extends object = object> implements ITool {
 	onConfigRestored() {}
 
 	saveConfig(config: Record<string, unknown>) {
-		this.bus.tools.emit('tool::update_config::request', {
-			name: this.name,
-			config: { ...this.config, ...config }
-		});
+		this.config = config;
+		this.emit('config::changed', this.config);
+	}
+
+	restoreConfig(config: Record<string, unknown>) {
+		this.config = config;
 	}
 
 	getApi(): Api {

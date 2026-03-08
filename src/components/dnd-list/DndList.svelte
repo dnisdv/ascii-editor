@@ -1,10 +1,8 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { setContext, createEventDispatcher } from 'svelte';
 	import { writable, type Writable, get } from 'svelte/store';
 	import { type DndListEvents, type DraggableItem, type DragState } from './index';
-
-	export let itemHeight: number = 20;
-	if (isNaN(itemHeight)) itemHeight = 30;
 
 	const dispatch = createEventDispatcher<DndListEvents>();
 
@@ -17,8 +15,8 @@
 	let listContainer: HTMLDivElement;
 	let scrollParent: HTMLElement | null = null;
 	let initialScrollPosition: number = 0;
-
 	const items: Writable<DraggableItem[]> = writable([]);
+	const itemHeights = new SvelteMap<string, number>();
 
 	function initializeDrag(item: DraggableItem, index: number): void {
 		dragState.set({
@@ -79,16 +77,23 @@
 	}
 
 	function calculateTargetIndex(relativeY: number): number {
-		const totalItems = get(items).length;
-		let index = Math.round(relativeY / itemHeight);
-		return Math.max(0, Math.min(index, totalItems));
+		const currentItems = get(items);
+		let accumulatedHeight = 0;
+		for (let i = 0; i < currentItems.length; i++) {
+			const item = currentItems[i];
+			const itemHeight = itemHeights.get(item.id) || 0;
+			if (relativeY < accumulatedHeight + itemHeight / 2) {
+				return i;
+			}
+			accumulatedHeight += itemHeight;
+		}
+		return currentItems.length;
 	}
 
 	function handleMouseUp(e: MouseEvent): void {
 		const state = get(dragState);
 		e.preventDefault();
 		if (!state.isDragging) return;
-
 		if (linePosition !== null && state.draggedItem !== null && state.draggedIndex !== null) {
 			moveDraggedItem();
 		}
@@ -109,7 +114,6 @@
 
 			updatedItems.splice(adjustedPosition, 0, movedItem);
 			items.set(updatedItems);
-
 			dispatch('change', {
 				fromIndex: state.draggedIndex,
 				toIndex: adjustedPosition,
@@ -123,6 +127,21 @@
 	function adjustLinePosition(draggedIndex: number): number {
 		if (linePosition === null) return 0;
 		return linePosition > draggedIndex ? linePosition - 1 : linePosition;
+	}
+
+	let lineIndicatorTop = 0;
+	$: {
+		if (linePosition === null) {
+			lineIndicatorTop = 0;
+		} else {
+			const currentItems = get(items);
+			let top = 0;
+			for (let i = 0; i < linePosition; i++) {
+				const item = currentItems[i];
+				top += itemHeights.get(item.id) || 0;
+			}
+			lineIndicatorTop = top;
+		}
 	}
 
 	setContext('dndList', {
@@ -146,11 +165,26 @@
 		},
 		unregisterItem: (item: DraggableItem): void => {
 			items.update((i) => i.filter((x) => x.id !== item.id));
+			itemHeights.delete(item.id);
+		},
+		updateItem: (item: DraggableItem): void => {
+			items.update((i) => {
+				const index = i.findIndex((x) => x.id === item.id);
+				if (index !== -1) {
+					const updatedItems = [...i];
+					updatedItems[index] = item;
+					updatedItems.sort((a, b) => a.index - b.index);
+					return updatedItems;
+				}
+				return i;
+			});
 		},
 		startDrag: initializeDrag,
-		dragState
+		dragState,
+		registerItemHeight: (id: string, height: number) => {
+			itemHeights.set(id, height);
+		}
 	});
-
 	let isDragging = false;
 	$: isDragging = $dragState.isDragging;
 </script>
@@ -160,7 +194,7 @@
 	{#if isDragging && linePosition !== null}
 		<div
 			class="line-indicator"
-			style="top: {linePosition * itemHeight}px; transform: translateY(-{scrollParent
+			style="top: {lineIndicatorTop}px; transform: translateY(-{scrollParent
 				? scrollParent.scrollTop - initialScrollPosition
 				: 0}px);"
 		></div>

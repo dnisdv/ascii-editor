@@ -5,19 +5,33 @@
 
 	export let item: DraggableItem;
 
-	const { registerItem, unregisterItem, startDrag, dragState } = getContext<DndListCtx>('dndList');
-
+	const { registerItem, unregisterItem, startDrag, dragState, registerItemHeight, updateItem } =
+		getContext<DndListCtx>('dndList');
 	let index: number | null = null;
 	let unsubscribe: (() => void) | undefined;
+
+	$: if (item && updateItem) {
+		updateItem(item);
+	}
 
 	let initialX = 0;
 	let initialY = 0;
 	const dragThreshold = 5;
 
+	let element: HTMLDivElement;
+
 	onMount(() => {
 		unsubscribe = registerItem(item)((value) => {
 			index = value;
 		});
+
+		if (element) {
+			const resizeObserver = new ResizeObserver(() => {
+				registerItemHeight(item.id, element.clientHeight);
+			});
+			resizeObserver.observe(element);
+			return () => resizeObserver.disconnect();
+		}
 	});
 
 	onDestroy(() => {
@@ -26,6 +40,7 @@
 	});
 
 	function handleMouseDown(e: MouseEvent): void {
+		e.stopPropagation();
 		if (index === null) return;
 		initialX = e.clientX;
 		initialY = e.clientY;
@@ -36,7 +51,6 @@
 	function checkDragStart(e: MouseEvent): void {
 		const deltaX = Math.abs(e.clientX - initialX);
 		const deltaY = Math.abs(e.clientY - initialY);
-
 		if (deltaX > dragThreshold || deltaY > dragThreshold) {
 			if (isDefined<number>(index)) startDrag(item, index, e);
 
@@ -54,7 +68,6 @@
 	$: isSomethingDragging = $dragState.isDragging;
 </script>
 
-<!-- svelte-ignore a11y-no-static-element-interactions -->
-<div on:mousedown={handleMouseDown}>
+<div on:mousedown={handleMouseDown} bind:this={element}>
 	<slot {isBeingDragged} {isSomethingDragging} />
 </div>

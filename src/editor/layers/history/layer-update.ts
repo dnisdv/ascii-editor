@@ -1,34 +1,92 @@
-import type { ActionHandler, BaseAction } from '@editor/history-manager';
-import type { LayerSerializableSchemaType } from '@editor/types';
+import {
+	createActionDefinition,
+	type ActionHandler,
+	type BaseAction
+} from '@editor/history-manager';
+import type { DeepPartial } from '@editor/types';
 import type { LayersManager } from '../layers-manager';
+import type { LayersExecutionContext } from './history-context';
+import type { ILayerModel, LayerConfig } from '@editor/types/external/layer-model';
+
+export const updateLayer = createActionDefinition<
+	'layer::update',
+	{ id: string; changes: DeepPartial<ILayerModel> },
+	void
+>('layer::update');
 
 export interface LayerUpdateAction extends BaseAction {
-	type: 'layer::update';
-	before: LayerSerializableSchemaType;
-	after: LayerSerializableSchemaType;
+	type: typeof updateLayer.type;
+	before: {
+		id: string;
+		index: number;
+		name: string;
+		opts: LayerConfig;
+	};
+	after: {
+		id: string;
+		index: number;
+		name: string;
+		opts: LayerConfig;
+	};
 }
 
-export class LayerUpdate implements ActionHandler<LayerUpdateAction> {
-	apply(action: LayerUpdateAction, target: LayersManager): void {
-		const deserializedLayer = target.deserializeLayer(action.after);
+export class LayerUpdate
+	implements
+		ActionHandler<LayerUpdateAction, typeof updateLayer._result, typeof updateLayer._payload>
+{
+	public execute(
+		_: LayersManager,
+		context: LayersExecutionContext,
+		payload: { id: string; changes: DeepPartial<ILayerModel> }
+	): [LayerUpdateAction, void] {
+		const { layersListManager } = context;
 
-		target['layers'].updateLayer(action.after.id, {
-			index: deserializedLayer.index,
-			name: deserializedLayer.name,
-			opts: deserializedLayer.opts
-		});
+		let layer = layersListManager.getLayerById(payload.id);
+		if (!layer) {
+			throw new Error(`Cannot update layer: Layer with ID "${payload.id}" not found.`);
+		}
 
-		target.getBus().emit('layer::update::response', action.after);
+		const before = {
+			id: payload.id,
+			index: layer.index,
+			name: layer.name,
+			opts: { ...layer.opts }
+		};
+
+		layersListManager.updateLayer(payload.id, payload.changes);
+		layer = layersListManager.getLayerById(payload.id)!;
+
+		const after = {
+			id: payload.id,
+			index: layer.index,
+			name: layer.name,
+			opts: { ...layer.opts }
+		};
+
+		return [
+			{
+				type: updateLayer.type,
+				targetId: 'layers',
+				before,
+				after
+			},
+			undefined
+		];
 	}
 
-	revert(action: LayerUpdateAction, target: LayersManager): void {
-		const deserializedLayer = target.deserializeLayer(action.before);
-
-		target['layers'].updateLayer(action.before.id, {
-			index: deserializedLayer.index,
-			name: deserializedLayer.name,
-			opts: deserializedLayer.opts
+	apply(action: LayerUpdateAction, _: LayersManager, context: LayersExecutionContext): void {
+		context.layersListManager.updateLayer(action.after.id, {
+			index: action.after.index,
+			name: action.after.name,
+			opts: action.after.opts
 		});
-		target.getBus().emit('layer::update::response', action.before);
+	}
+
+	revert(action: LayerUpdateAction, _: LayersManager, context: LayersExecutionContext): void {
+		context.layersListManager.updateLayer(action.before.id, {
+			index: action.before.index,
+			name: action.before.name,
+			opts: action.before.opts
+		});
 	}
 }

@@ -2,35 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body,
-html {
-	padding: 0;
-	margin: 0;
-	overflow: hidden;
-}
-
-* {
-	font-family: 'DM Sans', serif;
-	font-optical-sizing: auto;
-	font-weight: 400;
-	font-style: normal;
-}
-
-button:focus,
-input:focus,
-textarea:focus,
-select:focus {
-	outline: none;
-}
-
-* {
-	user-select: none;
-}
-
-button {
-	cursor: default;
-}
-
 @layer base {
 	:root {
 		--background: 0 0% 100%;
@@ -112,5 +83,12 @@ button {
 
 	body {
 		@apply bg-background text-foreground;
+		margin: 0;
+		overflow: hidden;
+	}
+
+	html,
+	body {
+		height: 100%;
 	}
 }

@@ -1,50 +1,54 @@
 <script lang="ts">
 	import { Button } from '@components/button';
 	import ToolSymbols from './Tool-Symbols.svelte';
-	import { useSelector } from '@store/useSelector';
-	import type { RootState } from '@store/store';
 	import { writable } from 'svelte/store';
-	import { useToolBus } from '@/bus/useToolsBus';
-	import { isToolActive } from '@store/slices/tools';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
 	import { useTheme } from '@/theme';
 	import * as Tooltip from '@components/tooltip';
 	import ToolTooltip from '../Tool-Tooltip.svelte';
+	import { useCore } from '@/config/useCore';
 
-	const toolBus = useToolBus();
 	const { theme, currentThemeHEX } = useTheme();
+	const core = useCore();
 
 	let name = 'draw';
-	const isActive = useSelector(isToolActive(name));
 
-	type DrawOpts = {
-		activeSymbol: string;
+	const tools = core.getToolManager();
+	const isActive = writable(tools.getActiveToolName() === name);
+
+	let drawTool = tools.getTool(name) as unknown as {
+		getConfig: () => { activeSymbol: string };
+		saveConfig: (config: { activeSymbol: string }) => void;
 	};
+	let selectedSymbol = writable(drawTool?.getConfig().activeSymbol || '');
 
-	const activeSymbol = writable<string | null>(null);
-	const drawTool = useSelector((store: RootState) => store.tools.data.draw);
+	tools.on('tool::activated', (tool) => {
+		isActive.set(tool.name === name);
+		if (tool.name === name) {
+			drawTool = tools.getTool(name) as unknown as {
+				getConfig: () => { activeSymbol: string };
+				saveConfig: (config: { activeSymbol: string }) => void;
+			};
+			selectedSymbol.set(drawTool.getConfig().activeSymbol);
+		}
+	});
 
-	drawTool.subscribe((i) => {
-		if (!i) return;
-		activeSymbol.set((i.config as DrawOpts).activeSymbol);
-		selectedSymbol.set((i.config as DrawOpts).activeSymbol);
+	tools.on('tool::config::changed', (data) => {
+		if (data.name === name) {
+			selectedSymbol.set(data.config.activeSymbol);
+		}
 	});
 
 	function activate(toolName: string) {
-		toolBus.emit('tool::activate::request', { name: toolName });
+		core.getToolManager().activateTool(toolName);
 	}
 
 	const onSymbolSelect = (symbol: string) => {
 		selectedSymbol.set(symbol);
-		toolBus.emit('tool::update_config::request', {
-			name: 'draw',
-			config: { activeSymbol: symbol }
-		});
-
-		toolBus.emit('tool::activate::request', { name });
+		if (drawTool) {
+			drawTool.saveConfig({ activeSymbol: symbol });
+		}
 	};
-
-	let selectedSymbol = writable('');
 </script>
 
 <div class=" wrapper flex cursor-default items-center justify-center">

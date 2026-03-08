@@ -1,4 +1,3 @@
-import type { BusManager } from '@editor/bus-manager';
 import type { CoreApi } from '@editor/core';
 
 export type IToolOptions = {
@@ -19,7 +18,6 @@ export type IToolConfig = {
 
 	hotkey?: string | null;
 	config: IToolOptions;
-	bus: BusManager;
 	requirements?: ToolRequirements;
 	coreApi: CoreApi;
 };

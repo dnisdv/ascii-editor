@@ -1,180 +1,147 @@
 import { BaseTool } from '@editor/tool';
-import type { ITool } from '@editor/tool';
-import type { ILayersManager, ICamera, IRenderManager, ILayer } from '@editor/types';
-import { Shape } from './shape';
-import { Rectangle } from './shape-rectangle';
 import { RequireActiveLayerVisible } from '@editor/tool-requirements';
-import type { SelectToolApi } from '../select/select-tool';
+
+import type { ITool } from '@editor/tool';
+import type { ICamera } from '@editor/types';
 import type { CoreApi } from '@editor/core';
+import type { ISmartObject } from '@editor/objects/smart-object.interface';
+import { IdleState, type IShapeDrawToolState } from './state';
+import type { LayersManager } from '@editor/layers/layers-manager';
+import type { LayerController } from '@editor/layers/layer-api';
 
 export enum Shapes {
-	rectangle
+	rectangle,
+	line
 }
 
-export class DrawShapeTool extends BaseTool implements ITool {
+export interface IShapeToolContext {
+	readonly coreApi: CoreApi;
+	readonly camera: ICamera;
+	readonly layers: LayersManager;
+	currentShape: Shapes;
+	tempLayer: LayerController | null;
+	tempLayerId?: string;
+	previewObject: ISmartObject | null;
+	drawnObject: ISmartObject | null;
+	startDragPosition: { col: number; row: number } | null;
+	setState(newState: IShapeDrawToolState): void;
+	getCellPos(event: MouseEvent): { col: number; row: number };
+}
+
+export class DrawShapeTool extends BaseTool implements ITool, IShapeToolContext {
 	readonly name = 'shape';
 	readonly icon = '/icons/rectangle.svg';
 
-	private isDrawing: boolean = false;
-	private layers: ILayersManager;
-	private camera: ICamera;
-	private renderManager: IRenderManager;
-	private currentShape: Shape | null = null;
-	private shapes: Map<Shapes, Shape> = new Map();
+	readonly camera: ICamera;
+	readonly layers: LayersManager;
 
-	private isLayerVisible: boolean = true;
+	tempLayer: LayerController | null = null;
+	tempLayerId?: string;
+	previewObject: ISmartObject | null = null;
+	drawnObject: ISmartObject | null = null;
+	startDragPosition: { col: number; row: number } | null = null;
+	currentShape: Shapes = Shapes.rectangle;
 
-	selectSession: {
-		worldRegion: {
-			startX: number;
-			startY: number;
-			width: number;
-			height: number;
-		};
-		data: string;
-	} | null = null;
+	private currentState!: IShapeDrawToolState;
 
-	tempLayer: ILayer | null = null;
-
-	constructor(coreApi: CoreApi) {
+	constructor(public readonly coreApi: CoreApi) {
 		super({
-			bus: coreApi.getBusManager(),
 			hotkey: '<A-s>',
 			name: 'shape',
 			isVisible: true,
 			coreApi,
-			config: {
-				shape: Shapes.rectangle
-			},
+			config: {},
 			requirements: [RequireActiveLayerVisible(coreApi, 'shape')]
 		});
 
 		this.camera = this.coreApi.getCamera();
 		this.layers = this.coreApi.getLayersManager();
-		this.renderManager = this.coreApi.getRenderManager();
-
-		const [, layer] = this.coreApi.getLayersManager().addTempLayer();
-		this.registerShape(Shapes.rectangle, new Rectangle(this.coreApi, layer, 'P'));
 	}
 
 	public activate(): void {
 		super.activate();
+		if (this.checkRequirements()) {
+			this.initializeContext();
+		}
+	}
+
+	public onRequirementSuccess(): void {
+		this.initializeContext();
+	}
+
+	public onRequirementFailure(): void {
+		this.cleanupContext();
+	}
+
+	private initializeContext(): void {
+		if (this.tempLayer) return;
+
+		this.setState(new IdleState(this));
+
+		const active = this.coreApi.getLayersManager().ensureLayer();
+		const [tempId, tempLayer] = this.layers.addOverlayTempLayer(active.index);
+		this.tempLayerId = tempId;
+		this.tempLayer = tempLayer;
 		this.addMouseListeners();
+
+		const last = this.eventManager.getLastMousePosition?.();
+		if (last) {
+			this.currentState?.handleMouseMove(
+				new MouseEvent('mousemove', { clientX: last.x, clientY: last.y })
+			);
+		}
+	}
+
+	public setShape(shape: Shapes): void {
+		this.currentState?.exit();
+
+		this.currentShape = shape;
+
+		const last = this.eventManager.getLastMousePosition?.();
+		if (this.currentState && last) {
+			this.currentState.handleMouseMove(
+				new MouseEvent('mousemove', { clientX: last.x, clientY: last.y })
+			);
+		}
+	}
+
+	private cleanupContext(): void {
+		if (!this.tempLayer) return;
+
+		this.getEventApi().removeToolEvents();
+
+		this.currentState?.exit();
+
+		if (this.tempLayerId) this.layers.removeTempLayer(this.tempLayerId);
+		this.tempLayer = null;
+		this.tempLayerId = undefined;
 	}
 
 	public deactivate(): void {
 		super.deactivate();
-		this.getEventApi().removeToolEvents();
+		this.cleanupContext();
 	}
 
-	public onRequirementFailure(): void {
-		super.onRequirementFailure();
-	}
-
-	public onRequirementSuccess(): void {
-		super.onRequirementSuccess();
-	}
-
-	private registerShape(type: Shapes, shape: Shape): void {
-		this.shapes.set(type, shape);
-	}
-
-	private getShape(type: Shapes): Shape | null {
-		const shape = this.shapes.get(type);
-		if (!shape) return null;
-		return shape;
+	public setState(newState: IShapeDrawToolState): void {
+		this.currentState?.exit();
+		this.currentState = newState;
+		this.currentState.enter();
 	}
 
 	private addMouseListeners(): void {
-		this.getEventApi().registerMouseDown('left', (e: MouseEvent) => {
-			this.handleCanvasMouseDown(e);
-
-			this.getEventApi().registerMouseMove((e: MouseEvent) => this.handleCanvasMouseMove(e));
-			this.getEventApi().registerMouseUp(() => {
-				this.handleCanvasMouseUp();
-				this.getEventApi().unregisterMouseMove();
-				this.getEventApi().unregisterMouseUp();
-			});
-		});
+		this.getEventApi().registerMouseDown(
+			'left',
+			(e) => this.currentState && this.currentState.handleMouseDown(e)
+		);
+		this.getEventApi().registerMouseMove(
+			(e) => this.currentState && this.currentState.handleMouseMove(e)
+		);
+		this.getEventApi().registerMouseUp(
+			(e) => this.currentState && this.currentState.handleMouseUp(e)
+		);
 	}
 
-	private handleCanvasMouseDown(event: MouseEvent): void {
-		this.layers.ensureLayer();
-
-		if (event.button !== 0 || !this.checkRequirements()) return;
-		this.isDrawing = true;
-
-		const { col, row } = this.getCellPos(event);
-
-		const shapeType = this.config.shape as Shapes;
-		const shape = this.getShape(shapeType);
-
-		if (!shape) {
-			console.error(`not shape ${shapeType} defined`);
-		}
-
-		this.currentShape = shape;
-		this.tempLayer = this.coreApi.getLayersManager().addTempLayer()[1];
-
-		if (this.currentShape) {
-			this.currentShape.startDraw(col, row);
-		}
-	}
-
-	private handleCanvasMouseMove(event: MouseEvent): void {
-		if (!this.isDrawing || !this.currentShape || !this.isLayerVisible) return;
-		const { col, row } = this.getCellPos(event);
-
-		if (!this.currentShape) return;
-
-		this.currentShape?.updateDraw(col, row);
-		const { startX, startY, endX, endY } = this.currentShape!.area();
-
-		this.selectSession = {
-			worldRegion: {
-				startX,
-				startY,
-				width: endX - startX + 1,
-				height: endY - startY + 1
-			},
-			data: this.currentShape?.toString() || ''
-		};
-
-		this.tempLayer?.clear();
-		this.tempLayer?.setToRegion(startX, startY, this.currentShape?.toString() || '');
-		this.renderManager.requestRenderOnly('canvas', 'ascii');
-	}
-
-	private handleCanvasMouseUp(): void {
-		if (this.isDrawing && this.checkRequirements()) {
-			this.isDrawing = false;
-			this.currentShape?.endDraw();
-
-			const selectTool = this.coreApi.getToolManager().getToolApi<SelectToolApi>('select');
-			if (!selectTool) return;
-
-			const activeLayer = this.coreApi.getLayersManager().getActiveLayer();
-
-			if (this.selectSession && this.selectSession.data.length > 1) {
-				selectTool.createSessionWithContent(
-					this.selectSession.worldRegion,
-					this.selectSession.data,
-					activeLayer?.id || ''
-				);
-
-				this.coreApi.getToolManager().activateTool('select');
-			}
-
-			this.tempLayer?.clear();
-			this.coreApi.getLayersManager().removeTempLayer(this.tempLayer?.id || '');
-			this.tempLayer = null;
-
-			this.selectSession = null;
-			this.currentShape = null;
-		}
-	}
-
-	private getCellPos(event: MouseEvent) {
+	public getCellPos(event: MouseEvent): { col: number; row: number } {
 		const {
 			dimensions: { width: charWidth, height: charHeight }
 		} = this.coreApi.getFontManager().getMetrics();

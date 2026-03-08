@@ -1,6 +1,7 @@
 import type { CanvasKit, Surface } from 'canvaskit-wasm';
 import { Canvas } from './canvas';
-import type { ICamera, ILayersManager } from '@editor/types';
+import type { ICamera } from '@editor/types';
+import type { LayersManager } from '@editor/layers/layers-manager';
 import type { Config } from '@editor/config';
 import type { FontManager } from '@editor/font-manager';
 import type { IAsciiRenderingStrategy } from './strategies/ascii-rendering-strategy';
@@ -12,7 +13,7 @@ export type AsciiOptions = {
 	camera: ICamera;
 	config: Config;
 	fontManager: FontManager;
-	layersManager: ILayersManager;
+	layersManager: LayersManager;
 	renderStrategy: IAsciiRenderingStrategy;
 };
 
@@ -20,7 +21,7 @@ export class Ascii extends Canvas {
 	private camera: ICamera;
 	private config: Config;
 	private fontManager: FontManager;
-	private layersManager: ILayersManager;
+	private layersManager: LayersManager;
 	private renderingStrategy: IAsciiRenderingStrategy;
 
 	constructor({
@@ -57,14 +58,14 @@ export class Ascii extends Canvas {
 		this.skCanvas.scale(this.camera.scale, this.camera.scale);
 		this.skCanvas.translate(-this.camera.offsetX, -this.camera.offsetY);
 
-		this.renderingStrategy.render(
-			this.canvasKit,
-			this.skCanvas,
-			this.camera,
-			this.layersManager,
-			this.config,
-			this.fontManager
-		);
+		this.renderingStrategy.render({
+			canvasKit: this.canvasKit,
+			skCanvas: this.skCanvas,
+			camera: this.camera,
+			layersManager: this.layersManager,
+			config: this.config,
+			fontManager: this.fontManager
+		});
 
 		this.skCanvas.restore();
 		this.surface.flush();

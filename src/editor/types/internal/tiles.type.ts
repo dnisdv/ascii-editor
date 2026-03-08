@@ -1,5 +1,3 @@
-import type { SerializedTile, SerializedTileMap } from '@editor/serializer';
-
 export interface ITileMap {
 	tileSize: number;
 	isEmpty(): boolean;
@@ -8,6 +6,8 @@ export interface ITileMap {
 	queryAllKeys(): string[];
 	query(x: number, y: number, width: number, height: number): ITile[];
 	getOrCreateTile(x: number, y: number): ITile;
+	getChar(x: number, y: number): string;
+	readRegion(startX: number, startY: number, width: number, height: number): string;
 
 	removeTile(x: number, y: number): void;
 	getTile(x: number, y: number): ITile | null;
@@ -21,8 +21,6 @@ export interface ITileMap {
 		height: number;
 	};
 	clear(): void;
-
-	serialize(): SerializedTileMap;
 }
 
 export interface ITileData {
@@ -48,8 +46,6 @@ export interface ITile {
 	fillRegion(offsetX: number, offsetY: number, width: number, height: number, char: string): void;
 	setRegion(offsetX: number, offsetY: number, lines: string[], options?: RegionOptions): void;
 	isEmpty(): boolean;
-
-	serialize(): SerializedTile;
 }
 
 export interface ISpatialHashMap<T> {

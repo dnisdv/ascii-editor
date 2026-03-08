@@ -1,21 +1,18 @@
 import type { HistoryManager } from '@editor/history-manager';
-import type { BaseBusLayers } from '@editor/bus-layers';
 import type { ILayersManagerInternalOps } from '../layers-manager';
-import type { ILayer } from '@editor/types';
+import type { Layer } from '../layer';
 
 export class CreateAndActivateLayerCommand {
 	constructor(
 		private managerOps: ILayersManagerInternalOps,
-		private historyManager: HistoryManager,
-		private bus: BaseBusLayers
-	) {}
+		private historyManager: HistoryManager
+	) { }
 
-	execute(): { id: string; layer: ILayer } {
+	execute(): { id: string; layer: Layer } {
 		const layerFactory = this.managerOps.getLayersFactory();
 		const layerSerializer = this.managerOps.getLayerSerializer();
 
 		const layersListManager = this.managerOps.getLayersListManager();
-
 		const [id, layer] = layerFactory.createLayerWithDefaultConfig();
 
 		const beforeId: string | null = layersListManager.getActiveLayer()?.id || null;
@@ -32,15 +29,6 @@ export class CreateAndActivateLayerCommand {
 			{ applyAction: false }
 		);
 
-		this.bus.emit('layer::create::response', {
-			id,
-			name: layer.name,
-			index: layer.index,
-			opts: layer.opts
-		});
-
-		this.managerOps.emit('layers::active::change', { oldId: beforeId, newId: id });
-		this.bus.emit('layer::change_active::response', { id });
 		return { id, layer };
 	}
 }
