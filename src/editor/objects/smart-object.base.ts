@@ -42,6 +42,7 @@ export abstract class BaseSmartObject
 	public properties: PropertyManager<Properties>;
 
 	protected anchors: SmartObjectAnchor[] = [];
+	private static readonly ROTATION_HANDLE_OFFSET = 22;
 
 	constructor(bounds: CellRectangle, deps: SmartObjectDeps) {
 		super();
@@ -57,8 +58,7 @@ export abstract class BaseSmartObject
 					[TransformProperties.X]: { type: 'number', value: bounds.cellX },
 					[TransformProperties.Y]: { type: 'number', value: bounds.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: bounds.width, min: 1 },
-					[TransformProperties.HEIGHT]: { type: 'number', value: bounds.height, min: 1 },
-					[TransformProperties.ROTATION]: { type: 'number', value: 0 }
+					[TransformProperties.HEIGHT]: { type: 'number', value: bounds.height, min: 1 }
 				}
 			},
 			(op) => {
@@ -87,6 +87,22 @@ export abstract class BaseSmartObject
 
 	public getAnchors(): SmartObjectAnchor[] {
 		return this.anchors;
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	public getRotationAnchors(_charWidth: number, _charHeight: number): SmartObjectAnchor[] {
+		if (!this.capabilities.canRotate) return [];
+		const x = Math.round(this.getProperty<number>('transform.x'));
+		const y = Math.round(this.getProperty<number>('transform.y'));
+		const w = Math.max(1, Math.round(this.getProperty<number>('transform.width')));
+		const h = Math.max(1, Math.round(this.getProperty<number>('transform.height')));
+		const o = BaseSmartObject.ROTATION_HANDLE_OFFSET;
+		return [
+			{ id: 'rot-tl', x,     	   y,      type: 'rotation', cursor: 'rotate', draggable: false, screenOffset: { x: -o, y: -o } },
+			{ id: 'rot-tr', x: x+w,    y,      type: 'rotation', cursor: 'rotate', draggable: false, screenOffset: { x:  o, y: -o } },
+			{ id: 'rot-bl', x,     	   y: y+h, type: 'rotation', cursor: 'rotate', draggable: false, screenOffset: { x: -o, y:  o } },
+			{ id: 'rot-br', x: x+w,    y: y+h, type: 'rotation', cursor: 'rotate', draggable: false, screenOffset: { x:  o, y:  o } },
+		];
 	}
 	public hitTestAnchor(_cellX: number, _cellY: number): SmartObjectAnchor | null {
 		void _cellX;

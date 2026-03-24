@@ -7,10 +7,11 @@ import type {
 	SmartObjectSerializableSchemaType
 } from '@editor/serializer/smart-object.schema';
 import { maybeCompressString, maybeDecompressString } from '@editor/utils/compression';
-import type { ISmartObject } from './smart-object.interface';
+import type { ISmartObject, IRotatable, RotationStep } from './smart-object.interface';
 import { StandardGroupKeys, TransformProperties } from './properties';
+import { rotateText } from '@editor/utils/text-rotation';
 
-export class TextSelectionObject extends BaseSmartObject {
+export class TextSelectionObject extends BaseSmartObject implements IRotatable {
 	readonly type = 'text-selection';
 	public selectedText: string;
 
@@ -22,7 +23,6 @@ export class TextSelectionObject extends BaseSmartObject {
 					[TransformProperties.Y]: { type: 'number', value: bounds.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: bounds.width, min: 1 },
 					[TransformProperties.HEIGHT]: { type: 'number', value: bounds.height, min: 1 },
-					[TransformProperties.ROTATION]: { type: 'number', value: 0 }
 				}
 			},
 			capabilities: {
@@ -143,11 +143,6 @@ export class TextSelectionObject extends BaseSmartObject {
 			this.selectedText
 		);
 
-		const rotation = this.getProperty('transform.rotation');
-		if (typeof rotation === 'number') {
-			cloned.setProperty('transform.rotation', rotation);
-		}
-
 		cloned.id = this.id;
 		return cloned;
 	}
@@ -230,6 +225,41 @@ export class TextSelectionObject extends BaseSmartObject {
 			const skEx = skCanvas as unknown as CanvasWithGlyphs;
 			skEx.drawGlyphs(gb.subarray(0, count), pb.subarray(0, count * 2), 0, 0, font, paint);
 		}
+	}
+
+	public applyRotation(degrees: RotationStep): void {
+		const rotated = rotateText(this.selectedText, degrees);
+		const norm = ((degrees % 360) + 360) % 360;
+
+		const x = this.getProperty<number>('transform.x');
+		const y = this.getProperty<number>('transform.y');
+		const w = this.getProperty<number>('transform.width');
+		const h = this.getProperty<number>('transform.height');
+
+		let newW = w;
+		let newH = h;
+		if (norm === 90 || norm === 270) {
+			newW = h;
+			newH = w;
+		}
+
+		const newX = x + Math.round((w - newW) / 2);
+		const newY = y + Math.round((h - newH) / 2);
+
+		this.selectedText = rotated;
+		this.properties.applyCommitted('transform.x', newX);
+		this.properties.applyCommitted('transform.y', newY);
+		this.properties.applyCommitted('transform.width', newW);
+		this.properties.applyCommitted('transform.height', newH);
+		this.emit('update');
+	}
+
+	public getRotationContent(): string {
+		return this.selectedText;
+	}
+
+	public restoreRotationContent(content: string): void {
+		this.selectedText = content;
 	}
 
 	public getPropertiesSchema(): Map<string, unknown> {

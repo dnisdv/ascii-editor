@@ -25,7 +25,6 @@ export class MockSmartObject extends BaseSmartObject {
 					[TransformProperties.Y]: { type: 'number', value: b.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: b.width, min: 1 },
 					[TransformProperties.HEIGHT]: { type: 'number', value: b.height, min: 1 },
-					[TransformProperties.ROTATION]: { type: 'number', value: 0 }
 				}
 			}
 		});
@@ -43,10 +42,6 @@ export class MockSmartObject extends BaseSmartObject {
 			width: this.getProperty('transform.width'),
 			height: this.getProperty('transform.height')
 		});
-		const rotation = this.getProperty('transform.rotation');
-		if (typeof rotation === 'number') {
-			cloned.setProperty('transform.rotation', rotation);
-		}
 		cloned.id = this.id;
 		return cloned;
 	}

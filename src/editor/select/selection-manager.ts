@@ -13,7 +13,8 @@ import type { HistoryManager } from '@editor/history-manager';
 import { CommitSessionCommand } from './session/commands/commitSession.cmd';
 import { SelectionMode } from './selection-mode';
 import { MoveByCommand } from './session/commands/moveBy.cmd';
-import { RotateByCommand, type RotateDirection } from './session/commands/rotateSession.cmd';
+import { RotateByCommand } from './session/commands/rotateSession.cmd';
+import type { RotationStep } from '@editor/objects/smart-object.interface';
 import { ResizeByCommand } from './session/commands/resizeSession.cmd';
 import { RemoveSessionCommand } from './session/commands/removeSession.cmd';
 import { AppendObjectsCommand } from './session/commands/appendObjects.cmd';
@@ -305,9 +306,9 @@ export class SelectionManager extends EventEmitter<SelectionEvents> {
 		);
 	}
 
-	public rotateSelection(angle: RotateDirection, options?: { recordHistory?: boolean }): void {
+	public rotateSelection(angle: RotationStep): void {
 		this.selectionSessionManager.executeCommandOnActiveSession(
-			new RotateByCommand({ historyManager: this.historyManager }, angle, options)
+			new RotateByCommand({ historyManager: this.historyManager }, angle)
 		);
 	}
 

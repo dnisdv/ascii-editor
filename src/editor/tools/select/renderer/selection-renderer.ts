@@ -3,12 +3,20 @@ import type { CanvasKit, Paint, Canvas as WasmCanvas } from 'canvaskit-wasm';
 import type { SelectionModeContext } from '../modes/selection-mode-ctx';
 import type { CoreApi } from '@editor/core';
 import type { SelectionManager } from '@editor/select/selection-manager';
+import type { SelectionSession } from '@editor/select/session/selection-session';
 import { cellToWorld } from '@editor/utils';
 import type {
-	SmartObjectAnchor,
+	ISmartObject,
 	SelectionOverlayDrawer
 } from '@editor/objects/smart-object.interface';
-import { createFillPaint, createStrokePaint, drawAnchor } from '@editor/utils/rendering';
+import {
+	createFillPaint,
+	createStrokePaint,
+	drawAnchor,
+	drawRotationHandle
+} from '@editor/utils/rendering';
+import { SelectionModeName } from '../modes/modes.type';
+import type { RotatingMode } from '../modes/rotating.mode';
 
 export class SelectionRenderer {
 	private camera: ICamera;
@@ -17,6 +25,8 @@ export class SelectionRenderer {
 	private paint: Paint;
 	private anchorFillPaint: Paint;
 	private anchorStrokePaint: Paint;
+	private rotationHandleFillPaint: Paint;
+	private rotationHandleStrokePaint: Paint;
 
 	private selectCanvas: ICanvas;
 	private renderManager: IRenderManager;
@@ -42,8 +52,10 @@ export class SelectionRenderer {
 		this.paint = createStrokePaint(this.canvasKit, primary, this.baseStrokeWidth);
 
 		this.anchorFillPaint = createFillPaint(this.canvasKit, [1, 1, 1, 1]);
-
 		this.anchorStrokePaint = createStrokePaint(this.canvasKit, primary, 1.25);
+
+		this.rotationHandleFillPaint = createFillPaint(this.canvasKit, [1, 1, 1, 1]);
+		this.rotationHandleStrokePaint = createStrokePaint(this.canvasKit, [0.22, 0.49, 0.97, 1], 2.25);
 
 		this.camera.on('change', this.triggerDraw.bind(this));
 
@@ -94,94 +106,19 @@ export class SelectionRenderer {
 	}
 
 	private drawSelectionOverlays(): void {
-		const activeSession = this.selectionManager.getActiveSession();
+		const session = this.selectionManager.getActiveSession();
 
-		if (activeSession && !activeSession.isEmpty()) {
+		if (session && !session.isEmpty()) {
 			this.paint.setStrokeWidth(this.baseStrokeWidth);
-
-			const selectedObjects = activeSession.getSelectedObjects();
-
 			const dimensions = this.coreApi.getFontManager().getMetrics().dimensions;
-			const drawer: SelectionOverlayDrawer = {
-				rectCell: (cellX, cellY, width, height) => {
-					const startWorld = cellToWorld({
-						charWidth: dimensions.width,
-						charHeight: dimensions.height,
-						cellX,
-						cellY
-					});
-					const endWorld = cellToWorld({
-						charWidth: dimensions.width,
-						charHeight: dimensions.height,
-						cellX: cellX + width,
-						cellY: cellY + height
-					});
-					this.drawRawRectangle(
-						{
-							x: startWorld.x,
-							y: startWorld.y,
-							width: endWorld.x - startWorld.x,
-							height: endWorld.y - startWorld.y
-						},
-						0
-					);
-				},
-				lineCell: (x1, y1, x2, y2) => {
-					const w1 = cellToWorld({
-						charWidth: dimensions.width,
-						charHeight: dimensions.height,
-						cellX: x1,
-						cellY: y1
-					});
-					const w2 = cellToWorld({
-						charWidth: dimensions.width,
-						charHeight: dimensions.height,
-						cellX: x2,
-						cellY: y2
-					});
-					const s1 = this.camera.worldToScreen(w1.x + 0, w1.y + 0);
-					const s2 = this.camera.worldToScreen(w2.x + 0, w2.y + 0);
-					this.skCanvas.drawLine(s1.x, s1.y, s2.x, s2.y, this.paint);
-				}
-			};
+			const objects = session.getSelectedObjects();
 
-			if (selectedObjects.length === 1) {
-				const obj = selectedObjects[0];
-				const handled =
-					typeof obj.renderSelectionOverlay === 'function'
-						? (obj.renderSelectionOverlay(drawer) ?? false)
-						: false;
-				if (!handled) {
-					const cellX = obj.getProperty<number>('transform.x');
-					const cellY = obj.getProperty<number>('transform.y');
-					const width = obj.getProperty<number>('transform.width');
-					const height = obj.getProperty<number>('transform.height');
-					drawer.rectCell(cellX, cellY, width, height);
-				}
+			if (this.isRotatingMode() && objects.length === 1 && objects[0].capabilities.canRotate) {
+				this.drawRotatingModeOverlay(objects[0], dimensions);
+			} else if (objects.length === 1) {
+				this.drawSingleObjectOverlay(objects[0], dimensions);
 			} else {
-				const { width: charWidth, height: charHeight } = dimensions;
-				const bbStart = cellToWorld({
-					charWidth,
-					charHeight,
-					cellX: activeSession.boundingBox.cellX,
-					cellY: activeSession.boundingBox.cellY
-				});
-				const bbEnd = cellToWorld({
-					charWidth,
-					charHeight,
-					cellX: activeSession.boundingBox.cellX + activeSession.boundingBox.width,
-					cellY: activeSession.boundingBox.cellY + activeSession.boundingBox.height
-				});
-				this.drawRawRectangle(
-					{ x: bbStart.x, y: bbStart.y, width: bbEnd.x - bbStart.x, height: bbEnd.y - bbStart.y },
-					0
-				);
-
-				for (const obj of selectedObjects) {
-					if (typeof obj.renderSelectionOverlay === 'function') {
-						obj.renderSelectionOverlay(drawer);
-					}
-				}
+				this.drawMultiObjectOverlay(session, objects, dimensions);
 			}
 		}
 
@@ -189,6 +126,174 @@ export class SelectionRenderer {
 			this.paint.setStrokeWidth(this.baseStrokeWidth);
 			this.drawRawRectangle(this.selectionRect);
 		}
+	}
+
+	private drawRotatingModeOverlay(
+		obj: ISmartObject,
+		dimensions: { width: number; height: number }
+	): void {
+		const displayAngle = this.getRotatingMode()?.getDisplayAngle() ?? 0;
+
+		const cellX = obj.getProperty<number>('transform.x');
+		const cellY = obj.getProperty<number>('transform.y');
+		const width = obj.getProperty<number>('transform.width');
+		const height = obj.getProperty<number>('transform.height');
+
+		const isSnapped = displayAngle % 90 === 0 && displayAngle !== 0;
+		const norm = ((displayAngle % 360) + 360) % 360;
+
+		let drawCellX = cellX, drawCellY = cellY, drawW = width, drawH = height, drawAngle = displayAngle;
+		if (isSnapped && (norm === 90 || norm === 270)) {
+			drawW = height;
+			drawH = width;
+			drawCellX = cellX + Math.round((width - drawW) / 2);
+			drawCellY = cellY + Math.round((height - drawH) / 2);
+			drawAngle = 0;
+		} else if (isSnapped) {
+			drawAngle = 0;
+		}
+
+		this.drawCellRect(drawCellX, drawCellY, drawW, drawH, dimensions, drawAngle);
+	}
+
+	private drawSingleObjectOverlay(
+		obj: ISmartObject,
+		dimensions: { width: number; height: number }
+	): void {
+		const drawer = this.buildDrawer(dimensions);
+		const handled = obj.renderSelectionOverlay?.(drawer) ?? false;
+		if (!handled) {
+			drawer.rectCell(
+				obj.getProperty<number>('transform.x'),
+				obj.getProperty<number>('transform.y'),
+				obj.getProperty<number>('transform.width'),
+				obj.getProperty<number>('transform.height')
+			);
+		}
+	}
+
+	private drawMultiObjectOverlay(
+		session: SelectionSession,
+		objects: ISmartObject[],
+		dimensions: { width: number; height: number }
+	): void {
+		const { cellX, cellY, width, height } = session.boundingBox;
+		this.drawCellRect(cellX, cellY, width, height, dimensions);
+
+		const drawer = this.buildDrawer(dimensions);
+		for (const obj of objects) {
+			obj.renderSelectionOverlay?.(drawer);
+		}
+	}
+
+	private drawAnchors(): void {
+		const session = this.selectionManager.getActiveSession();
+		if (!session || session.isEmpty()) return;
+
+		const objs = session.getSelectedObjects();
+		const char = this.coreApi.getFontManager().getMetrics().dimensions;
+
+		this.drawObjectAnchors(objs, char);
+
+		if (objs.length === 1) {
+			if (objs[0].capabilities?.canRotate) this.drawRotationHandles(objs[0]);
+			if (objs[0].capabilities?.canResize) this.drawResizeHandles(session.boundingBox, char);
+		}
+	}
+
+	private drawObjectAnchors(
+		objs: ISmartObject[],
+		char: { width: number; height: number }
+	): void {
+		for (const obj of objs) {
+			if (!obj.getAnchors) continue;
+			for (const a of obj.getAnchors()) {
+				const world = cellToWorld({ charWidth: char.width, charHeight: char.height, cellX: a.x, cellY: a.y });
+				const screen = this.camera.worldToScreen(world.x + char.width / 2, world.y + char.height / 2);
+				this.drawAnchor(screen.x, screen.y);
+			}
+		}
+	}
+
+	private drawRotationHandles(obj: ISmartObject): void {
+		const rotatingMode = this.getRotatingMode();
+		if (this.isRotatingMode()) {
+			const positions = rotatingMode?.getDisplayHandlePositions();
+			if (!positions) return;
+			for (const pos of positions) {
+				const screen = this.camera.worldToScreen(pos.x, pos.y);
+				this.drawRotationHandle(screen.x, screen.y);
+			}
+			return;
+		}
+
+		const char = this.coreApi.getFontManager().getMetrics().dimensions;
+		const anchors = obj.getRotationAnchors?.(char.width, char.height) ?? [];
+		for (const a of anchors) {
+			const world = cellToWorld({ charWidth: char.width, charHeight: char.height, cellX: a.x, cellY: a.y });
+			const screen = this.camera.worldToScreen(world.x, world.y);
+			this.drawRotationHandle(
+				screen.x + (a.screenOffset?.x ?? 0),
+				screen.y + (a.screenOffset?.y ?? 0)
+			);
+		}
+	}
+
+	private drawResizeHandles(
+		bb: { cellX: number; cellY: number; width: number; height: number },
+		char: { width: number; height: number }
+	): void {
+		if (bb.width <= 0 || bb.height <= 0) return;
+		const start = cellToWorld({ charWidth: char.width, charHeight: char.height, cellX: bb.cellX, cellY: bb.cellY });
+		const end = cellToWorld({ charWidth: char.width, charHeight: char.height, cellX: bb.cellX + bb.width, cellY: bb.cellY + bb.height });
+		for (const corner of [
+			{ x: start.x, y: start.y },
+			{ x: end.x,   y: start.y },
+			{ x: start.x, y: end.y   },
+			{ x: end.x,   y: end.y   }
+		]) {
+			const screen = this.camera.worldToScreen(corner.x, corner.y);
+			this.drawAnchor(screen.x, screen.y);
+		}
+	}
+
+	private buildDrawer(
+		dimensions: { width: number; height: number },
+		rotation = 0
+	): SelectionOverlayDrawer {
+		return {
+			rectCell: (cellX, cellY, width, height) =>
+				this.drawCellRect(cellX, cellY, width, height, dimensions, rotation),
+			lineCell: (x1, y1, x2, y2) =>
+				this.drawCellLine(x1, y1, x2, y2, dimensions)
+		};
+	}
+
+	private drawCellRect(
+		cellX: number,
+		cellY: number,
+		width: number,
+		height: number,
+		dimensions: { width: number; height: number },
+		rotation = 0
+	): void {
+		const start = cellToWorld({ charWidth: dimensions.width, charHeight: dimensions.height, cellX, cellY });
+		const end = cellToWorld({ charWidth: dimensions.width, charHeight: dimensions.height, cellX: cellX + width, cellY: cellY + height });
+		this.drawRawRectangle({ x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y }, rotation);
+	}
+
+	private drawCellLine(
+		x1: number,
+		y1: number,
+		x2: number,
+		y2: number,
+		dimensions: { width: number; height: number }
+	): void {
+		const w1 = cellToWorld({ charWidth: dimensions.width, charHeight: dimensions.height, cellX: x1, cellY: y1 });
+		const w2 = cellToWorld({ charWidth: dimensions.width, charHeight: dimensions.height, cellX: x2, cellY: y2 });
+		const s1 = this.camera.worldToScreen(w1.x, w1.y);
+		const s2 = this.camera.worldToScreen(w2.x, w2.y);
+		this.skCanvas.drawLine(s1.x, s1.y, s2.x, s2.y, this.paint);
 	}
 
 	private drawRawRectangle(rect: WorldRegion, rotation: number = 0): void {
@@ -211,75 +316,34 @@ export class SelectionRenderer {
 		this.skCanvas.restore();
 	}
 
-	private drawAnchors(): void {
-		const session = this.selectionManager.getActiveSession();
-		if (!session || session.isEmpty()) return;
-
-		const objs = session.getSelectedObjects();
-		const char = this.coreApi.getFontManager().getMetrics().dimensions;
-
-		for (const obj of objs) {
-			if (!obj.getAnchors) continue;
-			const anchors: SmartObjectAnchor[] = obj.getAnchors();
-			for (const a of anchors) {
-				const worldPos = cellToWorld({
-					charWidth: char.width,
-					charHeight: char.height,
-					cellX: a.x,
-					cellY: a.y
-				});
-				const screen = this.camera.worldToScreen(
-					worldPos.x + char.width / 2,
-					worldPos.y + char.height / 2
-				);
-				this.drawAnchor(screen.x, screen.y);
-			}
-		}
-
-		const allResizable = objs.length === 1 && objs[0].capabilities?.canResize;
-		if (allResizable) {
-			const { cellX, cellY, width, height } = session.boundingBox;
-			if (width > 0 && height > 0) {
-				const bbStart = cellToWorld({
-					charWidth: char.width,
-					charHeight: char.height,
-					cellX,
-					cellY
-				});
-				const bbEnd = cellToWorld({
-					charWidth: char.width,
-					charHeight: char.height,
-					cellX: cellX + width,
-					cellY: cellY + height
-				});
-
-				const corners = [
-					{ x: bbStart.x, y: bbStart.y },
-					{ x: bbEnd.x, y: bbStart.y },
-					{ x: bbStart.x, y: bbEnd.y },
-					{ x: bbEnd.x, y: bbEnd.y }
-				];
-
-				for (const c of corners) {
-					const screen = this.camera.worldToScreen(c.x, c.y);
-					this.drawAnchor(screen.x, screen.y);
-				}
-			}
-		}
-	}
-
 	private drawAnchor(screenX: number, screenY: number): void {
 		drawAnchor(
 			this.canvasKit,
 			this.skCanvas,
 			screenX,
 			screenY,
-			{
-				fillPaint: this.anchorFillPaint,
-				strokePaint: this.anchorStrokePaint
-			},
+			{ fillPaint: this.anchorFillPaint, strokePaint: this.anchorStrokePaint },
 			this.camera.getPixelRatio()
 		);
+	}
+
+	private drawRotationHandle(screenX: number, screenY: number): void {
+		drawRotationHandle(
+			this.canvasKit,
+			this.skCanvas,
+			screenX,
+			screenY,
+			{ fillPaint: this.rotationHandleFillPaint, strokePaint: this.rotationHandleStrokePaint },
+			this.camera.getPixelRatio()
+		);
+	}
+
+	private isRotatingMode(): boolean {
+		return this.modeCtx.getCurrentModeName() === SelectionModeName.ROTATING;
+	}
+
+	private getRotatingMode(): RotatingMode | undefined {
+		return this.modeCtx.getMode(SelectionModeName.ROTATING) as RotatingMode | undefined;
 	}
 
 	public clear(): void {

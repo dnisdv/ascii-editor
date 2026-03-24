@@ -11,6 +11,7 @@ import type { CoreApi } from '@editor/core';
 import type { SelectionManager } from '@editor/select/selection-manager';
 import { ResizingMode } from './modes/resizing-mode';
 import { AnchoringMode } from './modes/anchoring-mode';
+import { RotatingMode } from './modes/rotating.mode';
 
 export class SelectTool extends BaseTool {
 	readonly name = 'select';
@@ -63,6 +64,10 @@ export class SelectTool extends BaseTool {
 		this.modeContext.registerMode(
 			SelectionModeName.ANCHORING,
 			new AnchoringMode(this.coreApi, this.selectionManager)
+		);
+		this.modeContext.registerMode(
+			SelectionModeName.ROTATING,
+			new RotatingMode(this.coreApi, this.selectionManager)
 		);
 	}
 
@@ -129,7 +134,8 @@ export class SelectTool extends BaseTool {
 		if (
 			currentMode === SelectionModeName.ANCHORING ||
 			currentMode === SelectionModeName.MOVING ||
-			currentMode === SelectionModeName.RESIZING
+			currentMode === SelectionModeName.RESIZING ||
+			currentMode === SelectionModeName.ROTATING
 		) {
 			return;
 		}

@@ -10,6 +10,7 @@ import type { CoreApi } from '@editor/core';
 import type { ISmartObject, SmartObjectAnchor } from '@editor/objects/smart-object.interface';
 import type { SelectionManager } from '@editor/select/selection-manager';
 import { ResizingMode } from './resizing-mode';
+import { RotatingMode } from './rotating.mode';
 import { cellToWorld } from '@editor/utils';
 
 export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> {
@@ -17,6 +18,7 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 	private camera: ICamera;
 	private hoveredHandle: HandlePosition | null = null;
 	private hoveredAnchor: { objectId: string; anchorId: string } | null = null;
+	private hoveredRotationHandle: number | null = null;
 	private isHoveringMoveArea: boolean = false;
 	private readonly handleHitboxSize = 16;
 
@@ -38,6 +40,7 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 	}
 	onExit(): void {
 		this.hoveredHandle = null;
+		this.hoveredRotationHandle = null;
 		this.isHoveringMoveArea = false;
 		this.coreApi.getCursor().setCursor('default');
 	}
@@ -81,8 +84,14 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 		const resizingMode = context.getMode(SelectionModeName.RESIZING) as ResizingMode;
 		const handle = resizingMode.getHandleAt(worldPos.x, worldPos.y);
 
+		const rotatingMode = context.getMode(SelectionModeName.ROTATING) as RotatingMode | undefined;
+		const rotationHandle = rotatingMode?.getRotationHandleAt(worldPos.x, worldPos.y) ?? null;
+
 		const hoveredAnchor = this.getAnchorAt(worldPos.x, worldPos.y);
-		if (hoveredAnchor) {
+
+		if (rotationHandle !== null) {
+			context.transitionTo(SelectionModeName.ROTATING, { mouseDownEvent: event });
+		} else if (hoveredAnchor) {
 			context.transitionTo(SelectionModeName.ANCHORING, {
 				mouseDownEvent: event,
 				objectId: hoveredAnchor.objectId,
@@ -102,8 +111,12 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 		const worldPos = this.camera.screenToWorld(pos.x, pos.y);
 
 		const resizingMode = context.getMode(SelectionModeName.RESIZING) as ResizingMode;
+		const rotatingMode = context.getMode(SelectionModeName.ROTATING) as RotatingMode | undefined;
+
 		const newHoveredHandle = resizingMode.getHandleAt(worldPos.x, worldPos.y);
 		const newHoveredAnchor = this.getAnchorAt(worldPos.x, worldPos.y);
+		const newHoveredRotationHandle =
+			rotatingMode?.getRotationHandleAt(worldPos.x, worldPos.y) ?? null;
 
 		const wasHoveringMove = this.isHoveringMoveArea;
 		this.isHoveringMoveArea =
@@ -115,19 +128,25 @@ export class SelectedMode implements ISelectionMode<SelectionModeName.SELECTED> 
 
 		if (
 			newHoveredHandle !== this.hoveredHandle ||
-			(newHoveredAnchor?.anchorId ?? null) !== (this.hoveredAnchor?.anchorId ?? null)
+			(newHoveredAnchor?.anchorId ?? null) !== (this.hoveredAnchor?.anchorId ?? null) ||
+			newHoveredRotationHandle !== this.hoveredRotationHandle
 		) {
 			this.hoveredHandle = newHoveredHandle;
 			this.hoveredAnchor = newHoveredAnchor;
+			this.hoveredRotationHandle = newHoveredRotationHandle;
 			this.coreApi.getRenderManager().requestRender();
 		}
 
-		const cursorName = this.hoveredAnchor
-			? 'crosshair'
-			: resizingMode.getCursorForHandle(this.hoveredHandle) ||
-				(this.isHoveringMoveArea ? 'move' : 'default');
-
-		this.coreApi.getCursor().setCursor(cursorName);
+		if (this.hoveredRotationHandle !== null) {
+			const angle = rotatingMode?.getHandleAngle(this.hoveredRotationHandle) ?? 0;
+			this.coreApi.getCursor().setCursor('rotate', { angle });
+		} else {
+			const cursorName = this.hoveredAnchor
+				? 'crosshair'
+				: resizingMode.getCursorForHandle(this.hoveredHandle) ||
+					(this.isHoveringMoveArea ? 'move' : 'default');
+			this.coreApi.getCursor().setCursor(cursorName);
+		}
 	}
 
 	handleMouseUp(): void {}

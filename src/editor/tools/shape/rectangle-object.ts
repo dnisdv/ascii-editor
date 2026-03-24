@@ -1,5 +1,6 @@
 import { BaseSmartObject } from '@editor/objects/smart-object.base';
 import { StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
+import type { IRotatable, RotationStep } from '@editor/objects/smart-object.interface';
 
 import type { CellRectangle } from '@editor/types';
 import type { AsciiRenderingDeps } from '@editor/canvas/strategies/ascii-rendering-strategy';
@@ -11,7 +12,7 @@ import type {
 } from '@editor/serializer/smart-object.schema';
 import { createPaint } from '@editor/utils/rendering';
 
-export class RectangleObject extends BaseSmartObject {
+export class RectangleObject extends BaseSmartObject implements IRotatable {
 	readonly type = 'rectangle';
 	private _rectangleString: string | null = null;
 
@@ -25,7 +26,6 @@ export class RectangleObject extends BaseSmartObject {
 					[TransformProperties.Y]: { type: 'number', value: b.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: b.width, min: 1 },
 					[TransformProperties.HEIGHT]: { type: 'number', value: b.height, min: 1 },
-					[TransformProperties.ROTATION]: { type: 'number', value: 0 }
 				}
 			}
 		});
@@ -136,6 +136,32 @@ export class RectangleObject extends BaseSmartObject {
 		rectangleStr += '└' + '─'.repeat(width - 2) + '┘';
 
 		this._rectangleString = rectangleStr;
+	}
+
+	public applyRotation(degrees: RotationStep): void {
+		const norm = ((degrees % 360) + 360) % 360;
+
+		const x = this.getProperty<number>('transform.x');
+		const y = this.getProperty<number>('transform.y');
+		const w = this.getProperty<number>('transform.width');
+		const h = this.getProperty<number>('transform.height');
+
+		let newW = w;
+		let newH = h;
+		if (norm === 90 || norm === 270) {
+			newW = h;
+			newH = w;
+		}
+
+		const newX = x + Math.round((w - newW) / 2);
+		const newY = y + Math.round((h - newH) / 2);
+
+		this.properties.applyCommitted('transform.x', newX);
+		this.properties.applyCommitted('transform.y', newY);
+		this.properties.applyCommitted('transform.width', newW);
+		this.properties.applyCommitted('transform.height', newH);
+		this._updateRectangleString();
+		this.emit('update');
 	}
 
 	public clone(): ISmartObject {

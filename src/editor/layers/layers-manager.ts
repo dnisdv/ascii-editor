@@ -26,6 +26,10 @@ import {
 	objectAnchorsPatch,
 	ObjectAnchorsPatchHandler
 } from '@editor/objects/history/object-anchors-patch';
+import {
+	objectRotationPatch,
+	ObjectRotationPatchHandler
+} from '@editor/objects/history/object-rotation-patch';
 import { LayerUpdate, updateLayer } from './history/layer-update';
 import {
 	LayerRemoveAndActivate,
@@ -116,6 +120,7 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 		this.historyManager.registerHandler(objectSetProperty, new SetPropertyHandler());
 		this.historyManager.registerHandler(objectPropertiesPatch, new ObjectPropertiesPatchHandler());
 		this.historyManager.registerHandler(objectAnchorsPatch, new ObjectAnchorsPatchHandler());
+		this.historyManager.registerHandler(objectRotationPatch, new ObjectRotationPatchHandler());
 	}
 
 	private proxyLayerEvents(layer: Layer) {

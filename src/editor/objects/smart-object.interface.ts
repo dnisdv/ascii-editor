@@ -21,8 +21,9 @@ export interface SmartObjectAnchor {
 	x: number;
 	y: number;
 	cursor?: string;
-	type: 'geometric' | 'control' | 'visual';
+	type: 'geometric' | 'control' | 'visual' | 'rotation';
 	draggable?: boolean;
+	screenOffset?: { x: number; y: number };
 }
 
 export interface SmartObjectCapabilities {
@@ -72,6 +73,7 @@ export interface ISmartObject extends IEventEmitter<SmartObjectEventMap> {
 
 	hitTestMoveArea(cellX: number, cellY: number): boolean;
 	getAnchors?(): SmartObjectAnchor[];
+	getRotationAnchors?(charWidth: number, charHeight: number): SmartObjectAnchor[];
 	hitTestAnchor?(cellX: number, cellY: number): SmartObjectAnchor | null;
 	moveAnchor?(anchorId: string, toCellX: number, toCellY: number): void;
 
@@ -86,6 +88,18 @@ export interface ISmartObject extends IEventEmitter<SmartObjectEventMap> {
 	dispose(): void;
 	serialize(): SmartObjectSerializableSchemaType;
 	toJson(): SerializedSmartObjectData;
+}
+
+export type RotationStep = 90 | -90 | 180 | 270 | -270;
+
+export interface IRotatable {
+	applyRotation(degrees: RotationStep): void;
+	getRotationContent?(): string;
+	restoreRotationContent?(content: string): void;
+}
+
+export function isRotatable(obj: ISmartObject): obj is ISmartObject & IRotatable {
+	return typeof (obj as unknown as IRotatable).applyRotation === 'function';
 }
 
 export interface SmartObjectClass {

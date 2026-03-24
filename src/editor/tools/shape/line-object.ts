@@ -6,6 +6,8 @@ import type { AsciiRenderingDeps } from '@editor/canvas/strategies/ascii-renderi
 import type { Config } from '@editor/config';
 import type {
 	ISmartObject,
+	IRotatable,
+	RotationStep,
 	SelectionOverlayDrawer,
 	SmartObjectAnchor
 } from '@editor/objects/smart-object.interface';
@@ -19,20 +21,19 @@ function clamp(n: number, min: number, max: number): number {
 	return Math.max(min, Math.min(max, n));
 }
 
-export class LineObject extends BaseSmartObject {
+export class LineObject extends BaseSmartObject implements IRotatable {
 	readonly type = 'line';
 
 	constructor(bounds: CellRectangle | unknown) {
 		const b = (bounds as CellRectangle) ?? { cellX: 0, cellY: 0, width: 1, height: 1 };
 		super(b, {
-			capabilities: { canMove: true, canResize: false, canRotate: false, canSelect: true },
+			capabilities: { canMove: true, canResize: false, canRotate: true, canSelect: true },
 			properties: {
 				[StandardGroupKeys.TRANSFORM]: {
 					[TransformProperties.X]: { type: 'number', value: b.cellX },
 					[TransformProperties.Y]: { type: 'number', value: b.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: Math.max(1, b.width) },
 					[TransformProperties.HEIGHT]: { type: 'number', value: Math.max(1, b.height) },
-					[TransformProperties.ROTATION]: { type: 'number', value: 0 }
 				}
 			}
 		});
@@ -43,6 +44,85 @@ export class LineObject extends BaseSmartObject {
 		);
 		this._recalculateFromAbs(this.getAnchorsAbs());
 		this.ensureVisualAnchors();
+	}
+
+	public applyRotation(degrees: RotationStep): void {
+		const { x: objX, y: objY, w, h } = this.getTransformInts();
+		const cx = objX + (w - 1) / 2;
+		const cy = objY + (h - 1) / 2;
+		const norm = ((degrees % 360) + 360) % 360;
+
+		const absAnchors = this.anchors.map((a) => ({ ...a, x: a.x + objX, y: a.y + objY }));
+
+		const rotated = absAnchors.map((a) => {
+			let nx: number, ny: number;
+			if (norm === 90) {
+				nx = cx - (a.y - cy);
+				ny = cy + (a.x - cx);
+			} else if (norm === 270) {
+				nx = cx + (a.y - cy);
+				ny = cy - (a.x - cx);
+			} else {
+				nx = 2 * cx - a.x;
+				ny = 2 * cy - a.y;
+			}
+			return { ...a, x: Math.round(nx), y: Math.round(ny) };
+		});
+
+		const geom = rotated.filter((a) => a.type === 'geometric');
+		if (geom.length === 0) return;
+
+		const xs = geom.map((a) => a.x);
+		const ys = geom.map((a) => a.y);
+		const minX = Math.min(...xs);
+		const minY = Math.min(...ys);
+		const maxX = Math.max(...xs);
+		const maxY = Math.max(...ys);
+		const newW = maxX - minX + 1;
+		const newH = maxY - minY + 1;
+
+		this.properties.applyCommitted('transform.x', minX);
+		this.properties.applyCommitted('transform.y', minY);
+		this.properties.applyCommitted('transform.width', newW);
+		this.properties.applyCommitted('transform.height', newH);
+
+		this.anchors = rotated.map((a) => ({
+			...a,
+			x: clamp(a.x - minX, 0, newW - 1),
+			y: clamp(a.y - minY, 0, newH - 1)
+		}));
+
+		this.ensureVisualAnchors();
+		this.emit('update');
+	}
+
+	public override getRotationAnchors(_charWidth: number, _charHeight: number): SmartObjectAnchor[] {
+		if (!this.capabilities.canRotate) return [];
+		const x = Math.round(this.getProperty<number>('transform.x'));
+		const y = Math.round(this.getProperty<number>('transform.y'));
+		const w = Math.max(1, Math.round(this.getProperty<number>('transform.width')));
+		return [{
+			id: 'rot-top',
+			x: x + w / 2,
+			y,
+			type: 'rotation',
+			cursor: 'rotate',
+			draggable: false,
+			screenOffset: { x: 0, y: -22 }
+		}];
+	}
+
+	public getRotationContent(): string {
+		return JSON.stringify(this.anchors);
+	}
+
+	public restoreRotationContent(content: string): void {
+		try {
+			this.anchors = JSON.parse(content) as SmartObjectAnchor[];
+			this.ensureVisualAnchors();
+		} catch {
+			// void
+		}
 	}
 
 	public clone(): ISmartObject {

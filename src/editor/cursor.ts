@@ -48,9 +48,19 @@ export class Cursor {
 	private registry: Record<string, CursorConfig> = {};
 	private canvas: HTMLElement;
 	private latestSetCallId = 0;
+	private rotateCursorImage: HTMLImageElement | null = null;
+	private rotateCursorImageReady: Promise<HTMLImageElement>;
 
 	constructor({ canvas }: { canvas: ICanvas }) {
 		this.canvas = canvas.canvas;
+		this.rotateCursorImageReady = new Promise((resolve) => {
+			const img = new Image();
+			img.src = ROTATE_CURSOR;
+			img.onload = () => {
+				this.rotateCursorImage = img;
+				resolve(img);
+			};
+		});
 		this.initializeDefaultCursors();
 		this.setCursor('default');
 	}
@@ -104,26 +114,21 @@ export class Cursor {
 		this.canvas.style.cursor = `url(${dataUrl}) ${hotspot[0]} ${hotspot[1]}, auto`;
 	}
 
-	private generateRotateCursor(params?: { angle: number }): Promise<string> {
-		return new Promise((resolve) => {
-			const angle = params?.angle ?? 0;
-			const image = new Image();
-			image.src = ROTATE_CURSOR;
-			image.onload = () => {
-				const imgWidth = image.width;
-				const imgHeight = image.height;
-				const diagonal = Math.sqrt(imgWidth ** 2 + imgHeight ** 2);
-				const canvas = document.createElement('canvas');
-				canvas.width = diagonal;
-				canvas.height = diagonal;
-				const ctx = canvas.getContext('2d');
-				if (ctx) {
-					ctx.translate(diagonal / 2, diagonal / 2);
-					ctx.rotate((angle * Math.PI) / 180);
-					ctx.drawImage(image, -imgWidth / 2, -imgHeight / 2, imgWidth, imgHeight);
-				}
-				resolve(canvas.toDataURL('image/png'));
-			};
-		});
+	private async generateRotateCursor(params?: { angle: number }): Promise<string> {
+		const angle = params?.angle ?? 0;
+		const image = this.rotateCursorImage ?? (await this.rotateCursorImageReady);
+		const imgWidth = image.width;
+		const imgHeight = image.height;
+		const diagonal = Math.sqrt(imgWidth ** 2 + imgHeight ** 2);
+		const canvas = document.createElement('canvas');
+		canvas.width = diagonal;
+		canvas.height = diagonal;
+		const ctx = canvas.getContext('2d');
+		if (ctx) {
+			ctx.translate(diagonal / 2, diagonal / 2);
+			ctx.rotate((angle * Math.PI) / 180);
+			ctx.drawImage(image, -imgWidth / 2, -imgHeight / 2, imgWidth, imgHeight);
+		}
+		return canvas.toDataURL('image/png');
 	}
 }
