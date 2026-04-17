@@ -6,6 +6,7 @@
 	import { Camera } from '@editor/camera';
 	import {
 		DrawTool,
+		EraserTool,
 		SelectTool,
 		DrawShapeTool,
 		TextTool,
@@ -174,6 +175,7 @@
 				updateTheme($theme);
 
 				const drawTool = new DrawTool(coreApi);
+				const eraserTool = new EraserTool(coreApi);
 				const selectTool = new SelectTool(coreApi);
 				const drawShapeTool = new DrawShapeTool(coreApi);
 				const textTool = new TextTool(coreApi);
@@ -183,6 +185,7 @@
 
 				app.registerTool(selectTool);
 				app.registerTool(drawTool);
+				app.registerTool(eraserTool);
 				app.registerTool(drawShapeTool);
 				app.registerTool(textTool);
 				app.registerTool(historyControlTool);

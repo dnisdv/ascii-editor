@@ -31,6 +31,7 @@ export class CameraControlTool extends BaseTool implements ITool {
 		);
 
 		this.getEventApi().registerMouseDown('right', (e) => {
+			if (e.altKey || e.ctrlKey) return;
 			this.handleMouseDown(e);
 			this.getEventApi().registerMouseMove((e) => this.handleMouseMove(e));
 			this.getEventApi().registerMouseUp(() => {

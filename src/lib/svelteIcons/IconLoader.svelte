@@ -45,7 +45,8 @@
 		github: () => import('./Github.svelte'),
 		folder: () => import('./Folder.svelte'),
 		'folder-open': () => import('./FolderOpen.svelte'),
-		'chevron-right': () => import('./ChevronRight.svelte')
+		'chevron-right': () => import('./ChevronRight.svelte'),
+		eraser: () => import('./Eraser.svelte')
 	} as const;
 
 	type IconName = keyof typeof iconMap;
