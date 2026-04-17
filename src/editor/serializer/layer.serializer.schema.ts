@@ -11,7 +11,8 @@ export const LayerSerializableSchema = z.object({
 	opts: z.object({
 		visible: z.boolean(),
 		locked: z.boolean()
-	})
+	}),
+	groupId: z.string().nullable().optional()
 });
 
 export type LayerSerializableSchemaType = z.infer<typeof LayerSerializableSchema>;

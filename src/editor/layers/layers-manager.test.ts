@@ -127,17 +127,19 @@ describe('LayersManager', () => {
 			expect(layersManager.getLayer(id1)?.getOpts().visible).toBe(false);
 		});
 
-		it("should update a layer's index and reorder the list", () => {
+		it("should update a layer's index and reflect in tree-ordered list", () => {
 			const [id1] = layersManager.addLayer();
 			const [id2] = layersManager.addLayer();
 			const [id3] = layersManager.addLayer();
 
-			layersManager.updateLayer(id1, { index: 2 });
+			layersManager.updateLayer(id1, { index: 3 });
 			const layers = layersManager.getLayers();
+
 			expect(layers.map((l) => l.id)).toEqual([id2, id3, id1]);
-			expect(layersManager.getLayer(id1)?.index).toBe(2);
-			expect(layersManager.getLayer(id2)?.index).toBe(0);
-			expect(layersManager.getLayer(id3)?.index).toBe(1);
+			expect(layersManager.getLayer(id1)?.index).toBe(3);
+
+			expect(layersManager.getLayer(id2)?.index).toBe(1);
+			expect(layersManager.getLayer(id3)?.index).toBe(2);
 		});
 	});
 

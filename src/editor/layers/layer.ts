@@ -23,6 +23,7 @@ export interface LayerConstructor {
 	orderKeys?: Record<string, string>;
 	config: Config;
 	binder?: ObjectHistoryBinder;
+	groupId?: string | null;
 }
 
 export class Layer extends EventEmitter<LayerEventMap> implements ILayerModel {
@@ -30,6 +31,7 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayerModel {
 	name: string;
 	index: number;
 	opts: LayerConfig;
+	groupId: string | null;
 	textGrid: TextGridObject;
 
 	private _objects: ObjectListManager<ISmartObject>;
@@ -43,12 +45,14 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayerModel {
 		objects = [],
 		orderKeys,
 		config,
-		binder
+		binder,
+		groupId = null
 	}: LayerConstructor) {
 		super();
 		this.id = id;
 		this.name = name;
 		this.index = index;
+		this.groupId = groupId;
 		this.opts = { ...defaultLayerConfig, ...opts };
 		this.binder = binder;
 
@@ -186,6 +190,9 @@ export class Layer extends EventEmitter<LayerEventMap> implements ILayerModel {
 		}
 		if (updates.opts) {
 			this.opts = { ...defaultLayerConfig, ...this.opts, ...updates.opts };
+		}
+		if (updates.groupId !== undefined) {
+			this.groupId = updates.groupId ?? null;
 		}
 		this.emit('updated', updates);
 	}

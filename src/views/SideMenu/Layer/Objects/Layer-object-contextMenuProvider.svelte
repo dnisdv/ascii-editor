@@ -16,10 +16,23 @@
 </script>
 
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { getContextMenu as getLayerContextMenu } from '../Layer-contextMenuProvider.svelte';
+
+	const { closeAllObjects, registerObjectStore, close: closeLayerMenu } = getLayerContextMenu();
+
 	const activeMenu = writable<null | number>(null);
+
+	const unregister = registerObjectStore(activeMenu);
+	onDestroy(unregister);
+
 	const contextMenu: ContextMenu = {
 		activeMenu,
-		open: (id: number) => activeMenu.set(id),
+		open: (id: number) => {
+			closeAllObjects();
+			closeLayerMenu();
+			activeMenu.set(id);
+		},
 		close: () => activeMenu.set(null)
 	};
 

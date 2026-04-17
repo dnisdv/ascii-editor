@@ -8,3 +8,4 @@ export * from './tools-events';
 export * from './layers-events';
 export * from './layer-model';
 export * from './layers';
+export * from './layer-group';

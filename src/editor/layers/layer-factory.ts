@@ -48,11 +48,13 @@ export class LayerFactory {
 			binder: this.binder
 		});
 
+		layer.addObject(layer.grid);
+
 		return [id, layer];
 	}
 
-	newLayer({ id, name, opts, index }: ILayerModel & { config?: Partial<ILayerModel> }): Layer {
-		const layer = new Layer({ id, name, opts, index, config: this.config, binder: this.binder });
+	newLayer({ id, name, opts, index, groupId }: ILayerModel & { config?: Partial<ILayerModel> }): Layer {
+		const layer = new Layer({ id, name, opts, index, groupId, config: this.config, binder: this.binder });
 		layer.addObject(layer.grid);
 		return layer;
 	}

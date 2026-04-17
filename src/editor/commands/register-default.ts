@@ -55,4 +55,46 @@ export function registerDefaultCommands(registry: EditorCommands, core: CoreApi)
 	registry.register(EditorCommand.SelectionDelete, () => {
 		core.getSelectionManager().removeSelection();
 	});
+
+	registry.register(EditorCommand.LayerGroup, () => {
+		const layersManager = core.getLayersManager();
+		let ids = layersManager.getSelectedLayerIds();
+		const activeId = layersManager.getActiveLayerKey();
+
+		if (ids.length === 0) {
+			if (activeId) ids = [activeId];
+		} else if (activeId && !ids.includes(activeId)) {
+			ids = [activeId, ...ids];
+		}
+
+		if (ids.length === 0) return;
+
+		const group = layersManager.groupLayers(ids);
+		if (group) {
+			layersManager.clearLayerSelection();
+		}
+	});
+
+	registry.register(EditorCommand.LayerUngroup, () => {
+		const layersManager = core.getLayersManager();
+		let ids = layersManager.getSelectedLayerIds();
+		const activeId = layersManager.getActiveLayerKey();
+		if (ids.length === 0) {
+			if (activeId) ids = [activeId];
+		} else if (activeId && !ids.includes(activeId)) {
+			ids = [activeId, ...ids];
+		}
+
+		const groupIds = new Set<string>();
+		for (const id of ids) {
+			const layer = layersManager.getRealLayer(id);
+			if (layer?.groupId) groupIds.add(layer.groupId);
+		}
+
+		for (const gid of groupIds) {
+			layersManager.removeGroup(gid, false);
+		}
+
+		layersManager.clearLayerSelection();
+	});
 }

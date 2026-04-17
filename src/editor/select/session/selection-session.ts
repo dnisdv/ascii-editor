@@ -86,7 +86,7 @@ export class SelectionSession extends EventEmitter<SessionEventType> {
 
 		const sourceRealLayer = this.layersManager.getRealLayer(this._sourceLayerId);
 		const index = sourceRealLayer?.index;
-		const [id] = this.layersManager.addOverlayTempLayer(index);
+		const [id] = this.layersManager.addOverlayTempLayer(index, this._sourceLayerId);
 		const tempLayer = this.layersManager._getTempLayerInternal(id);
 		tempLayer?.removeAllObjects();
 

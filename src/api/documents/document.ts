@@ -1,4 +1,5 @@
 import type { SmartObjectSerializableSchemaType } from '@editor/serializer/smart-object.schema';
+import type { LayerGroupSerializableSchemaType } from '@editor/serializer/group.serializer.schema';
 import {
 	DocumentSchema,
 	LayerSerializableSchema,
@@ -86,7 +87,7 @@ export class DocumentController {
 		return {
 			meta: { id: '__PROJECT__', version: '2.0', title: 'Untitled' },
 			config: { tileSize: 25 },
-			layers: { activeLayerKey: null, data: {} },
+			layers: { activeLayerKey: null, data: {}, groups: {} },
 			camera: { offsetX: 0, offsetY: 0, scale: 3 },
 			tools: { activeTool: null, data: {} },
 			history: null
@@ -395,5 +396,33 @@ export class DocumentController {
 
 	getSchema(): DocumentSchemaType {
 		return this.schema;
+	}
+
+	addGroup(group: LayerGroupSerializableSchemaType): void {
+		if (!this.schema.layers.groups) {
+			this.schema.layers.groups = {};
+		}
+		this.schema.layers.groups[group.id] = group;
+	}
+
+	public removeGroup(groupId: string): void {
+		if (!this.schema.layers.groups) return;
+		delete this.schema.layers.groups[groupId];
+	}
+
+	public updateGroup(groupId: string, updates: Partial<LayerGroupSerializableSchemaType>): void {
+		if (!this.schema.layers.groups) return;
+		const group = this.schema.layers.groups[groupId];
+		if (!group) return;
+
+		const merged = { ...group, ...updates };
+		if (updates.opts) {
+			merged.opts = { ...group.opts, ...updates.opts };
+		}
+		this.schema.layers.groups[groupId] = merged;
+	}
+
+	public getGroup(groupId: string): LayerGroupSerializableSchemaType | undefined {
+		return this.schema.layers.groups?.[groupId];
 	}
 }

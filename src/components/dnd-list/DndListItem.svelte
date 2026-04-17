@@ -40,6 +40,7 @@
 	});
 
 	function handleMouseDown(e: MouseEvent): void {
+		if (e.button !== 0) return;
 		e.stopPropagation();
 		if (index === null) return;
 		initialX = e.clientX;

@@ -7,6 +7,7 @@ import type {
 } from '@editor/types';
 import { DocumentController } from './document';
 import type { SmartObjectSerializableSchemaType } from '@editor/serializer/smart-object.schema';
+import type { LayerGroupSerializableSchemaType } from '@editor/serializer/group.serializer.schema';
 
 interface ApiDependencies {
 	documentController: DocumentController;
@@ -14,6 +15,17 @@ interface ApiDependencies {
 }
 
 export const LayersApi = ({ documentController, save }: ApiDependencies) => {
+	let savePending = false;
+	const scheduleSave = () => {
+		if (!savePending) {
+			savePending = true;
+			Promise.resolve().then(() => {
+				savePending = false;
+				save();
+			});
+		}
+	};
+
 	return {
 		listLayers(): string[] {
 			return Object.keys(documentController.getSchema().layers.data);
@@ -21,28 +33,28 @@ export const LayersApi = ({ documentController, save }: ApiDependencies) => {
 
 		moveLayer(layerId: string, newPosition: number): void {
 			documentController.updateLayer(layerId, { index: newPosition });
-			save();
+			scheduleSave();
 		},
 
 		setActiveLayer(layerId: string | null): void {
 			documentController.setActiveLayer(layerId);
-			save();
+			scheduleSave();
 		},
 
 		addLayer(layer: LayerSerializableSchemaType) {
 			documentController.addLayer(layer);
-			save();
+			scheduleSave();
 		},
 
 		updateLayer(layer: RequireAtLeastOne<DeepPartial<ILayerModel>, 'id'>): void {
 			const id = layer.id as string;
 			documentController.updateLayer(id, layer as unknown as Partial<LayerSerializableSchemaType>);
-			save();
+			scheduleSave();
 		},
 
 		removeLayer(layerId: string): void {
 			documentController.removeLayer(layerId);
-			save();
+			scheduleSave();
 		},
 
 		duplicateLayer(layerId: string): void {
@@ -60,7 +72,7 @@ export const LayersApi = ({ documentController, save }: ApiDependencies) => {
 			};
 
 			documentController.addLayer(duplicatedLayer);
-			save();
+			scheduleSave();
 		},
 
 		addSmartObject(
@@ -72,12 +84,12 @@ export const LayersApi = ({ documentController, save }: ApiDependencies) => {
 			orderKey?: string
 		): void {
 			documentController.addSmartObject(layerId, objectId, objectType, toIndex, data, orderKey);
-			save();
+			scheduleSave();
 		},
 
 		removeSmartObject(layerId: string, objectId: string): void {
 			documentController.removeSmartObject(layerId, objectId);
-			save();
+			scheduleSave();
 		},
 
 		updateSmartObject(
@@ -87,12 +99,27 @@ export const LayersApi = ({ documentController, save }: ApiDependencies) => {
 			operation: ObjectOperation
 		): void {
 			documentController.doObjectOperation(layerId, objectId, objectType, operation);
-			save();
+			scheduleSave();
 		},
 
 		moveSmartObject(layerId: string, objectId: string, toIndex: number, orderKey?: string): void {
 			documentController.moveSmartObject(layerId, objectId, toIndex, orderKey);
-			save();
+			scheduleSave();
+		},
+
+		addGroup(group: LayerGroupSerializableSchemaType): void {
+			documentController.addGroup(group);
+			scheduleSave();
+		},
+
+		removeGroup(groupId: string): void {
+			documentController.removeGroup(groupId);
+			scheduleSave();
+		},
+
+		updateGroup(groupId: string, updates: Partial<LayerGroupSerializableSchemaType>): void {
+			documentController.updateGroup(groupId, updates);
+			scheduleSave();
 		}
 	};
 };

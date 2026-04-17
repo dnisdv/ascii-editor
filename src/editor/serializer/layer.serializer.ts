@@ -45,7 +45,8 @@ export class LayerSerializer {
 			opts: layer.opts,
 			objects: objectsMap,
 			objectOrder: layer.objects.map((obj) => obj.id),
-			orderKeys
+			orderKeys,
+			groupId: layer.groupId ?? null
 		};
 	}
 
@@ -83,7 +84,8 @@ export class LayerSerializer {
 			opts: layerData.opts,
 			objects,
 			orderKeys,
-			config: this.config
+			config: this.config,
+			groupId: layerData.groupId ?? null
 		});
 
 		return newLayer;

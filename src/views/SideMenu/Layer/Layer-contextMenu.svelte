@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
 	import {
 		ContextMenu,
 		ContextMenuContent,
@@ -13,21 +12,13 @@
 	export let visibleIcon: string;
 	export let onOpenChange: (isOpen: boolean) => void;
 
-	interface ComponentEvents {
-		rename: void;
-		toggleVisibility: void;
-		delete: void;
-	}
-
-	const dispatch = createEventDispatcher<ComponentEvents>();
+	export let onRename: (() => void) | undefined = undefined;
+	export let onToggleVisibility: (() => void) | undefined = undefined;
+	export let onDelete: (() => void) | undefined = undefined;
 
 	const handleOpenChange = (isOpen: boolean) => {
 		onOpenChange(isOpen);
 	};
-
-	const handleRename = () => dispatch('rename');
-	const handleToggleVisibility = () => dispatch('toggleVisibility');
-	const handleDelete = () => dispatch('delete');
 </script>
 
 <ContextMenu open={isOpen} onOpenChange={handleOpenChange}>
@@ -35,20 +26,22 @@
 		<slot />
 	</ContextMenuTrigger>
 	<ContextMenuContent class="z-50">
-		<ContextMenuItem on:click={handleRename}>
+		<ContextMenuItem on:click={() => onRename?.()}>
 			<div class="option">
 				<ThemeIcon name="pen" />
 				<span>Rename</span>
 			</div>
 		</ContextMenuItem>
-		<ContextMenuItem on:click={handleToggleVisibility}>
+		<ContextMenuItem on:click={() => onToggleVisibility?.()}>
 			<div class="option">
 				<ThemeIcon name={visibleIcon} />
 				<span>Show/Hide</span>
 			</div>
 		</ContextMenuItem>
 		<ContextMenuSeparator />
-		<ContextMenuItem on:click={handleDelete}>
+
+		<ContextMenuSeparator />
+		<ContextMenuItem on:click={() => onDelete?.()}>
 			<div class="option">
 				<ThemeIcon name="trash" />
 				<span>Delete</span>

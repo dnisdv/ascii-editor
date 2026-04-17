@@ -24,7 +24,10 @@ export const EditorCommand = {
 	ViewToggleUI: 'view.toggle-ui',
 	ViewToggleGrid: 'view.toggle-grid',
 	ViewThemeSet: 'view.theme.set',
-	ViewShowContextMenu: 'view.show-context-menu'
+	ViewShowContextMenu: 'view.show-context-menu',
+
+	LayerGroup: 'layer.group',
+	LayerUngroup: 'layer.ungroup'
 } as const;
 
 export type EditorCommandId = (typeof EditorCommand)[keyof typeof EditorCommand];

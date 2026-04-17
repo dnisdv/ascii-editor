@@ -2,7 +2,6 @@ import type { HistoryManager } from '@editor/history-manager';
 import type { Config } from '@editor/config';
 import { type DeepPartial, LayerSerializer } from '@editor/types';
 import { LayerFactory } from './layer-factory';
-import type { ObjectHistoryBinder } from './object-history-binder';
 import { EventEmitter } from '@editor/event-emitter';
 import { LayersListManager } from './layer-list-manager';
 import { TempLayersListManager } from './templayer-list-manager';
@@ -15,8 +14,21 @@ import {
 	removeLayerObject,
 	renameLayerObject,
 	SetCharHandler,
-	setLayerChar
+	setLayerChar,
+	addGroup,
+	GroupAdd,
+	removeGroup as removeGroupAction,
+	GroupRemove,
+	updateGroup as updateGroupAction,
+	GroupUpdate,
+	groupLayersAction,
+	GroupLayers,
+	ungroupLayersAction,
+	UngroupLayers,
+	toggleGroupVisibilityAction,
+	ToggleGroupVisibility
 } from './history';
+import { createLayerInGroup, LayerCreateInGroup } from './history/layer-create-in-group';
 import { objectSetProperty, SetPropertyHandler } from '@editor/objects/history/setProperty';
 import {
 	objectPropertiesPatch,
@@ -36,12 +48,25 @@ import {
 	removeAndActivateLayer
 } from './history/layer-remove-and-activate';
 import { LayerMoveObject, moveLayerObject } from './history/layer-move-object';
+import { MoveLayers, moveLayers } from './history/move-layers';
 import { LayerController } from './layer-api';
 import { Layer } from './layer';
 import type { ILayerModel } from '@editor/types/external/layer-model';
 import type { LayersManagerEvents } from '@editor/types/external/layers-events';
 import type { LayersExecutionContext } from './history/history-context';
 import { LayerRenameObject } from './history/layer-rename-object';
+import { LayerGroupManager } from './layer-group-manager';
+import type { ILayerGroup } from '@editor/types/external/layer-group';
+import { LayerSelectionManager } from './layer-selection-manager';
+import { ScopeIndexAllocator } from './scope-index-allocator';
+import { bucketBy } from '@editor/utils';
+
+export interface LayerMoveItem {
+	id: string;
+	kind: 'layer' | 'group';
+	newParentId?: string | null;
+	newIndex: number;
+}
 
 export interface LayersManagerDeps {
 	config: Config;
@@ -58,6 +83,8 @@ export interface ILayersManagerInternalOps extends Pick<EventEmitter<LayersManag
 export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	private layers: LayersListManager;
 	private tempLayers: TempLayersListManager;
+	private groupManager: LayerGroupManager;
+	private selectionManager: LayerSelectionManager;
 
 	private layerFactory: LayerFactory;
 	private historyManager: HistoryManager;
@@ -65,31 +92,48 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	private config: Config;
 
 	private tempLayerAssociations: Map<string, string> = new Map();
+	private overlayAssociations: Map<string, string> = new Map();
 
 	constructor({ config, historyManager, layerSerializer }: LayersManagerDeps) {
 		super();
+
 		this.config = config;
 		this.layerSerializer = layerSerializer;
+		this.historyManager = historyManager;
 
-		this.layers = new LayersListManager();
+		const scopeIndex = ScopeIndexAllocator.forLayersAndGroups(
+			() => this.layers.getSortedLayers(),
+			() => this.groupManager.getGroups()
+		);
+
+		this.layers = new LayersListManager(scopeIndex);
+		this.tempLayers = new TempLayersListManager();
+		this.groupManager = new LayerGroupManager(scopeIndex);
+		this.selectionManager = new LayerSelectionManager(() => this.getTreeSortedLayers());
+		this.layerFactory = new LayerFactory({
+			config: this.config,
+			objectHistoryBinder: {
+				bind: (obj: { id: string }) => {
+					try {
+						this.historyManager.registerTarget(obj.id, obj);
+						this.historyManager.registerContext(obj.id, {});
+					} catch {
+						void 0;
+					}
+				}
+			}
+		});
+
 		this.proxy(this.layers, {
 			events: ['layer::added', 'layer::removed', 'layer::active::changed']
 		});
+		this.proxy(this.groupManager, {
+			events: ['group::added', 'group::removed', 'group::updated']
+		});
+		this.proxy(this.selectionManager, {
+			events: ['layer::selection::changed']
+		});
 
-		this.tempLayers = new TempLayersListManager();
-		const binder: ObjectHistoryBinder = {
-			bind: (obj: { id: string }) => {
-				try {
-					this.historyManager.registerTarget(obj.id, obj);
-					this.historyManager.registerContext(obj.id, {});
-				} catch {
-					void 0;
-				}
-			}
-		};
-		this.layerFactory = new LayerFactory({ config: this.config, objectHistoryBinder: binder });
-
-		this.historyManager = historyManager;
 		this.historyManager.registerTarget('layers', this);
 		this.registerHistoryHandlers();
 		this.registerHistoryContext();
@@ -116,6 +160,15 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 		this.historyManager.registerHandler(moveLayerObject, new LayerMoveObject());
 		this.historyManager.registerHandler(removeLayerObject, new LayerRemoveObject());
 		this.historyManager.registerHandler(renameLayerObject, new LayerRenameObject());
+
+		this.historyManager.registerHandler(addGroup, new GroupAdd());
+		this.historyManager.registerHandler(removeGroupAction, new GroupRemove());
+		this.historyManager.registerHandler(updateGroupAction, new GroupUpdate());
+		this.historyManager.registerHandler(moveLayers, new MoveLayers());
+		this.historyManager.registerHandler(groupLayersAction, new GroupLayers());
+		this.historyManager.registerHandler(ungroupLayersAction, new UngroupLayers());
+		this.historyManager.registerHandler(toggleGroupVisibilityAction, new ToggleGroupVisibility());
+		this.historyManager.registerHandler(createLayerInGroup, new LayerCreateInGroup());
 
 		this.historyManager.registerHandler(objectSetProperty, new SetPropertyHandler());
 		this.historyManager.registerHandler(objectPropertiesPatch, new ObjectPropertiesPatchHandler());
@@ -188,7 +241,6 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 
 	public addLayer(): [string, LayerController] {
 		const { id, layer } = this.historyManager.execute(createAndActivateLayer, 'layers');
-		this.proxyLayerEvents(layer);
 		return [id, new LayerController(layer as Layer, this)];
 	}
 
@@ -256,11 +308,12 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 		return [id, new LayerController(tempLayer as Layer, this)];
 	}
 
-	public addOverlayTempLayer(index?: number): [string, LayerController] {
+	public addOverlayTempLayer(index?: number, sourceLayerId?: string): [string, LayerController] {
 		const [id, tempLayer] = this.layerFactory.createTempLayer();
 		this.proxyTempLayerEvents(tempLayer);
 		if (typeof index === 'number') tempLayer.update({ index });
 		this.tempLayers.addLayer(tempLayer);
+		if (sourceLayerId) this.overlayAssociations.set(id, sourceLayerId);
 		this.emit('temp_layer::added', { layer: tempLayer as Layer });
 		return [id, new LayerController(tempLayer as Layer, this)];
 	}
@@ -272,6 +325,7 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 			this.unproxyTempLayerEvents(layer);
 
 			this.tempLayerAssociations.delete(id);
+			this.overlayAssociations.delete(id);
 			this.emit('temp_layer::removed', { id });
 		}
 	}
@@ -302,6 +356,17 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 		return composition;
 	}
 
+	public getFullComposition(layerId: string): Layer[] {
+		const composition = this.getLayerComposition(layerId);
+		for (const [tempId, sourceId] of this.overlayAssociations.entries()) {
+			if (sourceId === layerId) {
+				const tempLayer = this.tempLayers.getLayerById(tempId);
+				if (tempLayer) composition.push(tempLayer);
+			}
+		}
+		return composition;
+	}
+
 	public _getLayerController(layer: Layer | null) {
 		if (!layer) return null;
 		return new LayerController(layer as Layer, this);
@@ -324,7 +389,7 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	}
 
 	public getLayers() {
-		return [...this.layers.getSortedLayers()];
+		return [...this.getTreeSortedLayers()];
 	}
 
 	public _getTempLayersInternal() {
@@ -354,8 +419,31 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	}
 
 	public getAllVisibleLayers() {
-		const allLayers = [...this.layers.getSortedLayers(), ...this.tempLayers.getSortedLayers()];
+		const allLayers = [...this.getTreeSortedLayers(), ...this.tempLayers.getSortedLayers()];
 		return allLayers.filter((layer) => layer.getOpts().visible);
+	}
+
+	public getTreeSortedLayers(): Layer[] {
+		const layersByScope = bucketBy(this.layers.getSortedLayers(), (l) => l.groupId ?? null);
+		const groupsByParent = bucketBy(this.groupManager.getGroups(), (g) => g.parentId ?? null);
+
+		const result: Layer[] = [];
+
+		const flatten = (parentId: string | null) => {
+
+			const children = [
+				...(groupsByParent.get(parentId) ?? []).map((g) => ({ index: g.index, kind: 'g' as const, id: g.id })),
+				...(layersByScope.get(parentId) ?? []).map((l) => ({ index: l.index, kind: 'l' as const, ref: l }))
+			].sort((a, b) => a.index - b.index);
+
+			for (const c of children) {
+				if (c.kind === 'g') flatten(c.id);
+				else result.push(c.ref as Layer);
+			}
+		};
+
+		flatten(null);
+		return result;
 	}
 
 	public getCombinedTileData(tileX: number, tileY: number): string {
@@ -389,7 +477,7 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	}
 
 	public getAllVisibleLayersSorted() {
-		const realLayers = this.layers.getSortedLayers();
+		const realLayers = this.getTreeSortedLayers();
 		const tempLayers = this.tempLayers.getSortedLayers();
 
 		const visibleReal = realLayers.filter((layer: Layer) => layer.getOpts().visible);
@@ -398,7 +486,12 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 		const combined = [...visibleReal, ...visibleTemp];
 
 		combined.sort((a, b) => {
-			const indexDiff = a.index - b.index;
+			const realIndexOf = (l: Layer) => {
+				const ri = realLayers.indexOf(l);
+				return ri !== -1 ? ri : l.index;
+			};
+			const indexDiff = realIndexOf(a) - realIndexOf(b);
+
 			if (indexDiff !== 0) {
 				return indexDiff;
 			}
@@ -416,12 +509,126 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 	}
 
 	public getVisibleLayers() {
-		const allLayers = [...this.layers.getSortedLayers()];
+		const allLayers = [...this.getTreeSortedLayers()];
 		return allLayers.filter((layer) => layer.getOpts().visible);
 	}
 
 	public getVisibleTempLayers() {
 		const allLayers = [...this.tempLayers.getSortedLayers()];
 		return allLayers.filter((layer) => layer.getOpts().visible);
+	}
+
+	public getSelectionManager(): LayerSelectionManager {
+		return this.selectionManager;
+	}
+
+	public getSelectedLayerIds(): string[] {
+		return this.selectionManager.getSelectedLayerIds();
+	}
+
+	public isLayerSelected(id: string): boolean {
+		return this.selectionManager.isLayerSelected(id);
+	}
+
+	public selectLayer(id: string, addToSelection = false): void {
+		this.selectionManager.selectLayer(id, addToSelection);
+	}
+
+	public deselectLayer(id: string): void {
+		this.selectionManager.deselectLayer(id);
+	}
+
+	public toggleLayerSelection(id: string): void {
+		this.selectionManager.toggleLayerSelection(id);
+	}
+
+	public selectLayerRange(fromId: string, toId: string): void {
+		this.selectionManager.selectLayerRange(fromId, toId);
+	}
+
+	public clearLayerSelection(): void {
+		this.selectionManager.clearLayerSelection();
+	}
+
+	public createGroup(name: string, parentId: string | null = null): ILayerGroup {
+		const group = this.groupManager.createGroupObject(name, parentId);
+		this.historyManager.execute(addGroup, 'layers', { group });
+		return group;
+	}
+
+	public groupLayers(layerIds: string[], groupName: string = 'Group'): ILayerGroup | null {
+		if (layerIds.length === 0) return null;
+
+		const resolvedLayers = layerIds
+			.map((id) => this.layers.getLayerById(id))
+			.filter((l): l is Layer => !!l);
+
+		if (resolvedLayers.length === 0) return null;
+
+		const firstLayer = resolvedLayers[0];
+		const parentGroupId = firstLayer.groupId ?? null;
+
+		const group = this.groupManager.createGroupObject(groupName, parentGroupId);
+
+		return this.historyManager.execute(groupLayersAction, 'layers', {
+			layerIds,
+			groupName,
+			group
+		});
+	}
+
+	public removeGroup(id: string, removeChildren: boolean = false): void {
+		if (!this.groupManager.hasGroup(id)) return;
+		this.historyManager.execute(ungroupLayersAction, 'layers', { id, removeChildren });
+	}
+
+	public updateGroup(id: string, updates: DeepPartial<ILayerGroup>): void {
+		this.historyManager.execute(updateGroupAction, 'layers', { id, changes: updates });
+	}
+
+	public getGroup(id: string): ILayerGroup | undefined {
+		return this.groupManager.getGroup(id);
+	}
+
+	public getGroups(): ILayerGroup[] {
+		return this.groupManager.getGroups();
+	}
+
+	private getLayersInGroup(groupId: string): Layer[] {
+		return this.layers.getSortedLayers().filter((l) => l.groupId === groupId);
+	}
+
+	public addLayerToGroup(layerId: string, groupId: string): void {
+		if (!this.groupManager.hasGroup(groupId)) return;
+		this.updateLayer(layerId, { groupId });
+	}
+
+	public addLayerInGroup(groupId: string): [string, LayerController] | null {
+		if (!this.groupManager.hasGroup(groupId)) return null;
+		const { id, layer } = this.historyManager.execute(createLayerInGroup, 'layers', { groupId });
+		return [id, new LayerController(layer as Layer, this)];
+	}
+
+	public removeLayerFromGroup(layerId: string): void {
+		this.updateLayer(layerId, { groupId: null });
+	}
+
+	public toggleGroupVisibility(groupId: string): void {
+		const group = this.groupManager.getGroup(groupId);
+		if (!group) return;
+		this.historyManager.execute(toggleGroupVisibilityAction, 'layers', { groupId });
+	}
+
+	public setGroupCollapsed(id: string, collapsed: boolean): void {
+		this.groupManager.updateGroup(id, { collapsed });
+	}
+
+	public getGroupManager(): LayerGroupManager {
+		return this.groupManager;
+	}
+
+	public moveLayers(items: LayerMoveItem[]): void {
+		if (items.length === 0) return;
+		this.historyManager.execute(moveLayers, 'layers', items);
 	}
 }

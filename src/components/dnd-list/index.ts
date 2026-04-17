@@ -33,3 +33,21 @@ export interface DragState {
 	draggedIndex: number | null;
 	isDragging: boolean;
 }
+
+export type TreeDndItem = {
+	id: string;
+	kind: 'layer' | 'group-header';
+	depth: number;
+	parentGroupId: string | null;
+	collapsed?: boolean;
+};
+
+export interface TreeChangeEventDetail {
+	sourceIndex: number;
+	insertAt: number;
+	parentId: string | null;
+}
+
+export interface DndTreeListEvents {
+	change: TreeChangeEventDetail;
+}

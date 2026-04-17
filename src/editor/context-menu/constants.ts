@@ -43,7 +43,10 @@ export const MenuId = {
 	ViewTheme: 'view.theme',
 	ViewThemeSet: 'view.theme.set',
 	ViewThemeLight: 'view.theme.light',
-	ViewThemeDark: 'view.theme.dark'
+	ViewThemeDark: 'view.theme.dark',
+
+	LayerGroup: 'layer.group',
+	LayerUngroup: 'layer.ungroup'
 } as const;
 export type MenuIdKey = (typeof MenuId)[keyof typeof MenuId];
 
@@ -59,7 +62,9 @@ export const Keybindings: Record<string, string | string[]> = {
 	[MenuId.ArrangeSendBackward]: '<C-[>',
 	[MenuId.ArrangeSendToBack]: '<[>',
 	[MenuId.ViewToggleUI]: ['<C-\\>', '<C-Backslash>'],
-	[MenuId.ViewToggleGrid]: ["<C-'>", '<C-Quote>']
+	[MenuId.ViewToggleGrid]: ["<C-'>", '<C-Quote>'],
+	[MenuId.LayerGroup]: '<C-g>',
+	[MenuId.LayerUngroup]: '<C-S-G>'
 };
 
 export function getShortcutDisplay(id: string): string | undefined {

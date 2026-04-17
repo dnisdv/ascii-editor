@@ -3,6 +3,7 @@ import { defaultLayerConfig, Layer } from './layer';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Config } from '@editor/config';
 import type { ILayerModel } from '@editor/types/external/layer-model';
+import { ScopeIndexAllocator } from './scope-index-allocator';
 
 const config = new Config();
 const createLayer = (id: string, index: number = 0, name: string = `Layer ${id}`): Layer => {
@@ -27,14 +28,14 @@ describe('Layers List Manager', () => {
 
 	describe('Constructor and Initial State', () => {
 		it('should initialize empty with no active layer', () => {
-			manager = new LayersListManager();
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
 			expect(manager.getSortedLayers()).toEqual([]);
 			expect(manager.getActiveLayerKey()).toBeNull();
 		});
 
 		it('should add multiple layers at once, re-indexing them in order', () => {
 			const onLayerAdded = vi.fn();
-			manager = new LayersListManager();
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
 			manager.on('layer::added', onLayerAdded);
 			manager.addMultipleLayers([layer1, layer2]);
 
@@ -49,7 +50,7 @@ describe('Layers List Manager', () => {
 
 	describe('Adding and Inserting Layers', () => {
 		beforeEach(() => {
-			manager = new LayersListManager();
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
 		});
 
 		it('should add to empty list, not making it active, and emit `layer::added`', () => {
@@ -63,7 +64,7 @@ describe('Layers List Manager', () => {
 			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer1 });
 		});
 
-		it('should insert into populated list, reindex, maintain active layer, and emit `layer::added`', () => {
+		it('should insert into populated list, maintain active layer, and emit `layer::added`', () => {
 			manager.addLayer(layer1);
 			manager.setActiveLayer(layer1.id);
 			manager.addLayer(layer3);
@@ -74,7 +75,8 @@ describe('Layers List Manager', () => {
 
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
 			expect(manager.getActiveLayerKey()).toBe(layer1.id);
-			expect(layer2.index).toBe(1);
+			// insertLayerAtIndex preserves the layer's own index (used for undo/restore)
+			expect(layer2.index).toBe(0);
 			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer2 });
 		});
 
@@ -89,14 +91,16 @@ describe('Layers List Manager', () => {
 
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1']);
 			expect(manager.getActiveLayerKey()).toBe(layer1.id);
-			expect(layer1.index).toBe(1);
+			// nextScopeIndex: max sibling index (layer2.index=1) + 1 = 2
+			expect(layer1.index).toBe(2);
 			expect(onLayerAdded).toHaveBeenCalledWith({ layer: layer1 });
 		});
 	});
 
 	describe('Removing Layers', () => {
 		beforeEach(() => {
-			manager = new LayersListManager([layer1, layer2, layer3]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1, layer2, layer3]);
 			manager.setActiveLayer(layer1.id);
 		});
 
@@ -138,7 +142,8 @@ describe('Layers List Manager', () => {
 		});
 
 		it('should remove the only layer, resulting in an empty list and null active layer', () => {
-			manager = new LayersListManager([layer1]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1]);
 			manager.setActiveLayer(layer1.id);
 
 			const onLayerRemoved = vi.fn();
@@ -159,7 +164,8 @@ describe('Layers List Manager', () => {
 
 	describe('Moving and Updating Layers', () => {
 		beforeEach(() => {
-			manager = new LayersListManager([layer1, layer2, layer3]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1, layer2, layer3]);
 			manager.setActiveLayer(layer1.id);
 		});
 
@@ -177,31 +183,26 @@ describe('Layers List Manager', () => {
 
 			expect(result.success).toBe(true);
 			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id1', 'id2', 'id3']);
-			expect(result.reindexed?.length).toBe(3);
 			expect(layer1.name).toBe('Updated L1 Name');
 		});
 
-		it('should update properties, reorder if visual index changes, and reindex all', () => {
+		it('should update index directly without reindexing siblings', () => {
 			const updates: Partial<ILayerModel> = { name: 'Moved L1', index: 1 };
 			const result = manager.updateLayer('id1', updates);
 
 			expect(result.success).toBe(true);
-			expect(manager.getSortedLayers().map((l) => l.id)).toEqual(['id2', 'id1', 'id3']);
 			expect(layer1.name).toBe('Moved L1');
-			expect(layer2.index).toBe(0);
 			expect(layer1.index).toBe(1);
+			// Siblings are not reindexed — indices are scope-local
+			expect(layer2.index).toBe(1);
 			expect(layer3.index).toBe(2);
-			expect(result.reindexed).toEqual([
-				{ id: 'id2', index: 0 },
-				{ id: 'id1', index: 1 },
-				{ id: 'id3', index: 2 }
-			]);
 		});
 	});
 
 	describe('Active Layer Management and Clearing', () => {
 		beforeEach(() => {
-			manager = new LayersListManager([layer1, layer2]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1, layer2]);
 			manager.setActiveLayer(layer1.id);
 		});
 
@@ -242,20 +243,23 @@ describe('Layers List Manager', () => {
 
 	describe('Getters', () => {
 		it('should retrieve a layer by its ID', () => {
-			manager = new LayersListManager([layer1]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1]);
 			expect(manager.getLayerById('id1')).toBe(layer1);
 			expect(manager.getLayerById('nonExistentId')).toBeUndefined();
 		});
 
 		it('should retrieve the first layer in the sorted list', () => {
-			manager = new LayersListManager([layer1, layer2]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1, layer2]);
 			expect(manager.getFirstLayer()).toBe(layer1);
 			manager.moveLayerToPosition('id2', 0);
 			expect(manager.getFirstLayer()).toBe(layer2);
 		});
 
 		it('should correctly report layer existence', () => {
-			manager = new LayersListManager([layer1]);
+			manager = new LayersListManager(ScopeIndexAllocator.forLayers(() => manager.getSortedLayers()));
+			manager.addMultipleLayers([layer1]);
 			expect(manager.hasLayer('id1')).toBe(true);
 			expect(manager.hasLayer('nonExistentId')).toBe(false);
 		});

@@ -57,6 +57,8 @@ export class LayerRemoveAndActivate
 
 	apply(action: LayerRemoveAndActivateAction, target: LayersManager): void {
 		const { layer: layerToRemove } = action.before;
+		const layer = target['layers'].getLayerById(layerToRemove.id);
+		target['unproxyLayerEvents'](layer);
 		target['layers'].removeLayer(layerToRemove.id);
 		target['layers'].setActiveLayer(action.after.activeKey);
 	}

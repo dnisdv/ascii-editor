@@ -72,9 +72,12 @@ export class LayerCreateAndActivate
 
 		target['layers'].addLayer(newLayer);
 		target['layers'].setActiveLayer(layerData.id);
+		target['proxyLayerEvents'](newLayer);
 	}
 
 	revert(action: LayerCreateAndActivateAction, target: LayersManager): void {
+		const layer = target['layers'].getLayerById(action.after.activeKey);
+		target['unproxyLayerEvents'](layer);
 		target['layers'].removeLayer(action.after.activeKey);
 		target['layers'].setActiveLayer(action.before.activeKey);
 	}

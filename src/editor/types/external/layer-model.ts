@@ -11,4 +11,5 @@ export interface ILayerModel {
 	name: string;
 	index: number;
 	objects: ISmartObject[];
+	groupId: string | null;
 }

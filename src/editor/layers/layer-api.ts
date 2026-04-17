@@ -32,6 +32,9 @@ export class LayerController implements ILayerModel {
 	get opts(): LayerConfig {
 		return this.realLayer.opts;
 	}
+	get groupId(): string | null {
+		return this.realLayer.groupId;
+	}
 	get tileMap(): ITileMap {
 		return this.realLayer.tileMap;
 	}
@@ -214,7 +217,7 @@ export class LayerController implements ILayerModel {
 	};
 
 	isEmpty = (): boolean => {
-		const composition = this.layersManager.getLayerComposition(this.realLayer.id);
+		const composition = this.layersManager.getFullComposition(this.realLayer.id);
 		const isEveryEmpty = composition.every((layer) => layer.isEmpty());
 		return isEveryEmpty;
 	};

@@ -3,6 +3,7 @@ import type { DeepPartial, PrefixedEvents } from '../internal';
 import type { ILayerModel } from './layer-model';
 import type { ObjectOperation } from './object-operation';
 import type { Layer } from '@editor/layers/layer';
+import type { ILayerGroup } from './layer-group';
 
 export type LayerEventMap = {
 	updated: DeepPartial<Exclude<ILayerModel, 'id'>>;
@@ -32,7 +33,19 @@ export type TempLayerLifecycleEvents = {
 	'temp_layer::removed': { id: string };
 };
 
+export type LayerGroupManagerEvents = {
+	'group::added': { group: ILayerGroup };
+	'group::removed': { id: string };
+	'group::updated': { id: string } & DeepPartial<ILayerGroup>;
+};
+
+export type LayerSelectionEvents = {
+	'layer::selection::changed': { selectedIds: string[] };
+};
+
 export type LayersManagerEvents = ProxiedLayerEvents &
 	ProxiedLayersListEvents &
 	ProxiedTempLayerEvents &
-	TempLayerLifecycleEvents;
+	TempLayerLifecycleEvents &
+	LayerGroupManagerEvents &
+	LayerSelectionEvents;

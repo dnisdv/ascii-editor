@@ -21,12 +21,14 @@ export interface LayerUpdateAction extends BaseAction {
 		index: number;
 		name: string;
 		opts: LayerConfig;
+		groupId: string | null;
 	};
 	after: {
 		id: string;
 		index: number;
 		name: string;
 		opts: LayerConfig;
+		groupId: string | null;
 	};
 }
 
@@ -50,7 +52,8 @@ export class LayerUpdate
 			id: payload.id,
 			index: layer.index,
 			name: layer.name,
-			opts: { ...layer.opts }
+			opts: { ...layer.opts },
+			groupId: layer.groupId ?? null
 		};
 
 		layersListManager.updateLayer(payload.id, payload.changes);
@@ -60,7 +63,8 @@ export class LayerUpdate
 			id: payload.id,
 			index: layer.index,
 			name: layer.name,
-			opts: { ...layer.opts }
+			opts: { ...layer.opts },
+			groupId: layer.groupId ?? null
 		};
 
 		return [
@@ -78,7 +82,8 @@ export class LayerUpdate
 		context.layersListManager.updateLayer(action.after.id, {
 			index: action.after.index,
 			name: action.after.name,
-			opts: action.after.opts
+			opts: action.after.opts,
+			groupId: action.after.groupId
 		});
 	}
 
@@ -86,7 +91,8 @@ export class LayerUpdate
 		context.layersListManager.updateLayer(action.before.id, {
 			index: action.before.index,
 			name: action.before.name,
-			opts: action.before.opts
+			opts: action.before.opts,
+			groupId: action.before.groupId
 		});
 	}
 }

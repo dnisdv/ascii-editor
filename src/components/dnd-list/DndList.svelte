@@ -13,8 +13,6 @@
 	});
 	let linePosition: number | null = null;
 	let listContainer: HTMLDivElement;
-	let scrollParent: HTMLElement | null = null;
-	let initialScrollPosition: number = 0;
 	const items: Writable<DraggableItem[]> = writable([]);
 	const itemHeights = new SvelteMap<string, number>();
 
@@ -24,8 +22,6 @@
 			draggedIndex: index,
 			isDragging: true
 		});
-		scrollParent = findScrollParent(listContainer);
-		initialScrollPosition = scrollParent?.scrollTop || 0;
 		addMouseListeners();
 	}
 
@@ -36,7 +32,6 @@
 			isDragging: false
 		});
 		linePosition = null;
-		initialScrollPosition = 0;
 		removeMouseListeners();
 	}
 
@@ -48,18 +43,6 @@
 	function removeMouseListeners(): void {
 		window.removeEventListener('mousemove', handleMouseMove);
 		window.removeEventListener('mouseup', handleMouseUp);
-	}
-
-	function findScrollParent(element: HTMLElement): HTMLElement | null {
-		let parent = element.parentElement;
-		while (parent) {
-			const overflowY = window.getComputedStyle(parent).overflowY;
-			if (['auto', 'scroll'].includes(overflowY)) {
-				return parent;
-			}
-			parent = parent.parentElement;
-		}
-		return null;
 	}
 
 	function handleMouseMove(e: MouseEvent): void {
@@ -130,9 +113,13 @@
 	}
 
 	let lineIndicatorTop = 0;
+	let lineIndicatorLeft = 0;
+	let lineIndicatorWidth = 0;
 	$: {
-		if (linePosition === null) {
+		if (linePosition === null || !listContainer) {
 			lineIndicatorTop = 0;
+			lineIndicatorLeft = 0;
+			lineIndicatorWidth = 0;
 		} else {
 			const currentItems = get(items);
 			let top = 0;
@@ -140,7 +127,10 @@
 				const item = currentItems[i];
 				top += itemHeights.get(item.id) || 0;
 			}
-			lineIndicatorTop = top;
+			const rect = listContainer.getBoundingClientRect();
+			lineIndicatorTop = rect.top + top;
+			lineIndicatorLeft = rect.left;
+			lineIndicatorWidth = rect.width;
 		}
 	}
 
@@ -189,32 +179,13 @@
 	$: isDragging = $dragState.isDragging;
 </script>
 
-<div bind:this={listContainer} class="dnd-container">
+<div bind:this={listContainer} class="relative">
 	<slot />
-	{#if isDragging && linePosition !== null}
-		<div
-			class="line-indicator"
-			style="top: {lineIndicatorTop}px; transform: translateY(-{scrollParent
-				? scrollParent.scrollTop - initialScrollPosition
-				: 0}px);"
-		></div>
-	{/if}
 </div>
 
-<style lang="postcss">
-	.dnd-container {
-		position: relative;
-	}
-
-	.line-indicator {
-		@apply outline outline-1 outline-primary;
-
-		position: absolute;
-
-		margin: 0;
-		width: 100%;
-		transition: transform 0.15s ease;
-		animation: appear 0.2s ease;
-		z-index: 99999999;
-	}
-</style>
+{#if isDragging && linePosition !== null}
+	<div
+		class="pointer-events-none fixed z-[9999] h-[2px] bg-primary"
+		style="top: {lineIndicatorTop - 1}px; left: {lineIndicatorLeft}px; width: {lineIndicatorWidth}px;"
+	></div>
+{/if}

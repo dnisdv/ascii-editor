@@ -1,6 +1,5 @@
 <script lang="ts">
 	import EditableText from '@components/editable-text/EditableText.svelte';
-	import { Button } from '@components/button';
 
 	import { writable } from 'svelte/store';
 	import ThemeIcon from '@/theme/ThemeIcon.svelte';
@@ -144,7 +143,7 @@
 		role="button"
 		on:click={selectObject}
 		on:keyup|preventDefault
-		class="layer h-full"
+		class="layer h-full outline-none"
 		class:dragging
 		class:active
 		class:isSomethingDragging
@@ -163,34 +162,13 @@
 				value={object.getName()}
 			/>
 		{/if}
-		{#if !$isEditing}
-			<div
-				on:mousedown|stopPropagation
-				class="actions ml-1 flex gap-2"
-				class:always-visible={!isVisible}
-				role="button"
-				tabindex="0"
-			>
-				<Button
-					on:click={(e) => {
-						e.stopPropagation();
-						toggleLayerVisibility();
-					}}
-					class="z-50 m-0 h-auto w-auto p-0 hover:bg-none"
-					variant="link"
-					size="icon"
-				>
-					<ThemeIcon name={visibleIcon} />
-				</Button>
-			</div>
-		{/if}
 	</div>
 </LayerObjectContextMenu>
 
 <style lang="postcss">
 	.layer {
 		@apply relative z-10 grid h-full w-full cursor-default items-center overflow-hidden rounded-md border-none bg-none px-1 py-1;
-		grid-template-columns: 1rem 1fr auto;
+		grid-template-columns: 1rem 1fr;
 
 		&:not(.active):not(.isSomethingDragging):hover {
 			@apply bg-secondary;

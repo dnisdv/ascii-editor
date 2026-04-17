@@ -42,7 +42,10 @@
 		'alert-triangle': () => import('./AlertTriangle.svelte'),
 		info: () => import('./Info.svelte'),
 		check: () => import('./Check.svelte'),
-		github: () => import('./Github.svelte')
+		github: () => import('./Github.svelte'),
+		folder: () => import('./Folder.svelte'),
+		'folder-open': () => import('./FolderOpen.svelte'),
+		'chevron-right': () => import('./ChevronRight.svelte')
 	} as const;
 
 	type IconName = keyof typeof iconMap;
