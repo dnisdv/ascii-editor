@@ -32,6 +32,12 @@
 	const isEditing = writable(false);
 	const objects = writable(buildObjectsList());
 	const empty = writable(layersManager.getLayer(layer.id)?.isEmpty() ?? true);
+	let collapsed = true;
+
+	const toggleCollapsed = (e: MouseEvent) => {
+		e.stopPropagation();
+		collapsed = !collapsed;
+	};
 
 	function buildObjectsList(): ObjectWithMeta[] {
 		const apiLayer = layersManager.getLayer(layer.id);
@@ -132,6 +138,11 @@
 		class:selected
 		class:isSomethingDragging
 	>
+		{#if !$empty}
+			<div class="chevron outline-none" class:open={!collapsed} on:click={toggleCollapsed} role="button" tabindex="0" on:keyup|preventDefault>
+				<ThemeIcon name="chevron-right" size={10} />
+			</div>
+		{/if}
 		<div class="icon">
 			<ThemeIcon name={$empty ? 'file' : 'file-type'} size={16} />
 		</div>
@@ -166,6 +177,7 @@
 	</div>
 </LayerContextMenu>
 
+{#if !collapsed && !$empty}
 <LayerObjectContextMenuProvider>
 	<ScrollArea onScroll={() => {}} hideDelay={0} class="flex h-full flex-col overflow-y-auto">
 		<div class="pl-3 pr-1.5 py-1">
@@ -190,18 +202,24 @@
 		</div>
 	</ScrollArea>
 </LayerObjectContextMenuProvider>
+{/if}
 
 <style lang="postcss">
 	.layer {
-		@apply relative z-10 grid h-full w-full cursor-default items-center overflow-hidden rounded-md border-none bg-none px-1 py-1;
+		@apply relative z-10 grid h-full w-full cursor-default items-center overflow-visible rounded-md border-none bg-none px-1 py-1;
 		grid-template-columns: 1rem 1fr auto;
+
+		& .chevron {
+			@apply absolute left-0 flex items-center justify-center transition-transform duration-150;
+			transform: translateX(-100%);
+
+			&.open {
+				transform: translateX(-100%) rotate(90deg);
+			}
+		}
 
 		&:not(.active):not(.isSomethingDragging):hover {
 			@apply bg-secondary;
-
-			& .icon {
-				@apply opacity-100;
-			}
 		}
 
 		& .icon {
@@ -210,18 +228,10 @@
 
 		&.active {
 			@apply bg-primary bg-opacity-20;
-
-			& .icon {
-				@apply opacity-100;
-			}
 		}
 
 		&.selected:not(.active) {
 			@apply bg-primary bg-opacity-10;
-
-			& .icon {
-				@apply opacity-100;
-			}
 		}
 
 		&.dragging {

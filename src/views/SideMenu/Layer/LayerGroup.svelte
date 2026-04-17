@@ -87,7 +87,7 @@
 			class:isSomethingDragging
 		>
 			<div class="chevron outline-none" class:open={!collapsed} on:click={toggleCollapsed} role="button" tabindex="0" on:keyup|preventDefault>
-				<ThemeIcon name="chevron-right" size={12} />
+				<ThemeIcon name="chevron-right" size={10} />
 			</div>
 			<div class="icon">
 				<ThemeIcon name={folderIcon} size={16} />
@@ -162,10 +162,6 @@
 
 		& .icon {
 			@apply flex items-center justify-center opacity-50;
-		}
-
-		&:not(.isSomethingDragging):hover .icon {
-			@apply opacity-100;
 		}
 
 		&:not(.isSomethingDragging):hover {
