@@ -27,7 +27,10 @@ export const EditorCommand = {
 	ViewShowContextMenu: 'view.show-context-menu',
 
 	LayerGroup: 'layer.group',
-	LayerUngroup: 'layer.ungroup'
+	LayerUngroup: 'layer.ungroup',
+
+	ProjectExport: 'project.export',
+	ProjectImport: 'project.import'
 } as const;
 
 export type EditorCommandId = (typeof EditorCommand)[keyof typeof EditorCommand];

@@ -38,6 +38,8 @@
 	import { EditorCommand } from '@editor/commands/ids';
 	import { contextMenuService } from '@/views/ContextMenu/service-instance';
 	import type { MenuContext } from '@editor/context-menu';
+	import { registerProjectCommands } from '@editor/commands/project-commands';
+	import { getDocument } from '@store/slices/document';
 
 	const { theme, currentThemeRGBA } = useTheme();
 	const dispatch = useDispatch();
@@ -207,6 +209,14 @@
 				core.getCommandRegistry().register(EditorCommand.ViewShowContextMenu, (args: unknown) => {
 					const _args = args as { x: number; y: number; context: MenuContext };
 					contextMenuService.showAt(_args.x, _args.y, _args.context);
+				});
+
+				registerProjectCommands(core.getCommandRegistry(), {
+					core: coreApi,
+					documentId,
+					getCurrentProject: () => currentProject,
+					setCurrentProject: (p) => { currentProject = p; },
+					onImport: () => dispatch(getDocument(documentId))
 				});
 
 				const toolManager = app.getToolManager();
