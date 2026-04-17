@@ -27,6 +27,7 @@ export class DrawTool extends BaseTool implements ITool {
 
 	private isLayerVisible: boolean = true;
 	private selectCanvas: ICanvas;
+	private lastCellPos: { x: number; y: number } | null = null;
 
 	constructor(coreApi: CoreApi) {
 		super({
@@ -146,6 +147,7 @@ export class DrawTool extends BaseTool implements ITool {
 
 		this.historyBatchTransaction = this.historyManager.beginBatch();
 		this.isDrawing = true;
+		this.lastCellPos = null;
 		this.handleDrawing(event);
 	}
 
@@ -158,6 +160,7 @@ export class DrawTool extends BaseTool implements ITool {
 	private handleCanvasMouseUp(): void {
 		if (this.isDrawing && this.isLayerVisible) {
 			this.isDrawing = false;
+			this.lastCellPos = null;
 			if (this.historyBatchTransaction) {
 				this.historyManager.commitBatch(this.historyBatchTransaction);
 				this.historyBatchTransaction = null;
@@ -169,7 +172,35 @@ export class DrawTool extends BaseTool implements ITool {
 		if (!this.isLayerVisible) return;
 
 		const { x, y } = this.getCellPos(event);
-		this.drawPlaceholder(y, x);
+
+		if (this.lastCellPos) {
+			const points = this.bresenhamLine(this.lastCellPos.x, this.lastCellPos.y, x, y);
+			for (const p of points) {
+				this.drawPlaceholder(p.y, p.x);
+			}
+		} else {
+			this.drawPlaceholder(y, x);
+		}
+
+		this.lastCellPos = { x, y };
+	}
+
+	private bresenhamLine(x0: number, y0: number, x1: number, y1: number): { x: number; y: number }[] {
+		const points: { x: number; y: number }[] = [];
+		const dx = Math.abs(x1 - x0);
+		const dy = Math.abs(y1 - y0);
+		const sx = x0 < x1 ? 1 : -1;
+		const sy = y0 < y1 ? 1 : -1;
+		let err = dx - dy;
+
+		while (true) {
+			points.push({ x: x0, y: y0 });
+			if (x0 === x1 && y0 === y1) break;
+			const e2 = 2 * err;
+			if (e2 > -dy) { err -= dy; x0 += sx; }
+			if (e2 < dx) { err += dx; y0 += sy; }
+		}
+		return points;
 	}
 
 	private getCellPos(event: MouseEvent) {
