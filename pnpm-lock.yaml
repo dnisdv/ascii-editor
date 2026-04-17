@@ -11,6 +11,9 @@ importers:
       '@reduxjs/toolkit':
         specifier: ^2.2.7
         version: 2.10.1
+      '@vercel/analytics':
+        specifier: ^2.0.1
+        version: 2.0.1(@sveltejs/kit@2.48.4(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.43.4)(vite@6.4.1(@types/node@22.19.0)(jiti@1.21.7)(sass@1.93.3)))(svelte@5.43.4)(vite@6.4.1(@types/node@22.19.0)(jiti@1.21.7)(sass@1.93.3)))(svelte@5.43.4)
       canvaskit-wasm:
         specifier: ^0.39.1
         version: 0.39.1
@@ -778,6 +781,35 @@ packages:
   '@typescript-eslint/visitor-keys@8.46.3':
     resolution: {integrity: sha512-uk574k8IU0rOF/AjniX8qbLSGURJVUCeM5e4MIMKBFFi8weeiLrG1fyQejyLXQpRZbU/1BuQasleV/RfHC3hHg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@vercel/analytics@2.0.1':
+    resolution: {integrity: sha512-MTQG6V9qQrt1tsDeF+2Uoo5aPjqbVPys1xvnIftXSJYG2SrwXRHnqEvVoYID7BTruDz4lCd2Z7rM1BdkUehk2g==}
+    peerDependencies:
+      '@remix-run/react': ^2
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      nuxt: '>= 3'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      nuxt:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   '@vitest/expect@3.2.4':
     resolution: {integrity: sha512-Io0yyORnB6sikFlt8QW5K7slY4OjqNX9jmJQ02QDda8lyM6B5oNgVWoSoKPac8/kgnCUzuHQKrSLtu/uOqqrig==}
@@ -2589,6 +2621,11 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.46.3
       eslint-visitor-keys: 4.2.1
+
+  '@vercel/analytics@2.0.1(@sveltejs/kit@2.48.4(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.43.4)(vite@6.4.1(@types/node@22.19.0)(jiti@1.21.7)(sass@1.93.3)))(svelte@5.43.4)(vite@6.4.1(@types/node@22.19.0)(jiti@1.21.7)(sass@1.93.3)))(svelte@5.43.4)':
+    optionalDependencies:
+      '@sveltejs/kit': 2.48.4(@sveltejs/vite-plugin-svelte@5.1.1(svelte@5.43.4)(vite@6.4.1(@types/node@22.19.0)(jiti@1.21.7)(sass@1.93.3)))(svelte@5.43.4)(vite@6.4.1(@types/node@22.19.0)(jiti@1.21.7)(sass@1.93.3))
+      svelte: 5.43.4
 
   '@vitest/expect@3.2.4':
     dependencies:

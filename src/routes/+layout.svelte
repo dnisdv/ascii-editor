@@ -3,8 +3,12 @@
 	import '@/app.css';
 	import ThemeProvider from '@/theme/ThemeProvider.svelte';
 	import { Toaster } from '@components/sonner';
+	import { dev } from '$app/environment';
+	import { injectAnalytics } from '@vercel/analytics/sveltekit';
 
 	import StoreProvider from '@store/Provider.svelte';
+
+	injectAnalytics({ mode: dev ? 'development' : 'production' });
 </script>
 
 <svelte:head>
