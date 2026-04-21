@@ -4,17 +4,6 @@
 
 **ASCII Editor** is a browser-based ASCII art editor built with **SvelteKit** and **CanvasKit - Skia + WebAssembly**. It provides a structured and efficient environment for creating, editing, and managing ASCII-based designs.
 
-## Features
-
-## Installation and Setup
-
-### LayerApi Composition Helpers
-
-- New helpers in `src/editor/layers/layer-api.ts` simplify temp-layer inserts and index-based moves across composed layers.
-- See `docs/layer-api-helpers.md` for usage examples: insert at top/end/between and computing `orderKey` via `getKeyForIndex`.
-
-Ensure that **Node.js** and **npm** are installed on your system.
-
 ### Installation
 
 Clone the repository and install dependencies:
