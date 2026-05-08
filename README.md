@@ -72,9 +72,6 @@ npm test         # Run tests
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
 
-- [Report a bug](.github/ISSUE_TEMPLATE/bug_report.md)
-- [Request a feature](.github/ISSUE_TEMPLATE/feature_request.md)
-
 ## License
 
 [MIT](LICENSE) — Denis, 2026.
