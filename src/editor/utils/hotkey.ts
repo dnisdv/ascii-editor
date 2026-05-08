@@ -23,9 +23,33 @@ export class VimKeyMapper {
 		apostrophe: "'"
 	};
 
+	private static codeToKey(code: string): string | null {
+		if (code.startsWith('Key')) return code.slice(3).toLowerCase();
+		if (code.startsWith('Digit')) return code.slice(5);
+		const map: Record<string, string> = {
+			BracketLeft: '[',
+			BracketRight: ']',
+			Backslash: '\\',
+			Quote: "'",
+			Semicolon: ';',
+			Comma: ',',
+			Period: '.',
+			Slash: '/',
+			Minus: '-',
+			Equal: '=',
+			Backquote: '`'
+		};
+		return map[code] ?? null;
+	}
+
 	public static normalizeKeyEvent(event: KeyboardEvent): string {
-		const { key, altKey, ctrlKey, metaKey, shiftKey } = event;
-		const normalizedKey = this.aliases[key.toLowerCase()] || key;
+		const { key, code, altKey, ctrlKey, metaKey, shiftKey } = event;
+		const hasModifier = ctrlKey || altKey || metaKey;
+		let baseKey = hasModifier ? (this.codeToKey(code) ?? key) : key;
+		if (hasModifier && shiftKey && baseKey.length === 1 && /[a-z]/.test(baseKey)) {
+			baseKey = baseKey.toUpperCase();
+		}
+		const normalizedKey = this.aliases[baseKey.toLowerCase()] || baseKey;
 
 		let vimNotation = '';
 		if (ctrlKey) vimNotation += 'C-';
