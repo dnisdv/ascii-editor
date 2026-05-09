@@ -1,5 +1,6 @@
 import { RectangleObject } from './rectangle-object';
 import { LineObject } from './line-object';
+import { ElbowArrowObject } from './elbow-arrow-object';
 import { Shapes } from './shape-draw-tool';
 import type { IShapeToolContext } from './shape-draw-tool';
 
@@ -54,6 +55,8 @@ export class IdleState extends ShapeToolState {
 				});
 			} else if (this.context.currentShape === Shapes.line) {
 				this.context.previewObject = new LineObject({ cellX: 0, cellY: 0, width: 10, height: 10 });
+			} else if (this.context.currentShape === Shapes.elbowArrow) {
+				this.context.previewObject = new ElbowArrowObject({ cellX: 0, cellY: 0, width: 10, height: 6 });
 			}
 			if (this.context.previewObject) {
 				this.context.previewObject.setProperty('meta.preview', true);
@@ -88,6 +91,10 @@ export class DrawingState extends ShapeToolState {
 				});
 			} else if (this.context.currentShape === Shapes.line) {
 				this.context.drawnObject = new LineObject({ cellX: col, cellY: row, width: 1, height: 1 });
+			} else if (this.context.currentShape === Shapes.elbowArrow) {
+				const arrow = new ElbowArrowObject({ cellX: col, cellY: row, width: 1, height: 1 });
+				arrow.setFromAbsPoints({ x: col, y: row }, { x: col, y: row });
+				this.context.drawnObject = arrow;
 			}
 			if (this.context.drawnObject) this.context.tempLayer.addObject(this.context.drawnObject);
 		}
@@ -98,6 +105,14 @@ export class DrawingState extends ShapeToolState {
 
 		const { col, row } = this.context.getCellPos(event);
 		const { col: startCol, row: startRow } = this.context.startDragPosition;
+
+		if (this.context.currentShape === Shapes.elbowArrow) {
+			(this.context.drawnObject as ElbowArrowObject).setFromAbsPoints(
+				{ x: startCol, y: startRow },
+				{ x: col, y: row }
+			);
+			return;
+		}
 
 		const newX = Math.min(col, startCol);
 		const newY = Math.min(row, startRow);
@@ -133,22 +148,31 @@ export class DrawingState extends ShapeToolState {
 		);
 
 		if (distance < 5) {
-			const defaultSize =
-				this.context.currentShape === Shapes.line
-					? { width: 10, height: 10 }
-					: { width: 10, height: 6 };
-
-			this.context.drawnObject.setProperty('transform.x', col - defaultSize.width / 2);
-			this.context.drawnObject.setProperty('transform.y', row - defaultSize.height / 2);
-			this.context.drawnObject.setProperty('transform.width', defaultSize.width);
-			this.context.drawnObject.setProperty('transform.height', defaultSize.height);
-
-			if (this.context.currentShape === Shapes.line) {
-				const line = this.context.drawnObject as LineObject;
-				line.setEndpointsFromCorners(
-					{ x: 0, y: 0 },
-					{ x: defaultSize.width - 1, y: defaultSize.height - 1 }
+			if (this.context.currentShape === Shapes.elbowArrow) {
+				const hw = 5;
+				const hh = 3;
+				(this.context.drawnObject as ElbowArrowObject).setFromAbsPoints(
+					{ x: col - hw, y: row - hh },
+					{ x: col + hw, y: row + hh }
 				);
+			} else {
+				const defaultSize =
+					this.context.currentShape === Shapes.line
+						? { width: 10, height: 10 }
+						: { width: 10, height: 6 };
+
+				this.context.drawnObject.setProperty('transform.x', col - defaultSize.width / 2);
+				this.context.drawnObject.setProperty('transform.y', row - defaultSize.height / 2);
+				this.context.drawnObject.setProperty('transform.width', defaultSize.width);
+				this.context.drawnObject.setProperty('transform.height', defaultSize.height);
+
+				if (this.context.currentShape === Shapes.line) {
+					const line = this.context.drawnObject as LineObject;
+					line.setEndpointsFromCorners(
+						{ x: 0, y: 0 },
+						{ x: defaultSize.width - 1, y: defaultSize.height - 1 }
+					);
+				}
 			}
 		}
 

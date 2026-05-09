@@ -24,7 +24,8 @@
 	};
 	const shapeOptions: Array<{ value: Shapes; label: string; icon: string }> = [
 		{ value: Shapes.rectangle, label: 'Rectangle', icon: 'rectangle' },
-		{ value: Shapes.line, label: 'Line', icon: 'line' }
+		{ value: Shapes.line, label: 'Line', icon: 'line' },
+		{ value: Shapes.elbowArrow, label: 'Elbow Arrow', icon: 'elbow-arrow' }
 	];
 	const currentShape = writable<Shapes>(shapeTool?.currentShape ?? Shapes.rectangle);
 

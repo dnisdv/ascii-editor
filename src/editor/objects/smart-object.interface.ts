@@ -75,6 +75,7 @@ export interface ISmartObject extends IEventEmitter<SmartObjectEventMap> {
 	getAnchors?(): SmartObjectAnchor[];
 	getRotationAnchors?(charWidth: number, charHeight: number): SmartObjectAnchor[];
 	hitTestAnchor?(cellX: number, cellY: number): SmartObjectAnchor | null;
+	onAnchorDragStart?(anchorId: string): void;
 	moveAnchor?(anchorId: string, toCellX: number, toCellY: number): void;
 
 	setAnchorsAbs?(anchors: Array<{ x: number; y: number }>): void;

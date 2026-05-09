@@ -30,6 +30,9 @@ export class AnchoringMode implements ISelectionMode<SelectionModeName.ANCHORING
 			const session = this.selectionManager.getActiveSession();
 			const obj = session?.getObjectById(this.objectId);
 			if (obj && obj.getAnchors) {
+				if (obj.onAnchorDragStart && this.anchorId) {
+					obj.onAnchorDragStart(this.anchorId);
+				}
 				const anchors = obj.getAnchors();
 				this.beforeAnchors = anchors.map((a) => ({ x: a.x, y: a.y }));
 			} else {

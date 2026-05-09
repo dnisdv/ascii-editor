@@ -11,7 +11,8 @@ import type { LayerController } from '@editor/layers/layer-api';
 
 export enum Shapes {
 	rectangle,
-	line
+	line,
+	elbowArrow
 }
 
 export interface IShapeToolContext {

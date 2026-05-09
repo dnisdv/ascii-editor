@@ -32,6 +32,7 @@
 	import type { Theme } from '@/theme';
 	import { RectangleObject } from '@editor/tools/shape/rectangle-object';
 	import { LineObject } from '@editor/tools/shape/line-object';
+	import { ElbowArrowObject } from '@editor/tools/shape/elbow-arrow-object';
 	import { Project } from '@/project/project';
 	import { useDispatch } from '@store/useDispatch';
 	import { useSelector } from '@store/useSelector';
@@ -195,6 +196,7 @@
 
 				app.registerObject('rectangle', RectangleObject);
 				app.registerObject('line', LineObject);
+				app.registerObject('elbow-arrow', ElbowArrowObject);
 
 				registerDefaultCommands(core.getCommands(), core);
 
