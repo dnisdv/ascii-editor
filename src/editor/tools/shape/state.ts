@@ -1,3 +1,4 @@
+import type { ISmartObject } from '@editor/objects/smart-object.interface';
 import { RectangleObject } from './rectangle-object';
 import { LineObject } from './line-object';
 import { ElbowArrowObject } from './elbow-arrow-object';
@@ -12,24 +13,93 @@ export interface IShapeDrawToolState {
 	handleMouseUp(event: MouseEvent): void;
 }
 
+type Pos = { col: number; row: number };
+
+interface ShapeHandler {
+	createPreview(): ISmartObject;
+	createObject(col: number, row: number): ISmartObject;
+	updateDrag(obj: ISmartObject, start: Pos, end: Pos): void;
+	placeDefault(obj: ISmartObject, col: number, row: number): void;
+}
+
+function applyBounds(obj: ISmartObject, start: Pos, end: Pos) {
+	const x = Math.min(end.col, start.col);
+	const y = Math.min(end.row, start.row);
+	const w = Math.abs(end.col - start.col) + 1;
+	const h = Math.abs(end.row - start.row) + 1;
+	obj.setProperty('transform.x', x);
+	obj.setProperty('transform.y', y);
+	obj.setProperty('transform.width', w);
+	obj.setProperty('transform.height', h);
+	return { x, y, w, h };
+}
+
+const rectangleHandler: ShapeHandler = {
+	createPreview: () => new RectangleObject({ cellX: 0, cellY: 0, width: 10, height: 6 }),
+	createObject: (col, row) => new RectangleObject({ cellX: col, cellY: row, width: 1, height: 1 }),
+	updateDrag: (obj, start, end) => applyBounds(obj, start, end),
+	placeDefault: (obj, col, row) => {
+		obj.setProperty('transform.x', col - 5);
+		obj.setProperty('transform.y', row - 3);
+		obj.setProperty('transform.width', 10);
+		obj.setProperty('transform.height', 6);
+	}
+};
+
+const lineHandler: ShapeHandler = {
+	createPreview: () => new LineObject({ cellX: 0, cellY: 0, width: 10, height: 10 }),
+	createObject: (col, row) => new LineObject({ cellX: col, cellY: row, width: 1, height: 1 }),
+	updateDrag: (obj, start, end) => {
+		const { w, h } = applyBounds(obj, start, end);
+		const startCorner = { x: start.col <= end.col ? 0 : w - 1, y: start.row <= end.row ? 0 : h - 1 };
+		const endCorner = { x: start.col <= end.col ? w - 1 : 0, y: start.row <= end.row ? h - 1 : 0 };
+		(obj as LineObject).setEndpointsFromCorners(startCorner, endCorner);
+	},
+	placeDefault: (obj, col, row) => {
+		obj.setProperty('transform.x', col - 5);
+		obj.setProperty('transform.y', row - 5);
+		obj.setProperty('transform.width', 10);
+		obj.setProperty('transform.height', 10);
+		(obj as LineObject).setEndpointsFromCorners({ x: 0, y: 0 }, { x: 9, y: 9 });
+	}
+};
+
+const elbowArrowHandler: ShapeHandler = {
+	createPreview: () => new ElbowArrowObject({ cellX: 0, cellY: 0, width: 10, height: 6 }),
+	createObject: (col, row) => {
+		const arrow = new ElbowArrowObject({ cellX: col, cellY: row, width: 1, height: 1 });
+		arrow.setFromAbsPoints({ x: col, y: row }, { x: col, y: row });
+		return arrow;
+	},
+	updateDrag: (obj, start, end) => {
+		(obj as ElbowArrowObject).setFromAbsPoints(
+			{ x: start.col, y: start.row },
+			{ x: end.col, y: end.row }
+		);
+	},
+	placeDefault: (obj, col, row) => {
+		(obj as ElbowArrowObject).setFromAbsPoints({ x: col - 5, y: row - 3 }, { x: col + 5, y: row + 3 });
+	}
+};
+
+function getHandler(shape: Shapes): ShapeHandler {
+	switch (shape) {
+		case Shapes.line: return lineHandler;
+		case Shapes.elbowArrow: return elbowArrowHandler;
+		default: return rectangleHandler;
+	}
+}
+
 abstract class ShapeToolState implements IShapeDrawToolState {
 	constructor(protected context: IShapeToolContext) {}
 	enter(): void {}
 	exit(): void {}
-	handleMouseDown(_e: MouseEvent): void {
-		void _e;
-	}
-	handleMouseMove(_e: MouseEvent): void {
-		void _e;
-	}
-	handleMouseUp(_e: MouseEvent): void {
-		void _e;
-	}
+	handleMouseDown(_e: MouseEvent): void { void _e; }
+	handleMouseMove(_e: MouseEvent): void { void _e; }
+	handleMouseUp(_e: MouseEvent): void { void _e; }
 }
 
 export class IdleState extends ShapeToolState {
-	public enter(): void {}
-
 	public exit(): void {
 		if (this.context.previewObject && this.context.tempLayer) {
 			this.context.tempLayer.removeObject(this.context.previewObject.id);
@@ -40,38 +110,24 @@ export class IdleState extends ShapeToolState {
 	public handleMouseDown(event: MouseEvent): void {
 		this.context.coreApi.getSelectionManager().commitSelection();
 		if (event.button !== 0) return;
-
 		this.context.setState(new DrawingState(this.context, event));
 	}
 
 	public handleMouseMove(event: MouseEvent): void {
 		if (!this.context.previewObject && this.context.tempLayer) {
-			if (this.context.currentShape === Shapes.rectangle) {
-				this.context.previewObject = new RectangleObject({
-					cellX: 0,
-					cellY: 0,
-					width: 10,
-					height: 6
-				});
-			} else if (this.context.currentShape === Shapes.line) {
-				this.context.previewObject = new LineObject({ cellX: 0, cellY: 0, width: 10, height: 10 });
-			} else if (this.context.currentShape === Shapes.elbowArrow) {
-				this.context.previewObject = new ElbowArrowObject({ cellX: 0, cellY: 0, width: 10, height: 6 });
-			}
-			if (this.context.previewObject) {
-				this.context.previewObject.setProperty('meta.preview', true);
-				this.context.tempLayer.addOrReplaceObject(this.context.previewObject);
-			}
+			const handler = getHandler(this.context.currentShape);
+			this.context.previewObject = handler.createPreview();
+			this.context.previewObject.setProperty('meta.preview', true);
+			this.context.tempLayer.addOrReplaceObject(this.context.previewObject);
 		}
 
 		if (!this.context.previewObject) return;
 
 		const { col, row } = this.context.getCellPos(event);
-		const previewWidth = this.context.previewObject.getProperty<number>('transform.width');
-		const previewHeight = this.context.previewObject.getProperty<number>('transform.height');
-
-		this.context.previewObject.setProperty('transform.x', col - previewWidth / 2);
-		this.context.previewObject.setProperty('transform.y', row - previewHeight / 2);
+		const w = this.context.previewObject.getProperty<number>('transform.width');
+		const h = this.context.previewObject.getProperty<number>('transform.height');
+		this.context.previewObject.setProperty('transform.x', col - w / 2);
+		this.context.previewObject.setProperty('transform.y', row - h / 2);
 	}
 }
 
@@ -82,21 +138,9 @@ export class DrawingState extends ShapeToolState {
 		this.context.startDragPosition = { col, row };
 
 		if (this.context.tempLayer) {
-			if (this.context.currentShape === Shapes.rectangle) {
-				this.context.drawnObject = new RectangleObject({
-					cellX: col,
-					cellY: row,
-					width: 1,
-					height: 1
-				});
-			} else if (this.context.currentShape === Shapes.line) {
-				this.context.drawnObject = new LineObject({ cellX: col, cellY: row, width: 1, height: 1 });
-			} else if (this.context.currentShape === Shapes.elbowArrow) {
-				const arrow = new ElbowArrowObject({ cellX: col, cellY: row, width: 1, height: 1 });
-				arrow.setFromAbsPoints({ x: col, y: row }, { x: col, y: row });
-				this.context.drawnObject = arrow;
-			}
-			if (this.context.drawnObject) this.context.tempLayer.addObject(this.context.drawnObject);
+			const handler = getHandler(this.context.currentShape);
+			this.context.drawnObject = handler.createObject(col, row);
+			this.context.tempLayer.addObject(this.context.drawnObject);
 		}
 	}
 
@@ -104,76 +148,19 @@ export class DrawingState extends ShapeToolState {
 		if (!this.context.drawnObject || !this.context.startDragPosition) return;
 
 		const { col, row } = this.context.getCellPos(event);
-		const { col: startCol, row: startRow } = this.context.startDragPosition;
-
-		if (this.context.currentShape === Shapes.elbowArrow) {
-			(this.context.drawnObject as ElbowArrowObject).setFromAbsPoints(
-				{ x: startCol, y: startRow },
-				{ x: col, y: row }
-			);
-			return;
-		}
-
-		const newX = Math.min(col, startCol);
-		const newY = Math.min(row, startRow);
-		const newWidth = Math.abs(col - startCol) + 1;
-		const newHeight = Math.abs(row - startRow) + 1;
-
-		this.context.drawnObject.setProperty('transform.x', newX);
-		this.context.drawnObject.setProperty('transform.y', newY);
-		this.context.drawnObject.setProperty('transform.width', newWidth);
-		this.context.drawnObject.setProperty('transform.height', newHeight);
-
-		if (this.context.currentShape === Shapes.line) {
-			const line = this.context.drawnObject as LineObject;
-			const startCorner = {
-				x: startCol <= col ? 0 : newWidth - 1,
-				y: startRow <= row ? 0 : newHeight - 1
-			};
-			const endCorner = {
-				x: startCol <= col ? newWidth - 1 : 0,
-				y: startRow <= row ? newHeight - 1 : 0
-			};
-			line.setEndpointsFromCorners(startCorner, endCorner);
-		}
+		const handler = getHandler(this.context.currentShape);
+		handler.updateDrag(this.context.drawnObject, this.context.startDragPosition, { col, row });
 	}
 
 	public handleMouseUp(event: MouseEvent): void {
 		if (!this.context.drawnObject || !this.context.startDragPosition) return;
 
 		const { col, row } = this.context.getCellPos(event);
-		const distance = Math.hypot(
-			col - this.context.startDragPosition.col,
-			row - this.context.startDragPosition.row
-		);
+		const distance = Math.hypot(col - this.context.startDragPosition.col, row - this.context.startDragPosition.row);
 
 		if (distance < 5) {
-			if (this.context.currentShape === Shapes.elbowArrow) {
-				const hw = 5;
-				const hh = 3;
-				(this.context.drawnObject as ElbowArrowObject).setFromAbsPoints(
-					{ x: col - hw, y: row - hh },
-					{ x: col + hw, y: row + hh }
-				);
-			} else {
-				const defaultSize =
-					this.context.currentShape === Shapes.line
-						? { width: 10, height: 10 }
-						: { width: 10, height: 6 };
-
-				this.context.drawnObject.setProperty('transform.x', col - defaultSize.width / 2);
-				this.context.drawnObject.setProperty('transform.y', row - defaultSize.height / 2);
-				this.context.drawnObject.setProperty('transform.width', defaultSize.width);
-				this.context.drawnObject.setProperty('transform.height', defaultSize.height);
-
-				if (this.context.currentShape === Shapes.line) {
-					const line = this.context.drawnObject as LineObject;
-					line.setEndpointsFromCorners(
-						{ x: 0, y: 0 },
-						{ x: defaultSize.width - 1, y: defaultSize.height - 1 }
-					);
-				}
-			}
+			const handler = getHandler(this.context.currentShape);
+			handler.placeDefault(this.context.drawnObject, col, row);
 		}
 
 		this.commitObject();
