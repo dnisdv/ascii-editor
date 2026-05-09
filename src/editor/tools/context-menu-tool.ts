@@ -58,7 +58,7 @@ export class ContextMenuTool extends BaseTool implements ITool {
 	private onMouseDown(e: MouseEvent) {
 		if (e.button === 2) {
 			this.rmbDown = true;
-			this.rmbDragging = false;
+			this.rmbDragging = e.altKey || e.ctrlKey;
 			this.rmbStartX = e.clientX;
 			this.rmbStartY = e.clientY;
 		}
@@ -77,7 +77,7 @@ export class ContextMenuTool extends BaseTool implements ITool {
 	}
 
 	private onMouseUp(e: MouseEvent) {
-		if (e.button === 2) {
+		if (e.button === 2 && this.rmbDown) {
 			const dx = Math.abs(e.clientX - this.rmbStartX);
 			const dy = Math.abs(e.clientY - this.rmbStartY);
 			const didDrag =
