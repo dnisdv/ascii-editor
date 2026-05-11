@@ -32,8 +32,7 @@ export class SetPropertyHandler
 		payload: { path: string; value: unknown }
 	): [SetPropertyAction | undefined, void] {
 		const beforeValue = target.getCommittedProperty(payload.path);
-		target.properties.applyCommitted(payload.path, payload.value);
-		target.emit('update');
+		target.setProperty(payload.path, payload.value);
 
 		const action: SetPropertyAction = {
 			type: objectSetProperty.type,
@@ -46,12 +45,10 @@ export class SetPropertyHandler
 	}
 
 	apply(action: SetPropertyAction, target: ISmartObject): void {
-		target.properties.applyCommitted(action.after.path, action.after.value);
-		target.emit('update');
+		target.setProperty(action.after.path, action.after.value);
 	}
 
 	revert(action: SetPropertyAction, target: ISmartObject): void {
-		target.properties.applyCommitted(action.before.path, action.before.value);
-		target.emit('update');
+		target.setProperty(action.before.path, action.before.value);
 	}
 }

@@ -1,6 +1,14 @@
 import { BaseSmartObject } from '@editor/objects/smart-object.base';
-import { StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
+import { AppearanceProperties, StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
 import type { IRotatable, RotationStep } from '@editor/objects/smart-object.interface';
+
+type BorderStyle = 'single' | 'double' | 'ascii';
+
+const BORDER_PRESETS: Record<BorderStyle, { h: string; v: string; tl: string; tr: string; bl: string; br: string }> = {
+	single:  { h: '─', v: '│', tl: '┌', tr: '┐', bl: '└', br: '┘' },
+	double:  { h: '═', v: '║', tl: '╔', tr: '╗', bl: '╚', br: '╝' },
+	ascii:   { h: '-', v: '|', tl: '+', tr: '+', bl: '+', br: '+' },
+};
 
 import type { CellRectangle } from '@editor/types';
 import type { AsciiRenderingDeps } from '@editor/canvas/strategies/ascii-rendering-strategy';
@@ -26,10 +34,34 @@ export class RectangleObject extends BaseSmartObject implements IRotatable {
 					[TransformProperties.Y]: { type: 'number', value: b.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: b.width, min: 1 },
 					[TransformProperties.HEIGHT]: { type: 'number', value: b.height, min: 1 },
+				},
+				[StandardGroupKeys.APPEARANCE]: {
+					[AppearanceProperties.BORDER_STYLE]:  { type: 'enum', value: 'single', values: ['single', 'double', 'ascii'] as const },
+					[AppearanceProperties.HORIZONTAL]:   { type: 'string', value: '─' },
+					[AppearanceProperties.VERTICAL]:     { type: 'string', value: '│' },
+					[AppearanceProperties.TOP_LEFT]:     { type: 'string', value: '┌' },
+					[AppearanceProperties.TOP_RIGHT]:    { type: 'string', value: '┐' },
+					[AppearanceProperties.BOTTOM_LEFT]:  { type: 'string', value: '└' },
+					[AppearanceProperties.BOTTOM_RIGHT]: { type: 'string', value: '┘' },
 				}
 			}
 		});
 		this._updateRectangleString();
+	}
+
+	public override setProperty(path: string, value: unknown): void {
+		super.setProperty(path, value);
+		if (path === 'appearance.borderStyle') {
+			const preset = BORDER_PRESETS[value as BorderStyle];
+			if (preset) {
+				super.setProperty('appearance.horizontal',   preset.h);
+				super.setProperty('appearance.vertical',     preset.v);
+				super.setProperty('appearance.topLeft',      preset.tl);
+				super.setProperty('appearance.topRight',     preset.tr);
+				super.setProperty('appearance.bottomLeft',   preset.bl);
+				super.setProperty('appearance.bottomRight',  preset.br);
+			}
+		}
 	}
 
 	public toAsciiString(): string | null {
@@ -114,26 +146,33 @@ export class RectangleObject extends BaseSmartObject implements IRotatable {
 			return;
 		}
 
+		const h  = (this.getProperty<string>('appearance.horizontal')   || '─').charAt(0);
+		const v  = (this.getProperty<string>('appearance.vertical')     || '│').charAt(0);
+		const tl = (this.getProperty<string>('appearance.topLeft')      || '┌').charAt(0);
+		const tr = (this.getProperty<string>('appearance.topRight')     || '┐').charAt(0);
+		const bl = (this.getProperty<string>('appearance.bottomLeft')   || '└').charAt(0);
+		const br = (this.getProperty<string>('appearance.bottomRight')  || '┘').charAt(0);
+
 		if (width === 1 && height === 1) {
-			this._rectangleString = '■';
+			this._rectangleString = tl;
 			return;
 		}
 
 		if (height === 1) {
-			this._rectangleString = '─'.repeat(width);
+			this._rectangleString = h.repeat(width);
 			return;
 		}
 
 		if (width === 1) {
-			this._rectangleString = '│\n'.repeat(height - 1) + '│';
+			this._rectangleString = (v + '\n').repeat(height - 1) + v;
 			return;
 		}
 
-		let rectangleStr = '┌' + '─'.repeat(width - 2) + '┐\n';
+		let rectangleStr = tl + h.repeat(width - 2) + tr + '\n';
 		for (let i = 0; i < height - 2; i++) {
-			rectangleStr += '│' + ' '.repeat(width - 2) + '│\n';
+			rectangleStr += v + ' '.repeat(width - 2) + v + '\n';
 		}
-		rectangleStr += '└' + '─'.repeat(width - 2) + '┘';
+		rectangleStr += bl + h.repeat(width - 2) + br;
 
 		this._rectangleString = rectangleStr;
 	}

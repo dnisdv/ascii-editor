@@ -42,6 +42,7 @@
 	import type { MenuContext } from '@editor/context-menu';
 	import { registerProjectCommands } from '@editor/commands/project-commands';
 	import { getDocument } from '@store/slices/document';
+	import PropertiesPanel from '@views/PropertiesPanel/PropertiesPanel.svelte';
 
 	const { theme, currentThemeRGBA } = useTheme();
 	const dispatch = useDispatch();
@@ -259,6 +260,7 @@
 				<Tools />
 				<SideMenu />
 				<Actions />
+				<PropertiesPanel />
 			</div>
 		</ConfigProvider>
 	</CoreProvider>

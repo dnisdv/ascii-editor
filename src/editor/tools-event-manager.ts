@@ -272,8 +272,21 @@ export class ToolEventManager {
 		}
 	}
 
+	private _isEditableTarget(event: KeyboardEvent): boolean {
+		const el = event.target as HTMLElement | null;
+		if (!el) return false;
+		const tag = el.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+		if (el.isContentEditable) return true;
+		return false;
+	}
+
 	private _dispatchKeyboardEvent(eventType: string, event: KeyboardEvent) {
 		if (event.altKey) {
+			return;
+		}
+
+		if (this._isEditableTarget(event)) {
 			return;
 		}
 

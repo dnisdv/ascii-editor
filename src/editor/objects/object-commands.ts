@@ -60,11 +60,12 @@ export function setProperty(
 	history: HistoryManager,
 	obj: ISmartObject,
 	path: string,
-	value: unknown
+	value: unknown,
+	batchId?: string
 ): void {
 	const before = obj.getCommittedProperty(path);
 	if (before === value) return;
-	history.execute(objectSetProperty, obj.id, { path, value });
+	history.execute(objectSetProperty, obj.id, { path, value }, batchId);
 }
 
 export function commitProperties(
@@ -182,7 +183,8 @@ export function moveAnchor(
 export function setAnchors(
 	history: HistoryManager,
 	obj: ISmartObject,
-	anchors: Array<{ x: number; y: number }>
+	anchors: Array<{ x: number; y: number }>,
+	batchId?: string
 ): void {
 	const before = obj.getAnchors
 		? obj.getAnchors().map((a: SmartObjectAnchor) => ({ x: a.x, y: a.y }))
@@ -195,7 +197,7 @@ export function setAnchors(
 	)
 		return;
 
-	history.execute(objectAnchorsPatch, obj.id, { anchors, before });
+	history.execute(objectAnchorsPatch, obj.id, { anchors, before }, batchId);
 }
 
 export function commitAnchorsChange(

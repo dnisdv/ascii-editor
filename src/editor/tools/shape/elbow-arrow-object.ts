@@ -1,5 +1,5 @@
 import { BaseSmartObject } from '@editor/objects/smart-object.base';
-import { StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
+import { AppearanceProperties, StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
 import type { CellRectangle } from '@editor/types';
 import type { AsciiRenderingDeps } from '@editor/canvas/strategies/ascii-rendering-strategy';
 import type { Config } from '@editor/config';
@@ -30,15 +30,6 @@ function getDir(from: Point, to: Point): Dir {
 function isHorizontal(a: Point, b: Point): boolean {
 	return a.y === b.y;
 }
-
-const CORNER_CHARS: Record<string, string> = {
-	'r,d': '┐', 'r,u': '┘',
-	'l,d': '┌', 'l,u': '└',
-	'd,r': '└', 'd,l': '┘',
-	'u,r': '┌', 'u,l': '┐'
-};
-
-const ARROWHEAD_CHARS: Record<Dir, string> = { r: '>', l: '<', d: 'v', u: '^' };
 
 function cleanPath(pts: Point[]): Point[] {
 	if (pts.length < 2) return pts;
@@ -106,6 +97,18 @@ export class ElbowArrowObject extends BaseSmartObject {
 					[TransformProperties.Y]: { type: 'number', value: b.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: Math.max(1, b.width) },
 					[TransformProperties.HEIGHT]: { type: 'number', value: Math.max(1, b.height) }
+				},
+				[StandardGroupKeys.APPEARANCE]: {
+					[AppearanceProperties.HORIZONTAL]:    { type: 'string', value: '─' },
+					[AppearanceProperties.VERTICAL]:      { type: 'string', value: '│' },
+					[AppearanceProperties.TOP_LEFT]:      { type: 'string', value: '┌' },
+					[AppearanceProperties.TOP_RIGHT]:     { type: 'string', value: '┐' },
+					[AppearanceProperties.BOTTOM_LEFT]:   { type: 'string', value: '└' },
+					[AppearanceProperties.BOTTOM_RIGHT]:  { type: 'string', value: '┘' },
+					[AppearanceProperties.ARROW_RIGHT]:   { type: 'string', value: '>' },
+					[AppearanceProperties.ARROW_LEFT]:    { type: 'string', value: '<' },
+					[AppearanceProperties.ARROW_DOWN]:    { type: 'string', value: 'v' },
+					[AppearanceProperties.ARROW_UP]:      { type: 'string', value: '^' },
 				}
 			}
 		});
@@ -115,6 +118,11 @@ export class ElbowArrowObject extends BaseSmartObject {
 		const absPts = buildDefaultPath(start, end);
 		this._applyAbsPts(absPts);
 		this._syncAnchors();
+	}
+
+	public override setProperty(path: string, value: unknown): void {
+		if (path.startsWith('appearance.')) this._stringCache = null;
+		super.setProperty(path, value);
 	}
 
 	private _ox(): number {
@@ -347,6 +355,25 @@ export class ElbowArrowObject extends BaseSmartObject {
 		const h = Math.max(1, Math.round(this.getProperty<number>('transform.height')));
 		const grid: string[][] = Array.from({ length: h }, () => Array(w).fill(' '));
 
+		const hChar = (this.getProperty<string>('appearance.horizontal')  || '─').charAt(0);
+		const vChar = (this.getProperty<string>('appearance.vertical')    || '│').charAt(0);
+		const cornerChars: Record<string, string> = {
+			'r,d': (this.getProperty<string>('appearance.topRight')    || '┐').charAt(0),
+			'r,u': (this.getProperty<string>('appearance.bottomRight') || '┘').charAt(0),
+			'l,d': (this.getProperty<string>('appearance.topLeft')     || '┌').charAt(0),
+			'l,u': (this.getProperty<string>('appearance.bottomLeft')  || '└').charAt(0),
+			'd,r': (this.getProperty<string>('appearance.bottomLeft')  || '└').charAt(0),
+			'd,l': (this.getProperty<string>('appearance.bottomRight') || '┘').charAt(0),
+			'u,r': (this.getProperty<string>('appearance.topLeft')     || '┌').charAt(0),
+			'u,l': (this.getProperty<string>('appearance.topRight')    || '┐').charAt(0),
+		};
+		const arrowChars: Record<Dir, string> = {
+			r: (this.getProperty<string>('appearance.arrowRight') || '>').charAt(0),
+			l: (this.getProperty<string>('appearance.arrowLeft')  || '<').charAt(0),
+			d: (this.getProperty<string>('appearance.arrowDown')  || 'v').charAt(0),
+			u: (this.getProperty<string>('appearance.arrowUp')    || '^').charAt(0),
+		};
+
 		const pts = this._absPts();
 		if (pts.length < 2) return grid;
 
@@ -359,13 +386,13 @@ export class ElbowArrowObject extends BaseSmartObject {
 				if (gy < 0 || gy >= h) continue;
 				const x1 = clamp(Math.min(a.x, b.x) - ox, 0, w - 1);
 				const x2 = clamp(Math.max(a.x, b.x) - ox, 0, w - 1);
-				for (let x = x1; x <= x2; x++) if (grid[gy][x] === ' ') grid[gy][x] = '─';
+				for (let x = x1; x <= x2; x++) if (grid[gy][x] === ' ') grid[gy][x] = hChar;
 			} else {
 				const gx = a.x - ox;
 				if (gx < 0 || gx >= w) continue;
 				const y1 = clamp(Math.min(a.y, b.y) - oy, 0, h - 1);
 				const y2 = clamp(Math.max(a.y, b.y) - oy, 0, h - 1);
-				for (let y = y1; y <= y2; y++) if (grid[y][gx] === ' ') grid[y][gx] = '│';
+				for (let y = y1; y <= y2; y++) if (grid[y][gx] === ' ') grid[y][gx] = vChar;
 			}
 		}
 
@@ -376,7 +403,7 @@ export class ElbowArrowObject extends BaseSmartObject {
 			const gx = pts[i].x - ox;
 			const gy = pts[i].y - oy;
 			if (gx >= 0 && gx < w && gy >= 0 && gy < h) {
-				grid[gy][gx] = CORNER_CHARS[`${inDir},${outDir}`] ?? '+';
+				grid[gy][gx] = cornerChars[`${inDir},${outDir}`] ?? '+';
 			}
 		}
 
@@ -386,7 +413,7 @@ export class ElbowArrowObject extends BaseSmartObject {
 		const gx = last.x - ox;
 		const gy = last.y - oy;
 		if (gx >= 0 && gx < w && gy >= 0 && gy < h) {
-			grid[gy][gx] = ARROWHEAD_CHARS[endDir];
+			grid[gy][gx] = arrowChars[endDir];
 		}
 
 		return grid;

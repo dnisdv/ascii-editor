@@ -1,5 +1,5 @@
 import { BaseSmartObject } from '@editor/objects/smart-object.base';
-import { StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
+import { AppearanceProperties, StandardGroupKeys, TransformProperties } from '@editor/objects/properties';
 
 import type { CellRectangle } from '@editor/types';
 import type { AsciiRenderingDeps } from '@editor/canvas/strategies/ascii-rendering-strategy';
@@ -34,6 +34,12 @@ export class LineObject extends BaseSmartObject implements IRotatable {
 					[TransformProperties.Y]: { type: 'number', value: b.cellY },
 					[TransformProperties.WIDTH]: { type: 'number', value: Math.max(1, b.width) },
 					[TransformProperties.HEIGHT]: { type: 'number', value: Math.max(1, b.height) },
+				},
+				[StandardGroupKeys.APPEARANCE]: {
+					[AppearanceProperties.HORIZONTAL]:    { type: 'string', value: '─' },
+					[AppearanceProperties.VERTICAL]:      { type: 'string', value: '│' },
+					[AppearanceProperties.DIAGONAL_DOWN]: { type: 'string', value: '\\' },
+					[AppearanceProperties.DIAGONAL_UP]:   { type: 'string', value: '/' },
 				}
 			}
 		});
@@ -222,6 +228,11 @@ export class LineObject extends BaseSmartObject implements IRotatable {
 		const bx = Math.round(b.x);
 		const by = Math.round(b.y);
 
+		const hChar = (this.getProperty<string>('appearance.horizontal')    || '─').charAt(0);
+		const vChar = (this.getProperty<string>('appearance.vertical')      || '│').charAt(0);
+		const dDown = (this.getProperty<string>('appearance.diagonalDown')  || '\\').charAt(0);
+		const dUp   = (this.getProperty<string>('appearance.diagonalUp')    || '/').charAt(0);
+
 		const dxAbs = Math.abs(bx - ax);
 		const dyAbs = Math.abs(by - ay);
 
@@ -230,7 +241,7 @@ export class LineObject extends BaseSmartObject implements IRotatable {
 			if (y < 0 || y >= height) return;
 			const from = clamp(Math.min(ax, bx), 0, width - 1);
 			const to = clamp(Math.max(ax, bx), 0, width - 1);
-			for (let x = from; x <= to; x++) grid[y][x] = '─';
+			for (let x = from; x <= to; x++) grid[y][x] = hChar;
 			return;
 		}
 		if (dxAbs === 0) {
@@ -238,15 +249,15 @@ export class LineObject extends BaseSmartObject implements IRotatable {
 			if (x < 0 || x >= width) return;
 			const from = clamp(Math.min(ay, by), 0, height - 1);
 			const to = clamp(Math.max(ay, by), 0, height - 1);
-			for (let y = from; y <= to; y++) grid[y][x] = '│';
+			for (let y = from; y <= to; y++) grid[y][x] = vChar;
 			return;
 		}
 
 		const slope = dyAbs / dxAbs;
 		let char = '•';
-		if (slope < 0.5) char = '─';
-		else if (slope > 2.0) char = '│';
-		else char = bx > ax === by > ay ? '\\' : '/';
+		if (slope < 0.5) char = hChar;
+		else if (slope > 2.0) char = vChar;
+		else char = bx > ax === by > ay ? dDown : dUp;
 
 		this.bresenham(ax, ay, bx, by, (x, y) => {
 			if (x >= 0 && x < width && y >= 0 && y < height) grid[y][x] = char;

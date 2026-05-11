@@ -1,10 +1,12 @@
 import type { ObjectOperation } from '@editor/types';
 import type { Properties } from './properties';
+import { deepMerge } from '@editor/utils/object';
 
 const getDeepValue = (obj: unknown, path: string): unknown => {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	return path.split('.').reduce((acc: any, part) => acc && acc[part], obj);
 };
+
 
 const setDeepValue = (obj: unknown, path: string, value: unknown) => {
 	const keys = path.split('.');
@@ -117,6 +119,6 @@ export class PropertyManager<P extends Properties> {
 	}
 
 	public setFromSnapshot(snapshot: P): void {
-		this.values = snapshot;
+		this.values = deepMerge(this.values, snapshot) as P;
 	}
 }
