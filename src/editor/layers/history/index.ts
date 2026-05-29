@@ -12,4 +12,5 @@ export * from './move-layers';
 export * from './group-layers';
 export * from './ungroup-layers';
 export * from './toggle-group-visibility';
+export * from './layer-rasterize-object';
 export * from './history-context';

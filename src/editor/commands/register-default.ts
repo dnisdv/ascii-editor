@@ -75,6 +75,33 @@ export function registerDefaultCommands(registry: EditorCommands, core: CoreApi)
 		}
 	});
 
+	registry.register(EditorCommand.LayerRasterize, () => {
+		const session = core.getSelectionManager().getActiveSession();
+		if (!session || session.isEmpty()) return;
+
+		const sourceLayerId = session.getSourceLayerId();
+		const rasterizable = session
+			.getSelectedObjects()
+			.filter(
+				(obj) =>
+					obj.type !== 'text-grid' &&
+					obj.type !== 'text-selection'
+			);
+
+		if (rasterizable.length === 0) return;
+
+		const historyManager = core.getHistoryManager();
+		const batchId = historyManager.beginBatch();
+
+		core.getSelectionManager().commitSelection(batchId);
+
+		for (let i = rasterizable.length - 1; i >= 0; i--) {
+			core.getLayersManager().rasterizeObject(sourceLayerId, rasterizable[i].id, batchId);
+		}
+
+		historyManager.commitBatch(batchId);
+	});
+
 	registry.register(EditorCommand.LayerUngroup, () => {
 		const layersManager = core.getLayersManager();
 		let ids = layersManager.getSelectedLayerIds();

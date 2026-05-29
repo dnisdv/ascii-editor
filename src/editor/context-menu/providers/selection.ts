@@ -84,6 +84,19 @@ export function createSelectionProvider(): ContextMenuProvider {
 				})
 			);
 
+			const hasRasterizable = selectedObjects.some(
+				(obj) => obj.type !== 'text-grid' && obj.type !== 'text-selection'
+			);
+			if (hasRasterizable) {
+				items.push(
+					menu.command(MenuId.LayerRasterize, {
+						labelKey: LabelKey.LayerRasterize,
+						priority: 50,
+						group: MenuGroup.Object
+					})
+				);
+			}
+
 			items.push(menu.separator());
 
 			return items;

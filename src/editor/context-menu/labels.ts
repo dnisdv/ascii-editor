@@ -32,6 +32,8 @@ export const LabelKey = {
 	ViewHideGrid: 'menu.view.hide-grid',
 	ViewTheme: 'menu.view.theme',
 	ViewThemeLight: 'menu.view.theme.light',
-	ViewThemeDark: 'menu.view.theme.dark'
+	ViewThemeDark: 'menu.view.theme.dark',
+
+	LayerRasterize: 'menu.layer.rasterize'
 } as const;
 export type LabelKeyType = (typeof LabelKey)[keyof typeof LabelKey];

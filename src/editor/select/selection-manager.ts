@@ -262,10 +262,10 @@ export class SelectionManager extends EventEmitter<SelectionEvents> {
 		return !this.getActiveSession()?.isEmpty();
 	}
 
-	public commitSelection(): void {
+	public commitSelection(batchId?: string): void {
 		const session = this.selectionSessionManager.getActiveSession();
 		if (session && !session.isEmpty()) {
-			const commitCommand = new CommitSessionCommand();
+			const commitCommand = new CommitSessionCommand(batchId);
 			this.selectionSessionManager.executeCommand(commitCommand);
 		}
 	}

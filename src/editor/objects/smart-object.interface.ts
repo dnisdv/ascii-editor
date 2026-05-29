@@ -84,7 +84,7 @@ export interface ISmartObject extends IEventEmitter<SmartObjectEventMap> {
 
 	getContextMenuSchema?(ctx: MenuContext): ContextMenuList;
 
-	toString?(): string;
+	toString(): string;
 
 	dispose(): void;
 	serialize(): SmartObjectSerializableSchemaType;

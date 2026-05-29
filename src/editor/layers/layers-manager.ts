@@ -29,6 +29,7 @@ import {
 	ToggleGroupVisibility
 } from './history';
 import { createLayerInGroup, LayerCreateInGroup } from './history/layer-create-in-group';
+import { rasterizeLayerObject, RasterizeObjectHandler } from './history/layer-rasterize-object';
 import { objectSetProperty, SetPropertyHandler } from '@editor/objects/history/setProperty';
 import {
 	objectPropertiesPatch,
@@ -174,6 +175,7 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 		this.historyManager.registerHandler(objectPropertiesPatch, new ObjectPropertiesPatchHandler());
 		this.historyManager.registerHandler(objectAnchorsPatch, new ObjectAnchorsPatchHandler());
 		this.historyManager.registerHandler(objectRotationPatch, new ObjectRotationPatchHandler());
+		this.historyManager.registerHandler(rasterizeLayerObject, new RasterizeObjectHandler());
 	}
 
 	private proxyLayerEvents(layer: Layer) {
@@ -268,6 +270,10 @@ export class LayersManager extends EventEmitter<LayersManagerEvents> {
 
 	public removeLayerObject(layerId: string, objectId: string): void {
 		this.historyManager.execute(removeLayerObject, 'layers', { layerId, objectId });
+	}
+
+	public rasterizeObject(layerId: string, objectId: string, batchId?: string): void {
+		this.historyManager.execute(rasterizeLayerObject, 'layers', { layerId, objectId }, batchId);
 	}
 
 	public renameObject(layerId: string, objectId: string, name: string): void {

@@ -27,5 +27,7 @@ export const en = {
 	'menu.view.hide-grid': 'Hide Grid',
 	'menu.view.theme': 'Theme',
 	'menu.view.theme.light': 'Light',
-	'menu.view.theme.dark': 'Dark'
+	'menu.view.theme.dark': 'Dark',
+
+	'menu.layer.rasterize': 'Rasterize'
 };

@@ -46,7 +46,8 @@ export const MenuId = {
 	ViewThemeDark: 'view.theme.dark',
 
 	LayerGroup: 'layer.group',
-	LayerUngroup: 'layer.ungroup'
+	LayerUngroup: 'layer.ungroup',
+	LayerRasterize: 'layer.rasterize'
 } as const;
 export type MenuIdKey = (typeof MenuId)[keyof typeof MenuId];
 

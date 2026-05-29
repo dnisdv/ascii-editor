@@ -28,6 +28,7 @@ export const EditorCommand = {
 
 	LayerGroup: 'layer.group',
 	LayerUngroup: 'layer.ungroup',
+	LayerRasterize: 'layer.rasterize',
 
 	ProjectExport: 'project.export',
 	ProjectImport: 'project.import'

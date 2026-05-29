@@ -190,6 +190,10 @@ export abstract class BaseSmartObject
 		return [];
 	}
 
+	public toString(): string {
+		return ``;
+	}
+
 	public dispose(): void {}
 
 	public toJson(): SmartObjectSerializableSchemaType['data'] {
