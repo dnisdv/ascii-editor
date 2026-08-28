@@ -8,7 +8,8 @@ import {
 	TransformProperties,
 	FillAndStrokeProperties,
 	MetaProperties,
-	AppearanceProperties
+	AppearanceProperties,
+	ImageProperties
 } from '@editor/objects/properties';
 import type {
 	FieldDescriptor,
@@ -22,13 +23,15 @@ type AllFieldKeys =
 	| TransformProperties
 	| FillAndStrokeProperties
 	| MetaProperties
-	| AppearanceProperties;
+	| AppearanceProperties
+	| ImageProperties;
 
 const GROUP_LABELS: Record<StandardGroupKeys, string> = {
 	[StandardGroupKeys.TRANSFORM]:     'Transform',
 	[StandardGroupKeys.FILL_AND_STROKE]: 'Fill & Stroke',
 	[StandardGroupKeys.META]:          'Meta',
 	[StandardGroupKeys.APPEARANCE]:    'Appearance',
+	[StandardGroupKeys.IMAGE]:         'Image',
 };
 
 const FIELD_LABELS: Partial<Record<AllFieldKeys, string>> = {
@@ -54,12 +57,21 @@ const FIELD_LABELS: Partial<Record<AllFieldKeys, string>> = {
 	[AppearanceProperties.ARROW_LEFT]:          '<',
 	[AppearanceProperties.ARROW_DOWN]:          'v',
 	[AppearanceProperties.ARROW_UP]:            '^',
+	[ImageProperties.MODE]:                     'Mode',
+	[ImageProperties.CHARSET]:                  'Charset',
+	[ImageProperties.RAMP]:                     'Custom Ramp',
+	[ImageProperties.INVERT]:                   'Invert',
+	[ImageProperties.CONTRAST]:                 'Contrast',
+	[ImageProperties.BRIGHTNESS]:               'Brightness',
+	[ImageProperties.THRESHOLD]:                'Threshold',
+	[ImageProperties.EDGE_THRESHOLD]:           'Edge Threshold',
 };
 
 const GROUP_ORDER: StandardGroupKeys[] = [
 	StandardGroupKeys.TRANSFORM,
 	StandardGroupKeys.META,
 	StandardGroupKeys.APPEARANCE,
+	StandardGroupKeys.IMAGE,
 	StandardGroupKeys.FILL_AND_STROKE,
 ];
 

@@ -10,6 +10,7 @@
 		SelectTool,
 		DrawShapeTool,
 		TextTool,
+		ImageTool,
 		HistoryControlTool,
 		ContextMenuTool
 	} from '@editor/tools';
@@ -33,6 +34,7 @@
 	import { RectangleObject } from '@editor/tools/shape/rectangle-object';
 	import { LineObject } from '@editor/tools/shape/line-object';
 	import { ElbowArrowObject } from '@editor/tools/shape/elbow-arrow-object';
+	import { ImageAsciiObject } from '@editor/tools/image/image-ascii-object';
 	import { Project } from '@/project/project';
 	import { useDispatch } from '@store/useDispatch';
 	import { useSelector } from '@store/useSelector';
@@ -181,6 +183,7 @@
 				const selectTool = new SelectTool(coreApi);
 				const drawShapeTool = new DrawShapeTool(coreApi);
 				const textTool = new TextTool(coreApi);
+				const imageTool = new ImageTool(coreApi);
 				const historyControlTool = new HistoryControlTool(coreApi);
 				const cameraControlTool = new CameraControlTool(coreApi);
 				const contextMenuTool = new ContextMenuTool(coreApi);
@@ -190,6 +193,7 @@
 				app.registerTool(eraserTool);
 				app.registerTool(drawShapeTool);
 				app.registerTool(textTool);
+				app.registerTool(imageTool);
 				app.registerTool(historyControlTool);
 				app.registerTool(cameraControlTool);
 				app.registerTool(toolExport);
@@ -198,6 +202,7 @@
 				app.registerObject('rectangle', RectangleObject);
 				app.registerObject('line', LineObject);
 				app.registerObject('elbow-arrow', ElbowArrowObject);
+				app.registerObject('image-ascii', ImageAsciiObject);
 
 				registerDefaultCommands(core.getCommands(), core);
 
