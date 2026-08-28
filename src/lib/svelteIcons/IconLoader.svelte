@@ -47,7 +47,8 @@
 		'folder-open': () => import('./FolderOpen.svelte'),
 		'chevron-right': () => import('./ChevronRight.svelte'),
 		eraser: () => import('./Eraser.svelte'),
-		'elbow-arrow': () => import('./ElbowArrow.svelte')
+		'elbow-arrow': () => import('./ElbowArrow.svelte'),
+		image: () => import('./Image.svelte')
 	} as const;
 
 	type IconName = keyof typeof iconMap;

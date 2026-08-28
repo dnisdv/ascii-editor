@@ -5,6 +5,7 @@
 	import ToolSelect from './Tool-Select.svelte';
 	import ToolShapes from './Tool-Shapes.svelte';
 	import ToolText from './Tool-Text.svelte';
+	import ToolImage from './Tool-Image.svelte';
 </script>
 
 <div
@@ -19,5 +20,6 @@
 	<ToolEraser />
 	<ToolShapes />
 	<ToolText />
+	<ToolImage />
 	<ToolExport />
 </div>

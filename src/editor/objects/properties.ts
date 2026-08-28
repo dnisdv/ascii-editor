@@ -2,7 +2,8 @@ export enum StandardGroupKeys {
 	META = 'meta',
 	TRANSFORM = 'transform',
 	FILL_AND_STROKE = 'fill_and_stroke',
-	APPEARANCE = 'appearance'
+	APPEARANCE = 'appearance',
+	IMAGE = 'image'
 }
 
 export enum AppearanceProperties {
@@ -19,6 +20,17 @@ export enum AppearanceProperties {
 	DIAGONAL_DOWN = 'diagonalDown',
 	DIAGONAL_UP   = 'diagonalUp',
 	BORDER_STYLE  = 'borderStyle',
+}
+
+export enum ImageProperties {
+	MODE           = 'mode',
+	CHARSET        = 'charset',
+	RAMP           = 'ramp',
+	INVERT         = 'invert',
+	CONTRAST       = 'contrast',
+	BRIGHTNESS     = 'brightness',
+	THRESHOLD      = 'threshold',
+	EDGE_THRESHOLD = 'edgeThreshold',
 }
 
 export enum TransformProperties {
@@ -96,9 +108,21 @@ type AppearancePropertyValues = {
 	[AppearanceProperties.BORDER_STYLE]:  EnumSpec<'single' | 'double' | 'rounded' | 'ascii'>;
 };
 
+type ImagePropertyValues = {
+	[ImageProperties.MODE]:           EnumSpec<string>;
+	[ImageProperties.CHARSET]:        EnumSpec<string>;
+	[ImageProperties.RAMP]:           StringSpec;
+	[ImageProperties.INVERT]:         BooleanSpec;
+	[ImageProperties.CONTRAST]:       NumberSpec;
+	[ImageProperties.BRIGHTNESS]:     NumberSpec;
+	[ImageProperties.THRESHOLD]:      NumberSpec;
+	[ImageProperties.EDGE_THRESHOLD]: NumberSpec;
+};
+
 export type Properties = {
 	[StandardGroupKeys.TRANSFORM]?: Partial<TransformPropertyValues>;
 	[StandardGroupKeys.FILL_AND_STROKE]?: Partial<FillAndStrokePropertyValues>;
 	[StandardGroupKeys.META]?: Partial<MetaPropertyValues>;
 	[StandardGroupKeys.APPEARANCE]?: Partial<AppearancePropertyValues>;
+	[StandardGroupKeys.IMAGE]?: Partial<ImagePropertyValues>;
 };
